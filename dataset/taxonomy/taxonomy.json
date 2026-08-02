@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "name": "Cosimo Curriculum Taxonomy",
+    "description": "Full public CFA Level I-III and FRM Part 1/2 taxonomy inspired by public Learning Outcome Statements. All content original; LOS used only as topic scaffolding, never proprietary exam material.",
+    "version": "0.1.0",
+    "generated": "2026-08-02"
+  },
+  "programs": {
+    "CFA_Level_I": {
+      "id": "CFA_L1",
+      "target": "Foundational breadth; single-concept questions with one or two steps",
+      "difficulty_scale": ["L1_Easy", "L1_Medium", "L1_Hard"],
+      "question_types": ["MCQ", "Calculation", "Vignette", "Constructed-Response"],
+      "topics": [
+        {"topic": "Quantitative Methods", "subtopics": ["Time Value of Money", "Statistical Concepts", "Probability", "Hypothesis Testing", "Correlation and Regression", "Time-Series Analysis"], "pitfalls": ["annuity vs perpetuity", "compounding frequency mismatch", "mode vs median confusion", "sample vs population variance", "one-tailed vs two-tailed"]},
+        {"topic": "Economics", "subtopics": ["Demand and Supply", "Consumer Theory", "Firm and Market Structure", "Aggregate Output and GDP", "Business Cycles", "Monetary and Fiscal Policy", "Currency Exchange Rates"], "pitfalls": ["real vs nominal GDP", "elasticity sign", "comparative advantage misread", "fiscal vs monetary multiplier"]},
+        {"topic": "Financial Statement Analysis", "subtopics": ["Financial Reporting Standards", "Income Statement", "Balance Sheet", "Cash Flow Statement", "Financial Analysis Techniques", "Inventories", "Long-Lived Assets", "Income Taxes", "Non-Current Liabilities", "Financial Statement Quality"], "pitfalls": ["LIFO vs FIFO COGS", "operating vs financing cash flow", "capitalized vs expensed", "deferred tax asset vs liability"]},
+        {"topic": "Corporate Issuers", "subtopics": ["Corporate Governance", "Capital Budgeting", "Cost of Capital", "Measures of Leverage", "Working Capital"], "pitfalls": ["NPV vs IRR conflict", "independent vs mutually exclusive", "sunk cost inclusion", "operating vs financial leverage"]},
+        {"topic": "Equity Investments", "subtopics": ["Market Organization", "Security Market Indices", "Equity Valuation", "Company Valuation Fundamentals"], "pitfalls": ["price vs value", "intrinsic vs market value", "P/E base year confusion", "dividend yield vs total return"]},
+        {"topic": "Fixed Income", "subtopics": ["Bond Valuation", "Fixed Income Markets", "Yield Measures", "Duration and Convexity", "Yield Curve", "Credit Risk"], "pitfalls": ["current yield vs YTM", "flat vs coupon yield", "Macaulay vs modified duration", "premium vs discount bond", "reinvestment risk"]},
+        {"topic": "Derivatives", "subtopics": ["Derivatives Markets", "Forward Commitments", "Options Markets", "Option Valuation"], "pitfalls": ["call vs put payoff sign", "intrinsic vs time value", "European vs American", "option moneyness"]},
+        {"topic": "Alternative Investments", "subtopics": ["Alternative Investment Categories", "Hedge Funds", "Private Equity", "Real Estate", "Commodities"], "pitfalls": ["high-water mark vs hurdle rate", "net-of-fees return", "NAV vs invested capital", "commodity contango"]},
+        {"topic": "Portfolio Management", "subtopics": ["Portfolio Risk and Return", "Portfolio Planning", "Portfolio Construction", "Portfolio Monitoring", "Risk Management"], "pitfalls": ["covariance sign", "diversification benefit", "risk-free vs risky asset", "sharpe vs treynor"]},
+        {"topic": "Ethics", "subtopics": ["Professionalism", "Integrity of Capital Markets", "Investment Professionals", "Responsibilities to Clients", "Responsibilities to Employers", "GIPS"], "pitfalls": ["client vs employer loyalty", "material nonpublic info", "duty of care", "fair dealing"]}
+      ]
+    },
+    "CFA_Level_II": {
+      "id": "CFA_L2",
+      "target": "Multi-concept vignettes; 10-20 minute item sets",
+      "difficulty_scale": ["L2_Easy", "L2_Medium", "L2_Hard"],
+      "question_types": ["Vignette", "Calculation", "MCQ", "Constructed-Response"],
+      "topics": [
+        {"topic": "Quantitative Methods", "subtopics": ["Linear Regression", "Multiple Regression", "Time-Series Forecasting", "Machine Learning", "Big Data"], "pitfalls": ["heteroskedasticity", "multicollinearity", "serial correlation", "dummy variable trap", "overfitting"]},
+        {"topic": "Economics", "subtopics": ["Currency Exchange Rates", "Economic Growth", "Trade and Capital Flows", "Monetary and Fiscal Policy"], "pitfalls": ["PPP vs relative PPP", "covered vs uncovered interest parity", "Taylor rule", "natural rate of unemployment"]},
+        {"topic": "Financial Statement Analysis", "subtopics": ["Financial Reporting Quality", "Accounting Shenanigans", "Intercompany Investments", "Post-employment Benefits", "Multinational Operations", "Equity and Earnings"], "pitfalls": ["consolidation vs equity method", "goodwill impairment", "translation vs remeasurement", "diluted EPS"]},
+        {"topic": "Corporate Issuers", "subtopics": ["Corporate Governance", "Capital Budgeting and Investment", "Capital Structure", "Dividend Policy", "M&A"], "pitfalls": ["MM proposition I vs II", "static tradeoff vs pecking order", "WACC weighting", "accretive vs dilutive"]},
+        {"topic": "Equity Valuation", "subtopics": ["Equity Valuation Concepts", "Discounted Cash Flow", "Free Cash Flow", "Multiplier Models", "Residual Income", "Private Company Valuation"], "pitfalls": ["FCFF vs FCFE", "WACC vs required return on equity", "P/E vs EV/EBITDA", "residual income vs DDM", "terminal value growth"]},
+        {"topic": "Fixed Income", "subtopics": ["Fixed Income Security Valuation", "Yield Curve", "Term Structure", "Duration and Convexity", "Credit Analysis", "ABS and MBS"], "pitfalls": ["spread vs yield", "OAS", "negative convexity", "prepayment risk", "credit spread decomposition"]},
+        {"topic": "Derivatives", "subtopics": ["Forward Market", "Options Markets", "Binomial Model", "Black-Scholes-Merton", "Greeks", "Swaps", "Credit Derivatives"], "pitfalls": ["arbitrage pricing", "risk-neutral probability", "delta hedging", "BSM assumptions", "swap valuation direction"]},
+        {"topic": "Portfolio Management", "subtopics": ["Portfolio Concepts", "Investment Policy", "Active vs Passive", "Market Efficiency", "Multi-Asset Allocation"], "pitfalls": ["APT vs CAPM", "efficient market forms", "active management skill", "alpha vs beta"]},
+        {"topic": "Alternative Investments", "subtopics": ["Hedge Funds", "Private Equity", "Real Estate", "Commodities", "Infrastructure"], "pitfalls": ["fund of funds fees", "LP vs GP incentives", "property cap rate", "commodity roll yield"]},
+        {"topic": "Ethics", "subtopics": ["Professionalism", "Fair Dealing", "Research Reports", "Investment Recommendations", "Conflicts of Interest", "CFA Institute Code"], "pitfalls": ["analyst independence", "soft dollar", "benchmark games", "performance presentation"]}
+      ]
+    },
+    "CFA_Level_III": {
+      "id": "CFA_L3",
+      "target": "Integrated, applied portfolio and wealth decision-making",
+      "difficulty_scale": ["L3_Easy", "L3_Medium", "L3_Hard"],
+      "question_types": ["Constructed-Response", "Vignette", "Calculation", "MCQ"],
+      "topics": [
+        {"topic": "Wealth Planning", "subtopics": ["Investment Objectives", "Risk Objectives", "Constraints", "Behavioral Biases", "IPS Construction"], "pitfalls": ["loss aversion vs risk tolerance", "anchoring", "confirmation bias", "client vs advisor objectives"]},
+        {"topic": "Asset Allocation", "subtopics": ["Mean-Variance Optimization", "Black-Litterman", "Monte Carlo", "Factor Models", "Rebalancing"], "pitfalls": ["rebalancing bands", "correlation instability", "factor exposure overlap", "optimization instability"]},
+        {"topic": "Fixed Income Portfolio Management", "subtopics": ["Liability-Driven Investing", "Interest Rate Risk", "Immunization", "Yield Curve Strategies", "Bond Indexing"], "pitfalls": ["duration matching vs convexity", "ladder vs barbell", "immunization drift", "key rate duration"]},
+        {"topic": "Equity Portfolio Management", "subtopics": ["Index-Based Investing", "Active Equity", "Equity Factors", "Multi-Factor Models"], "pitfalls": ["value vs growth factor", "momentum reversal", "factor timing", "capacity constraints"]},
+        {"topic": "Derivatives Portfolio Management", "subtopics": ["Derivatives Strategies", "Options Strategies", "Hedging", "Dynamic Hedging"], "pitfalls": ["protective put vs collar", "covered call", "gamma risk", "basis risk"]},
+        {"topic": "Risk Management", "subtopics": ["Risk Measurement", "Value at Risk", "Extreme Value", "Credit Risk", "Operational Risk", "Risk Budgeting"], "pitfalls": ["VaR vs CVaR", "parametric vs historical VaR", "correlation during stress", "risk parity"]},
+        {"topic": "Performance Evaluation", "subtopics": ["Performance Measurement", "Benchmarking", "Attribution", "GIPS", "Evaluation"], "pitfalls": ["time-weighted vs money-weighted", "carve-out rules", "attribution residual", "appraisal vs manager return"]},
+        {"topic": "Institutional Portfolio Management", "subtopics": ["DB Pension Plans", "Endowments", "Foundations", "Insurance Companies"], "pitfalls": ["DB vs DC liability", "spending rule", "ALM", "liquidity needs"]},
+        {"topic": "Private Portfolio Management", "subtopics": ["Tax-Aware Investing", "Wealth Transfer", "Estate Planning", "Insurance Planning"], "pitfalls": ["taxable vs tax-exempt yield", "capital gains location", "charitable remainder trust", "basis step-up"]},
+        {"topic": "Ethics and GIPS", "subtopics": ["CFA Code and Standards", "GIPS Compliance", "Performance Presentation"], "pitfalls": ["composite construction", "3-year performance history", "portability", "verification"]}
+      ]
+    },
+    "FRM_Part_1": {
+      "id": "FRM_1",
+      "target": "Risk foundations, quantitative analysis, market products, valuation models",
+      "difficulty_scale": ["FRM1_Easy", "FRM1_Medium", "FRM1_Hard"],
+      "question_types": ["MCQ", "Calculation", "Vignette", "Constructed-Response"],
+      "topics": [
+        {"topic": "Foundations of Risk Management", "subtopics": ["Risk Types", "Corporate Risk Management", "Financial Crises", "Regulation"], "pitfalls": ["risk vs uncertainty", "systemic vs idiosyncratic", "procyclicality", "moral hazard"]},
+        {"topic": "Quantitative Analysis", "subtopics": ["Probability and Statistics", "Linear Regression", "Time Series", "Simulation", "VaR Basics"], "pitfalls": ["log vs arithmetic returns", "fat tails", "autocorrelation", "backtesting caveats"]},
+        {"topic": "Financial Markets and Products", "subtopics": ["Bonds", "Forward and Futures", "Options", "Swaps", "Corporate Bonds", "Mortgages"], "pitfalls": ["futures vs forward", "swap notional", "option price bounds", "convexity of mortgage"]},
+        {"topic": "Valuation and Risk Models", "subtopics": ["VaR Models", "Option Valuation", "Greeks", "Fixed Income Risk", "Credit Risk", "Operational Risk"], "pitfalls": ["delta-normal vs historical", "implied vs realized vol", "stress testing", "model risk"]}
+      ]
+    },
+    "FRM_Part_2": {
+      "id": "FRM_2",
+      "target": "Advanced risk measurement, credit, operational, liquidity, and investment management",
+      "difficulty_scale": ["FRM2_Easy", "FRM2_Medium", "FRM2_Hard"],
+      "question_types": ["MCQ", "Calculation", "Vignette", "Constructed-Response"],
+      "topics": [
+        {"topic": "Market Risk", "subtopics": ["VaR Models", "Backtesting", "Stress Testing", "Option Risk", "Fixed Income Risk"], "pitfalls": ["VaR violations", "correlation breakdown", "model validation", "extreme value"]},
+        {"topic": "Credit Risk", "subtopics": ["Credit Ratings", "Default Probability", "Credit VaR", "Counterparty Risk", "Securitization"], "pitfalls": ["PD vs LGD vs EAD", "expected vs unexpected loss", "wrong-way risk", "CVA vs CCR"]},
+        {"topic": "Operational Risk", "subtopics": ["Operational Risk Measurement", "Loss Distribution", "Basel Capital", "Cyber Risk", "Model Risk"], "pitfalls": ["AMA vs standard", "1-in-10,000 loss", "correlation of losses", "model validation"]},
+        {"topic": "Liquidity and Treasury", "subtopics": ["Liquidity Risk", "Funding Liquidity", "Cash Flow at Risk", "Basel III", "Net Stable Funding"], "pitfalls": ["market vs funding liquidity", "LCR vs NSFR", "fire-sale", "asset-liability mismatch"]},
+        {"topic": "Investment Risk", "subtopics": ["Risk Budgeting", "Performance Measurement", "Risk Parity", "Hedge Fund Risk"], "pitfalls": ["alpha vs beta", "leverage effects", "fee-adjusted returns", "drawdown"]},
+        {"topic": "Current Issues", "subtopics": ["Regulatory Developments", "Climate Risk", "Financial Innovation", "Systemic Risk"], "pitfalls": ["greenwashing", "transition risk", "fintech disintermediation", "contagion channels"]}
+      ]
+    }
+  }
+}
