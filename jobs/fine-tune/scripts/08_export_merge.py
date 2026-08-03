@@ -2,13 +2,13 @@
 """Merge a trained LoRA adapter into the base weights and export bf16 weights.
 
 The merged model is a standalone checkpoint: it needs no PEFT at load time and
-can be passed to scripts/05_evaluate.py as --merged, served, or converted
+can be passed to scripts/06_evaluate.py as --merged, served, or converted
 further. Merging is always done in bf16; merging into 4-bit weights would
 quantize the adapter's contribution away.
 
 Example:
-    ./scripts/07_export_merge.py --run-name dpo
-    ./scripts/07_export_merge.py --adapter runs/sft/adapter --out runs/sft/merged
+    ./scripts/08_export_merge.py --run-name dpo
+    ./scripts/08_export_merge.py --adapter runs/sft/adapter --out runs/sft/merged
 """
 
 from __future__ import annotations
@@ -220,7 +220,7 @@ def verify_merged_weights(directory: Path) -> int:
     except Exception as exc:
         raise SystemExit(
             f"{directory} has a config transformers cannot load ({exc}). The "
-            "checkpoint would not be loadable by 05_evaluate.py --merged."
+            "checkpoint would not be loadable by 06_evaluate.py --merged."
         ) from exc
     if not getattr(config, "architectures", None):
         raise SystemExit(
@@ -235,17 +235,23 @@ def verify_merged_weights(directory: Path) -> int:
     return len(keys)
 
 
-def gguf_from_merged(merged_dir: Path, gguf_dir: Path, quant: str) -> None:
+def gguf_from_merged(
+    merged_dir: Path, gguf_dir: Path, quant: str, max_seq_length: int
+) -> None:
     """Convert the merged checkpoint to GGUF via Unsloth's saver.
 
     Loads the merged directory as a plain model first, so the conversion sees
     already-merged weights and never touches the PeftModel wrapper.
+
+    ``max_seq_length`` tracks model.max_seq_length rather than being hardcoded:
+    exporting at a shorter length than the model was trained at would ship a
+    GGUF that cannot hold the agentic conversations it was tuned for.
     """
     from unsloth import FastLanguageModel
 
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=str(merged_dir),
-        max_seq_length=2048,
+        max_seq_length=max_seq_length,
         load_in_4bit=False,
     )
     model.save_pretrained_gguf(str(gguf_dir), tokenizer, quantization_method=quant)
@@ -349,7 +355,12 @@ def main() -> None:
             # Convert from the *merged* checkpoint, not from `model`: the same
             # instance-binding trap applies to save_pretrained_gguf, which would
             # otherwise serialise the unmerged base model.
-            gguf_from_merged(out_path, gguf_path, args.gguf_quant)
+            gguf_from_merged(
+                out_path,
+                gguf_path,
+                args.gguf_quant,
+                int(config_mod.get(cfg, "model.max_seq_length", 2048)),
+            )
             print(f"gguf: {gguf_path}")
         except Exception as exc:  # llama.cpp build/conversion is failure-prone
             gguf_path = None

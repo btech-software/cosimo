@@ -22,7 +22,8 @@ Default pipeline: **LoRA SFT → DPO**, with a complete **ORPO** single-stage al
 | `configs/` | Layered YAML: `base.yaml` plus one file per stage |
 | `configs/chat_template.jinja` | The chat template the whole harness uses (see [Chat template](#the-chat-template-is-overridden-on-purpose)) |
 | `cosimo_ft/` | The library: config, chat rendering, schema, splits, grading, generation, evaluation, reporting |
-| `scripts/` | The numbered pipeline, `00` … `07` |
+| `scripts/` | The numbered pipeline, `00` … `08`. `05b_train_orpo.py` is the alternative to stage `05`, not a step of its own (see [ORPO](#the-orpo-alternative-path)) |
+| `cosimo_ft/tools.py` | The tool-calling wire format, shared by the chat template and the data generator (see [Tool calling](#tool-calling-and-the-langgraph-flow)) |
 | `tests/` | CPU-only unit tests (no GPU, no network, no torch) |
 | `run_all.sh` | Thin orchestrator that chains the documented commands |
 | `../../docker/fine-tune/` | `Dockerfile`, `build.sh`, `run.sh`, `torch_arch_guard.py` — the only supported environment |
@@ -87,21 +88,22 @@ bash docker/fine-tune/run.sh                 # interactive shell in the harness 
 python scripts/00_check_env.py               # GPU, sm_121, pins, unsloth, bnb 4-bit smoke test
 
 python scripts/01_prepare_data.py            # -> data/processed/*.jsonl + split_manifest.json
+python scripts/02_prepare_tool_data.py       # -> data/processed/tool_{train,val}.jsonl
 
-python scripts/02_baseline_eval.py           # -> runs/baseline/eval/  (the reference measurement)
+python scripts/03_baseline_eval.py           # -> runs/baseline/eval/  (the reference measurement)
 
-python scripts/03_train_sft.py --dry-run     # builds everything, trains nothing. Read its output.
-python scripts/03_train_sft.py               # -> runs/sft/adapter
+python scripts/04_train_sft.py --dry-run     # builds everything, trains nothing. Read its output.
+python scripts/04_train_sft.py               # -> runs/sft/adapter
 
-python scripts/05_evaluate.py --run-name sft --adapter runs/sft/adapter
+python scripts/06_evaluate.py --run-name sft --adapter runs/sft/adapter
 
-python scripts/04_train_dpo.py --sft-adapter runs/sft/adapter    # -> runs/dpo/adapter
+python scripts/05_train_dpo.py --sft-adapter runs/sft/adapter    # -> runs/dpo/adapter
 
-python scripts/05_evaluate.py --run-name dpo --adapter runs/dpo/adapter
+python scripts/06_evaluate.py --run-name dpo --adapter runs/dpo/adapter
 
-python scripts/06_compare.py --runs baseline sft dpo             # -> runs/comparisons/*.md
+python scripts/07_compare.py --runs baseline sft dpo             # -> runs/comparisons/*.md
 
-python scripts/07_export_merge.py --run-name dpo                 # -> runs/dpo/merged (bf16)
+python scripts/08_export_merge.py --run-name dpo                 # -> runs/dpo/merged (bf16)
 ```
 
 A one-shot command works too, without an interactive shell:
@@ -110,7 +112,7 @@ A one-shot command works too, without an interactive shell:
 bash docker/fine-tune/run.sh python scripts/00_check_env.py
 ```
 
-### Do not skip step `03_train_sft.py --dry-run`
+### Do not skip step `04_train_sft.py --dry-run`
 
 It loads the data, builds the model, attaches LoRA, constructs the trainer and applies
 response-only masking — then stops before `.train()`. It prints the first rendered example, the
@@ -141,11 +143,13 @@ minutes rather than days:
 
 ```bash
 python scripts/01_prepare_data.py --limit 200 --force
-python scripts/02_baseline_eval.py --suites cosimo_test --limit 20
-python scripts/03_train_sft.py --run-name sft_smoke --set sft.max_steps=20
-python scripts/05_evaluate.py --run-name sft_smoke --adapter runs/sft_smoke/adapter \
+python scripts/02_prepare_tool_data.py --force \
+    --set tools.train_records=200 --set tools.val_records=20
+python scripts/03_baseline_eval.py --suites cosimo_test --limit 20
+python scripts/04_train_sft.py --run-name sft_smoke --set sft.max_steps=20
+python scripts/06_evaluate.py --run-name sft_smoke --adapter runs/sft_smoke/adapter \
     --suites cosimo_test --limit 20
-python scripts/06_compare.py --runs baseline sft_smoke --suite cosimo_test
+python scripts/07_compare.py --runs baseline sft_smoke --suite cosimo_test
 ```
 
 Then delete `runs/` and `data/` and start the real run, because a `--limit 200` split assignment is
@@ -165,13 +169,13 @@ not the split assignment of the full corpus.
 | --- | --- | --- |
 | `00_check_env.py` | < 1 min | negligible |
 | `01_prepare_data.py` | 15–40 min (download + render + tokenize 71 k rows) | a few GB host |
-| `02_baseline_eval.py` (default suites) | 2–4 h | ~10–15 GB |
-| `03_train_sft.py --dry-run` | 3–8 min | ~15–25 GB |
-| `03_train_sft.py` (1 epoch) | **10–16 h** | ~15–30 GB |
-| `05_evaluate.py` (default suites) | 2–4 h | ~10–15 GB |
-| `04_train_dpo.py` (1 epoch) | **11–18 h** | ~20–35 GB |
-| `06_compare.py` | seconds | negligible |
-| `07_export_merge.py` | 5–15 min | ~20 GB (+15 GB written) |
+| `03_baseline_eval.py` (default suites) | 2–4 h | ~10–15 GB |
+| `04_train_sft.py --dry-run` | 3–8 min | ~15–25 GB |
+| `04_train_sft.py` (1 epoch) | **10–16 h** | ~15–30 GB |
+| `06_evaluate.py` (default suites) | 2–4 h | ~10–15 GB |
+| `05_train_dpo.py` (1 epoch) | **11–18 h** | ~20–35 GB |
+| `07_compare.py` | seconds | negligible |
+| `08_export_merge.py` | 5–15 min | ~20 GB (+15 GB written) |
 
 The arithmetic, so you can disagree with it:
 
@@ -196,12 +200,12 @@ The arithmetic, so you can disagree with it:
   defaults to `null` (all of them). While iterating, cut it:
 
   ```bash
-  python scripts/05_evaluate.py --run-name sft --adapter runs/sft/adapter \
+  python scripts/06_evaluate.py --run-name sft --adapter runs/sft/adapter \
       --set eval.samples.cosimo_unseen_stems=500
   ```
 
   Do the final comparison at full size, and use the *same* setting for every run you compare —
-  `06_compare.py` compares only the intersection of item sets and warns when they differ.
+  `07_compare.py` compares only the intersection of item sets and warns when they differ.
 
 Memory is not the binding constraint on 128 GB; **host page-cache pressure is**. See
 [Troubleshooting](#out-of-memory-on-a-128-gb-machine).
@@ -259,13 +263,73 @@ It is applied in **every** entry point: data preparation, SFT, DPO, ORPO, evalua
 In particular **the base model is evaluated through the same template as the fine-tuned model** —
 comparability comes from both sides seeing an identical prompt surface, not from using the vendor
 default. The exported adapter and merged checkpoint carry the template too, and
-`07_export_merge.py` reads it back off disk and fails the export if the vendor preamble survived,
+`08_export_merge.py` reads it back off disk and fails the export if the vendor preamble survived,
 so serving matches training.
 
 `chat.template_path: null` falls back to the vendor template. The training, evaluation and export
 scripts all refuse to run in that state rather than silently produce incomparable numbers. The
 template's SHA-256 is recorded in `split_manifest.json` and in every `metrics.json`, so you can
 prove two artifacts were produced through the same prompt surface.
+
+---
+
+## Tool calling and the LangGraph flow
+
+The served target is `cosimo/agents/react_agent/agent.py`, a LangGraph `create_react_agent`. Its
+model comes from `agent_lab`'s `get_chat_model`, which for `integration_type: openai_api_v1`
+returns a `ChatOpenAI` pointed at an OpenAI-compatible endpoint. So the chain is:
+
+```
+create_react_agent -> bind_tools -> ChatOpenAI -> OpenAI `tools=[...]`
+                                               -> vLLM
+                                               -> tokenizer.apply_chat_template(messages, tools=...)
+```
+
+**The server does the tool templating and parsing, not LangChain.** That makes the chat template
+shipped inside the merged checkpoint load-bearing, and it is why the template handles three things
+the vendor one did not:
+
+| Concern | What the template does |
+| --- | --- |
+| Tool schemas | Reads the **top-level** `tools` variable. The vendor template read `message['tools']`, a per-message key nothing sets, so schemas were silently dropped and the model answered as though no tools existed. |
+| Assistant tool calls | Renders `<tool_call>{"name": …, "arguments": {…}}</tool_call>` — the Hermes format, so vLLM's stock parser reads it back with no custom plugin. |
+| Tool results | Renders a `<|user|>` turn wrapping `<tool_response>`. Deliberate: `train_on_responses_only` splits on `<|user|>` / `<|assistant|>`, so every assistant turn in a multi-turn tool conversation stays supervised and every tool result stays masked, with no change to the masking config. |
+
+`cosimo_ft/tools.py` is the single owner of that wire format, and
+`tests/test_tools.py::test_rendered_tool_call_matches_the_template` asserts the module and the
+template emit byte-identical strings. A training target that differs from the served rendering by
+one space teaches a format the runtime cannot parse back, and nothing else would catch it.
+
+### Serving
+
+```bash
+vllm serve runs/dpo/merged \
+    --tool-call-parser hermes \
+    --enable-auto-tool-choice \
+    --max-model-len 8192
+```
+
+`--tool-call-parser hermes` is **required**. Without it vLLM returns the raw `<tool_call>` text as
+message content and LangGraph never sees a tool call, so the ReAct loop terminates on the first
+step with the JSON as its answer.
+
+### What the model was actually trained on
+
+`scripts/02_prepare_tool_data.py` writes ~5 000 synthetic tool rows (`tools.train_records`) mixed
+into the SFT corpus. They teach the **format**, not a tool set: eight tool families with several
+name variants each, 2–5 schemas per example resampled per row, and a 20% `tools.no_call_rate`
+fraction where none of the offered tools fit and the correct move is to answer directly. Without
+that last group the model calls a tool for every question it is ever asked.
+
+These rows render with `exam=False`, so they carry the persona but **not** the `FINAL ANSWER:`
+protocol — that contract is an exam-grading artefact and has no place in a ReAct answer.
+
+There are deliberately **no tool-calling preference pairs**; see the note at the end of
+`configs/dpo.yaml` for why.
+
+The application's own tool surface is still a placeholder (`cosimo/mcp/tools.py`), so
+`ReactAgent.get_react_tools()` returns `[]`. Everything downstream of it is wired; bind real tools
+there when they exist.
 
 ---
 
@@ -278,7 +342,7 @@ a typo costs you a second rather than a training run. The fully resolved config 
 run directory as `resolved_config.yaml` and hashed into `metrics.json` as `config_hash`.
 
 ```bash
-python scripts/03_train_sft.py --set sft.per_device_train_batch_size=2 --set sft.max_steps=200
+python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft.max_steps=200
 ```
 
 ### `configs/base.yaml` — shared by every stage
@@ -288,14 +352,18 @@ python scripts/03_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | `seed` | `3407` | Seeds splitting, subsampling, shuffling, training and generation. |
 | `model.base_id` | `unsloth/Phi-4-mini-reasoning` | The base checkpoint. Its projections are **fused** (`qkv_proj`, `o_proj`, `gate_up_proj`, `down_proj`). |
 | `model.revision` | `null` | Pin a commit SHA to make training *and* evaluation reproducible against a moving Hub repo. |
-| `model.max_seq_length` | `2048` | Sequence budget. Raise it if `split_manifest.json` shows meaningful truncation. |
+| `model.max_seq_length` | `8192` | Sequence budget. Sized for the agentic path, not the exam corpus: a typical exam row is ~1200 tokens, but a tool conversation adds a JSON schema list and a call/result round-trip, and the served ReAct loop stacks more on top. Raise it further if `split_manifest.json` shows meaningful truncation. |
 | `model.load_in_4bit` | `false` | bf16 LoRA is the default: 128 GB unified memory makes quantization unnecessary, and bf16 has no quantization error. Toggle for a 4-bit run. |
 | `model.dtype` | `bfloat16` | Native on Blackwell; the base checkpoint is already bf16. |
 | `dataset.hub_id` / `.revision` | `btech-software/cosimo-cfa-frm-71k` / `main` | Pin a SHA for a frozen corpus. |
 | `paths.*` | `data/`, `data/processed/`, `runs/` | Resolved against this directory, never the CWD. |
 | `prompt.*` | see above | identity / identity_short / exam_protocol / variation_rate / final_answer_tag. |
 | `chat.template_path` | `configs/chat_template.jinja` | The prompt surface. `null` reinstates the vendor identity preamble and is refused by the scripts. |
-| `chat.instruction_part` / `.response_part` | `<|user|>` / `<|assistant|>` | The markers `train_on_responses_only` masks on. |
+| `chat.instruction_part` / `.response_part` | `<|user|>` / `<|assistant|>` | The markers `train_on_responses_only` masks on. Tool results render as `<|user|>` turns so they are masked by the same rule. |
+| `tools.enabled` | `true` | Whether `02_prepare_tool_data.py` generates rows. `false` writes empty files, which `04_train_sft.py` skips with a log line. |
+| `tools.train_records` / `.val_records` | `5000` / `100` | ~7% of the SFT corpus: enough for the format to survive an epoch against 68k rows ending in `FINAL ANSWER:`, small enough not to displace the financial reasoning. |
+| `tools.schemas_per_example` | `[2, 5]` | Schemas offered per example. More than one is essential — with a single schema the model learns "call the tool" rather than "choose the right tool". |
+| `tools.no_call_rate` | `0.2` | Fraction where no offered tool fits and the model must answer directly. Without it, the model calls a tool for every question. |
 
 ### `configs/data.yaml` — `01_prepare_data.py`
 
@@ -306,10 +374,10 @@ python scripts/03_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | `data.holdout_families` | six families | Excluded from **all** training; see [`unseen_stems`](#why-unseen_stems-exists). |
 | `data.drop_unverified` | `true` | Drop rows that failed the generator's own answer-recomputation check. The dropped count is logged and recorded in the manifest. |
 
-### `configs/sft.yaml` — `03_train_sft.py`
+### `configs/sft.yaml` — `04_train_sft.py`
 
 `lora.r` = 32, `lora_alpha` = 32 (scale 1.0), `lora_dropout` = 0.0, `bias: none` (the only setting
-that stays mergeable for `07_export_merge.py`), `use_rslora: false`,
+that stays mergeable for `08_export_merge.py`), `use_rslora: false`,
 `use_gradient_checkpointing: unsloth`.
 
 `lora.target_modules: auto` is **required, not a convenience**: this checkpoint's projections are
@@ -325,13 +393,13 @@ default path. `num_train_epochs: 1`: the corpus is synthetic and built from only
 second epoch memorises stem wording instead of teaching method. Eval and checkpoints every 250
 steps, `save_total_limit: 3`.
 
-### `configs/dpo.yaml` — `04_train_dpo.py`
+### `configs/dpo.yaml` — `05_train_dpo.py`
 
 `beta: 0.1`, `loss_type: ["sigmoid"]` (TRL 0.24.0 types this as `list[str]`, not a bare string),
 `learning_rate: 5.0e-6` — two orders of magnitude below SFT, because DPO starts from a competent
-policy and only needs to shift relative likelihoods. Effective batch 16 (2 × 8).
+policy and only needs to shift relative likelihoods. Effective batch 16 (1 × 16).
 
-`max_prompt_length: 1408` deserves a note: TRL truncates an over-long prompt with `keep_end`, which
+`max_prompt_length: 6144` deserves a note: TRL truncates an over-long prompt with `keep_end`, which
 slices `prompt[-max_prompt_length:]` — it drops the **start** of the prompt, and the start is exactly
 where the identity block lives. At the more obvious 768 every long-vignette pair would train against
 a persona-less prompt. Check the percentiles in `split_manifest.json` if you change the persona.
@@ -339,7 +407,7 @@ a persona-less prompt. Check the percentiles in `split_manifest.json` if you cha
 The SFT adapter is attached as trainable and `ref_model=None`: with PEFT, TRL uses the
 adapter-disabled base model as the implicit reference, so no second copy of the weights is loaded.
 
-### `configs/eval.yaml` — `02_baseline_eval.py` and `05_evaluate.py`
+### `configs/eval.yaml` — `03_baseline_eval.py` and `06_evaluate.py`
 
 `suites` (the four below), `samples` per suite (`null` = all), `max_new_tokens: 768`,
 `temperature: 0.0` (greedy — a base-vs-tuned delta must be a model difference, not sampling noise),
@@ -352,7 +420,7 @@ adapter-disabled base model as the implicit reference, so no second copy of the 
 **Protocol.** Every model — base and tuned alike — is prompted with the same composed system message
 (full identity + exam protocol), through the same chat template, with greedy decoding, and graded by
 the same code path (`cosimo_ft/evalrun.py` is the single implementation shared by
-`02_baseline_eval.py` and `05_evaluate.py`). The `FINAL ANSWER: <value>` contract is stated in the
+`03_baseline_eval.py` and `06_evaluate.py`). The `FINAL ANSWER: <value>` contract is stated in the
 system prompt given to the **base** model too, which is what makes the comparison fair.
 
 **Suites.**
@@ -392,7 +460,7 @@ numeric match against the gold value — the corpus contains duplicate option va
 every number in the gold to appear in the prediction, agreement on a leading `Yes`/`No`, and is not
 fooled by negation ("will not increase" does not answer "Increase").
 
-**Comparison.** `06_compare.py` joins runs **per item id** and reports a paired delta with an exact
+**Comparison.** `07_compare.py` joins runs **per item id** and reports a paired delta with an exact
 McNemar p-value — not two independent accuracies subtracted. It compares only the intersection of
 item sets, warns when they differ, and warns when two runs were measured under different decoding
 settings or config hashes (`--strict` turns those warnings into a non-zero exit).
@@ -435,15 +503,15 @@ assistant quality, and nothing in this harness does. Before shipping any checkpo
 
 ## The ORPO alternative path
 
-ORPO (`scripts/04b_train_orpo.py`, `configs/orpo.yaml`) folds the supervised NLL term and an
+ORPO (`scripts/05b_train_orpo.py`, `configs/orpo.yaml`) folds the supervised NLL term and an
 odds-ratio preference term into one loss. It needs no reference model and no preceding SFT stage:
 one run, one adapter, straight from the base model.
 
 ```bash
-python scripts/04b_train_orpo.py --dry-run
-python scripts/04b_train_orpo.py --run-name orpo
-python scripts/05_evaluate.py --run-name orpo --adapter runs/orpo/adapter
-python scripts/06_compare.py --runs baseline sft dpo orpo
+python scripts/05b_train_orpo.py --dry-run
+python scripts/05b_train_orpo.py --run-name orpo
+python scripts/06_evaluate.py --run-name orpo --adapter runs/orpo/adapter
+python scripts/07_compare.py --runs baseline sft dpo orpo
 ```
 
 It is the documented **alternative**, not the default. It trains on the ~22 000 preference pairs —
@@ -506,18 +574,18 @@ The model cache is bind-mounted from `~/.cache/huggingface`, so weights are down
 survive container restarts. For a fully offline evaluation, skip the Hub-backed suites:
 
 ```bash
-python scripts/05_evaluate.py --run-name sft --adapter runs/sft/adapter \
+python scripts/06_evaluate.py --run-name sft --adapter runs/sft/adapter \
     --suites cosimo_test cosimo_unseen_stems
 ```
 
 ### Resuming
 
-* Training: `--resume` on `03_train_sft.py` / `04_train_dpo.py` / `04b_train_orpo.py` resumes from
+* Training: `--resume` on `04_train_sft.py` / `05_train_dpo.py` / `05b_train_orpo.py` resumes from
   the latest checkpoint in `runs/<name>/checkpoints`.
 * Evaluation: `--resume` skips item ids already present in the suite's generations file. Without
   `--resume`, an evaluation clears stale generations first so a half-finished older run cannot be
   read as current.
-* Baseline: `02_baseline_eval.py` refuses to overwrite `runs/baseline` — pass `--resume` to continue
+* Baseline: `03_baseline_eval.py` refuses to overwrite `runs/baseline` — pass `--resume` to continue
   it or `--force` to deliberately re-measure it. It is the reference for every comparison; losing it
   invalidates every delta you have already computed.
 
@@ -527,7 +595,7 @@ Training, evaluation and export all refuse to run with the vendor template, beca
 reintroduce the Microsoft identity preamble and make the numbers incomparable. Restore
 `chat.template_path: configs/chat_template.jinja` in `configs/base.yaml`.
 
-### `06_compare.py` warns that runs are not comparable
+### `07_compare.py` warns that runs are not comparable
 
 Different config hashes, decoding settings or item sets between two runs. Re-evaluate the odd one
 out with the same `--suites` / `--set eval.*` settings. Use `--strict` in automation so this is an

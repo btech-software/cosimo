@@ -1,6 +1,6 @@
 """The single evaluation implementation shared by baseline and checkpoint runs.
 
-Both ``02_baseline_eval.py`` and ``05_evaluate.py`` call ``run_evaluation`` so
+Both ``03_baseline_eval.py`` and ``06_evaluate.py`` call ``run_evaluation`` so
 the baseline and every fine-tuned model are measured by identical code: same
 prompts, same decoding parameters, same grader.
 """

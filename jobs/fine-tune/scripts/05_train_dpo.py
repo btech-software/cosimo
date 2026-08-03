@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stage 2: preference optimisation (DPO) on top of the SFT adapter.
 
-The base model is loaded and the adapter produced by 03_train_sft.py is attached
+The base model is loaded and the adapter produced by 04_train_sft.py is attached
 as *trainable*. No reference model is constructed: with a PEFT model and
 ``ref_model=None``, TRL runs the reference forward pass through the same weights
 with the adapter disabled, which costs no extra memory.
@@ -16,13 +16,13 @@ of weights) or a second adapter named via ``ref_adapter_name``.
 
 --dry-run stops at trainer construction: it never enters compute_loss and
 never takes an optimizer step. Follow it with a short real run into a
-throwaway directory before committing to the full one (see 03_train_sft.py
+throwaway directory before committing to the full one (see 04_train_sft.py
 for the UNSLOTH_RETURN_LOGITS=1 mitigation if the loss path fails).
 
 Example:
-    ./scripts/04_train_dpo.py --sft-adapter runs/sft/adapter --dry-run
-    ./scripts/04_train_dpo.py --sft-adapter runs/sft/adapter --run-name dpo_smoke --set dpo.max_steps=5 --force
-    ./scripts/04_train_dpo.py --sft-adapter runs/sft/adapter
+    ./scripts/05_train_dpo.py --sft-adapter runs/sft/adapter --dry-run
+    ./scripts/05_train_dpo.py --sft-adapter runs/sft/adapter --run-name dpo_smoke --set dpo.max_steps=5 --force
+    ./scripts/05_train_dpo.py --sft-adapter runs/sft/adapter
 """
 
 from __future__ import annotations
@@ -261,7 +261,7 @@ def resolve_adapter(args: argparse.Namespace, cfg: dict) -> Path:
     raw = args.sft_adapter or config_mod.get(cfg, "dpo.sft_adapter")
     if not raw:
         raise SystemExit(
-            "DPO continues the adapter trained by scripts/03_train_sft.py, so "
+            "DPO continues the adapter trained by scripts/04_train_sft.py, so "
             "--sft-adapter is required, e.g. --sft-adapter runs/sft/adapter"
         )
     path = config_mod.harness_path(raw)

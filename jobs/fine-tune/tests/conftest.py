@@ -92,9 +92,18 @@ class JinjaTokenizer:
     eos_token = EOS_TOKEN
 
     def __init__(self, template: str) -> None:
+        import json
+
         from jinja2.sandbox import ImmutableSandboxedEnvironment
 
         env = ImmutableSandboxedEnvironment(trim_blocks=True, lstrip_blocks=True)
+        # transformers replaces Jinja's own `tojson` with a plain json.dumps.
+        # Jinja's default escapes <, > and & for HTML safety, which would mangle
+        # every rendered tool schema and make these tests assert a string
+        # production never produces.
+        env.filters["tojson"] = lambda value, **kwargs: json.dumps(
+            value, ensure_ascii=False, **kwargs
+        )
         self.chat_template = template
         self._template = env.from_string(template)
 
@@ -103,6 +112,7 @@ class JinjaTokenizer:
         messages: list[dict],
         tokenize: bool = True,
         add_generation_prompt: bool = False,
+        tools: list[dict] | None = None,
     ) -> str:
         if tokenize:
             raise NotImplementedError("the harness always renders with tokenize=False")
@@ -110,6 +120,7 @@ class JinjaTokenizer:
             messages=messages,
             add_generation_prompt=add_generation_prompt,
             eos_token=self.eos_token,
+            tools=tools,
         )
 
 

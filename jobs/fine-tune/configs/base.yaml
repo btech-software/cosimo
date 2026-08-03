@@ -2,7 +2,14 @@ seed: 3407
 model:
   base_id: unsloth/Phi-4-mini-reasoning
   revision: null            # pin a commit sha to make training AND evaluation reproducible
-  max_seq_length: 2048
+  # 8192, not the base model's 2048-era default: the served target is a LangGraph
+  # ReAct loop, where the conversation accumulates assistant tool calls and tool
+  # results turn after turn on top of the ~645-token persona. At 2048 the trained
+  # window is exhausted after two or three tool round-trips. The exam corpus does
+  # not need the extra room -- a typical row is ~1200 tokens -- so this costs
+  # activation memory and step time on every stage, which is why the SFT and
+  # preference micro-batches below were halved to pay for it.
+  max_seq_length: 8192
   load_in_4bit: false
   dtype: bfloat16
 dataset:
@@ -48,6 +55,34 @@ prompt:
 
   # The marker the grader looks for on the final line.
   final_answer_tag: "FINAL ANSWER:"
+tools:
+  # Synthetic tool-calling data, written by scripts/02_prepare_tool_data.py and
+  # mixed into sft_train.jsonl / sft_val.jsonl.
+  #
+  # The corpus itself contains no tool-call examples, and the application's own
+  # tool surface (cosimo/mcp/tools.py) is still a placeholder, so there is nothing
+  # real to train against. These rows therefore teach the *format*, not a fixed
+  # tool set: the conditional rule "given <|tool|> schemas in the system turn,
+  # emit a <tool_call> naming one of them". Generalisation to the tools the app
+  # eventually ships comes from schema variety here, not from schema identity.
+  enabled: true
+
+  # ~7% of the ~68k SFT rows. Large enough that the format survives an epoch
+  # against a corpus where every other row ends in FINAL ANSWER:, small enough
+  # that it does not displace the financial reasoning that is the actual product.
+  train_records: 5000
+  val_records: 100
+
+  # Schemas presented per example, sampled inclusively. More than one is
+  # essential: with a single schema the model learns "call the tool" rather than
+  # "choose the right tool", and never learns to decline when none fit.
+  schemas_per_example: [2, 5]
+
+  # Fraction of examples where no tool fits the question and the correct
+  # behaviour is to answer directly. Without these the model calls a tool for
+  # every question it is ever asked, including "what is a bond?".
+  no_call_rate: 0.2
+
 chat:
   # Vendor preamble removed: the stock template hardcodes "Your name is Phi, an AI math
   # expert developed by Microsoft." ahead of every system message, which contradicts the

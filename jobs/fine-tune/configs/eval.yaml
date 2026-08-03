@@ -1,5 +1,5 @@
 # Evaluation defaults, layered on top of configs/base.yaml.
-# Used by scripts/02_baseline_eval.py and scripts/05_evaluate.py; every run
+# Used by scripts/03_baseline_eval.py and scripts/06_evaluate.py; every run
 # records the resolved config, so changing anything here changes the config
 # hash stored in metrics.json.
 eval:

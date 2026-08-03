@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Alternative single-stage path: ORPO from the base model with a fresh adapter.
 
-This is NOT part of the default pipeline. The default is 03_train_sft.py followed
-by 04_train_dpo.py. ORPO folds the supervised term and the preference term into
+This is NOT part of the default pipeline. The default is 04_train_sft.py followed
+by 05_train_dpo.py. ORPO folds the supervised term and the preference term into
 one loss, so it trains one adapter from the base weights in a single pass and
 needs no reference model at all. It ships so the SFT -> DPO chain can be compared
 against a genuinely independent second artifact trained on the same pairs.
@@ -12,13 +12,13 @@ Because there is no supervised stage in front of it, ORPO only ever sees the
 
 --dry-run stops at trainer construction: it never enters compute_loss and
 never takes an optimizer step. Follow it with a short real run into a
-throwaway directory before committing to the full one (see 03_train_sft.py
+throwaway directory before committing to the full one (see 04_train_sft.py
 for the UNSLOTH_RETURN_LOGITS=1 mitigation if the loss path fails).
 
 Example:
-    ./scripts/04b_train_orpo.py --dry-run
-    ./scripts/04b_train_orpo.py --run-name orpo_smoke --set orpo.max_steps=5 --force
-    ./scripts/04b_train_orpo.py --run-name orpo
+    ./scripts/05b_train_orpo.py --dry-run
+    ./scripts/05b_train_orpo.py --run-name orpo_smoke --set orpo.max_steps=5 --force
+    ./scripts/05b_train_orpo.py --run-name orpo
 """
 
 from __future__ import annotations
@@ -316,7 +316,7 @@ def main() -> None:
         logger.warning("no validation file at %s; periodic eval disabled", val_path)
 
     # --- model ------------------------------------------------------------
-    # Base weights plus a freshly initialised adapter: unlike 04_train_dpo.py,
+    # Base weights plus a freshly initialised adapter: unlike 05_train_dpo.py,
     # nothing from a previous stage is loaded.
     model, tokenizer = modeling.load_for_training(cfg)
     install_chat_template(tokenizer, cfg)

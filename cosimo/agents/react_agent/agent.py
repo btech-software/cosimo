@@ -28,8 +28,37 @@ class ReactAgent(WorkflowAgentBase):
     while keeping strict role alternation for providers that require it.
     """
 
+    # The fine-tuned Cosimo checkpoint is trained at model.max_seq_length 8192
+    # (jobs/fine-tune/configs/base.yaml), of which the persona alone spends
+    # ~645 tokens before any tool schema or conversation turn. A ReAct loop adds
+    # an assistant tool call and a tool result per iteration on top of whatever
+    # history is replayed here, so the replayed history is bounded rather than
+    # unbounded. Twelve messages is six human/AI turns.
+    MAX_HISTORY_MESSAGES = 12
+
     def __init__(self, agent_utils: AgentUtils):
         super().__init__(agent_utils)
+
+    def get_react_tools(self) -> list:
+        """Tools bound to the ReAct agent.
+
+        Empty by default, because this project has no tool surface yet:
+        ``cosimo/mcp/tools.py`` still ships the placeholder ``cosimo_hello_tool``.
+        Override or extend this once real tools exist -- everything downstream is
+        already wired for them:
+
+        * the served checkpoint's chat template renders ``tools``,
+          ``tool_calls`` and tool results (jobs/fine-tune/configs/chat_template.jinja);
+        * the model is trained on the matching ``<tool_call>`` format
+          (jobs/fine-tune/scripts/02_prepare_tool_data.py);
+        * vLLM must be started with ``--tool-call-parser hermes`` to turn that
+          format back into OpenAI ``tool_calls`` (see jobs/fine-tune/README.md).
+
+        Inherited helpers are available for the common cases: ``get_bash_tool()``
+        here, and the web tools on ``WebAgentBase`` if this agent is moved onto
+        that base (note it requires a ``cdp_url`` entry in the app config).
+        """
+        return []
 
     def create_default_settings(self, agent_id: str, schema: str):
         current_dir = Path(__file__).parent
@@ -70,11 +99,16 @@ class ReactAgent(WorkflowAgentBase):
         # provide the conversation memory.
         react_agent = create_react_agent(
             model=self.get_chat_model(agent_id, schema),
-            tools=[],
+            tools=self.get_react_tools(),
             prompt=execution_system_prompt,
         )
         human_message = HumanMessage(content=self.QUERY_FORMAT.format(query=query))
-        response = react_agent.invoke({"messages": [*state["messages"], human_message]})
+        # Only the most recent turns are replayed: the tuned checkpoint has a
+        # bounded trained context and a tool-using loop consumes it from the
+        # other end. Older turns stay in the checkpointed state, they are just
+        # not re-sent.
+        history = state["messages"][-self.MAX_HISTORY_MESSAGES :]
+        response = react_agent.invoke({"messages": [*history, human_message]})
         generation = response["messages"][-1].content
 
         # Persist an explicit human/AI pair: a bare string would be coerced

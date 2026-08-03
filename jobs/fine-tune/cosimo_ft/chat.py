@@ -137,6 +137,63 @@ def render_prompt(tokenizer: Any, question: str, system: str) -> str:
     )
 
 
+def render_conversation(
+    tokenizer: Any,
+    messages: list[dict],
+    tools: list[dict] | None = None,
+    *,
+    add_generation_prompt: bool = False,
+) -> str:
+    """Render an arbitrary message list, optionally with bound tool schemas.
+
+    ``tools`` is passed as the template's top-level ``tools`` variable, which is
+    what transformers and therefore vLLM populate from an OpenAI request. It is
+    omitted entirely when None so tokenizers whose ``apply_chat_template`` does
+    not accept the keyword (the test fakes) still work.
+    """
+    kwargs: dict[str, Any] = {
+        "tokenize": False,
+        "add_generation_prompt": add_generation_prompt,
+    }
+    if tools is not None:
+        kwargs["tools"] = tools
+    return tokenizer.apply_chat_template(messages, **kwargs)
+
+
+def render_tool_example(
+    tokenizer: Any, messages: list[dict], tools: list[dict] | None = None
+) -> dict:
+    """Render a multi-turn tool conversation as ``{"prompt", "completion", "text"}``.
+
+    The split point is the *first* assistant turn: everything before it is the
+    prompt, everything from it on is the supervised completion. Interior tool
+    results inside the completion are masked at training time by
+    ``train_on_responses_only``, which splits on the ``<|user|>`` / ``<|assistant|>``
+    markers -- and the chat template renders tool results as ``<|user|>`` turns
+    precisely so that this works without reconfiguring the masking.
+
+    The same ``text == prompt + completion`` invariant as :func:`render_example`
+    is enforced, for the same reason.
+    """
+    first_assistant = next(
+        (i for i, m in enumerate(messages) if m.get("role") == "assistant"), None
+    )
+    if first_assistant is None:
+        raise ValueError("a tool example needs at least one assistant turn")
+
+    prompt = render_conversation(
+        tokenizer, messages[:first_assistant], tools, add_generation_prompt=True
+    )
+    full = render_conversation(tokenizer, messages, tools, add_generation_prompt=False)
+    if not full.startswith(prompt):
+        raise ValueError(
+            "chat template drift: the rendered conversation does not start with "
+            "the rendered prompt, so the completion cannot be isolated. "
+            f"prompt={prompt[:200]!r} full={full[:200]!r}"
+        )
+    return {"prompt": prompt, "completion": full[len(prompt) :], "text": full}
+
+
 def render_example(tokenizer: Any, question: str, completion: str, system: str) -> dict:
     """Render a full training example.
 

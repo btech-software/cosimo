@@ -147,7 +147,7 @@ def _settings_table(comparison: dict, run_a: str, run_b: str) -> list[str]:
 
 
 def render_markdown(comparison: dict) -> str:
-    """Render the comparison produced by ``06_compare.py``.
+    """Render the comparison produced by ``07_compare.py``.
 
     Expected shape::
 

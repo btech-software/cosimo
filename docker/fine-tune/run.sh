@@ -4,7 +4,7 @@
 # Usage, from anywhere:
 #   bash docker/fine-tune/run.sh                                   # interactive shell
 #   bash docker/fine-tune/run.sh python scripts/00_check_env.py    # one-shot command
-#   nohup bash docker/fine-tune/run.sh python scripts/03_train_sft.py > sft.log 2>&1 &
+#   nohup bash docker/fine-tune/run.sh python scripts/04_train_sft.py > sft.log 2>&1 &
 #
 # The repository is bind-mounted at /workspace/cosimo and the working directory is the harness
 # root (/workspace/cosimo/jobs/fine-tune), so every script can be invoked exactly as written in
@@ -30,11 +30,11 @@
 # container makes some tooling behave oddly. Prefer the chown recipe unless it gets in your way.
 #
 # NGC BANNER: the base image's ENTRYPOINT prints a licence/driver banner on stdout before running
-# the command, so `run.sh python scripts/06_compare.py > table.md` captures the banner too. None of
-# the harness scripts need stdout redirection (06_compare.py writes runs/comparisons/*.md itself),
+# the command, so `run.sh python scripts/07_compare.py > table.md` captures the banner too. None of
+# the harness scripts need stdout redirection (07_compare.py writes runs/comparisons/*.md itself),
 # so the entrypoint is left in place — it also runs NGC's /opt/nvidia/entrypoint.d/ setup. If you
 # do need clean stdout, follow NVIDIA's playbook and bypass it for that one command:
-#   docker run ... --entrypoint /usr/bin/env cosimo-fine-tune:latest python scripts/06_compare.py
+#   docker run ... --entrypoint /usr/bin/env cosimo-fine-tune:latest python scripts/07_compare.py
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

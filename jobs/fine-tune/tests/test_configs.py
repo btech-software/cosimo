@@ -138,7 +138,9 @@ def test_get_returns_the_default_for_absent_keys(base):
 def test_base_model_and_precision(base):
     assert base["seed"] == 3407
     assert base["model"]["base_id"] == "unsloth/Phi-4-mini-reasoning"
-    assert base["model"]["max_seq_length"] == 2048
+    # 8192, not 2048: the served target is a LangGraph ReAct loop whose
+    # conversation accumulates tool calls and tool results on top of the persona.
+    assert base["model"]["max_seq_length"] == 8192
     assert base["model"]["load_in_4bit"] is False, "bf16 LoRA is the locked default"
     assert base["model"]["dtype"] == "bfloat16"
     assert base["dataset"]["hub_id"] == "btech-software/cosimo-cfa-frm-71k"
@@ -224,7 +226,7 @@ def test_lora_defaults_match_the_contract():
     lora = cfg["lora"]
     assert lora["r"] == 32 and lora["lora_alpha"] == 32
     assert lora["lora_dropout"] == 0.0
-    assert lora["bias"] == "none", "only 'none' stays mergeable for 07_export_merge.py"
+    assert lora["bias"] == "none", "only 'none' stays mergeable for 08_export_merge.py"
     assert lora["use_rslora"] is False
     assert lora["use_gradient_checkpointing"] == "unsloth"
     assert lora["target_modules"] == "auto", (
@@ -257,7 +259,17 @@ def test_sft_schedule_defaults():
     assert sft["bf16"] is True and sft["fp16"] is False
     assert sft["group_by_length"] is False
     assert sft["seed"] == 3407
-    assert sft["train_file"] == "data/processed/sft_train.jsonl"
+    # A list: the exam corpus from 01_prepare_data.py plus the synthetic
+    # tool-calling rows from 02_prepare_tool_data.py, concatenated by
+    # 04_train_sft.py.
+    assert sft["train_file"] == [
+        "data/processed/sft_train.jsonl",
+        "data/processed/tool_train.jsonl",
+    ]
+    assert sft["val_file"] == [
+        "data/processed/sft_val.jsonl",
+        "data/processed/tool_val.jsonl",
+    ]
 
 
 # --------------------------------------------------------------------------

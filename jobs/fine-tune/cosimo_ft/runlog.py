@@ -10,7 +10,7 @@ A run is one directory under ``runs/``::
       tb/                    tensorboard logs
       adapter/               trained LoRA adapter
       checkpoints/           trainer checkpoints
-      merged/                merged bf16 weights (07_export_merge.py)
+      merged/                merged bf16 weights (08_export_merge.py)
 
 Import-light: torch/transformers are only touched inside ``env_info``.
 """

@@ -1,5 +1,5 @@
 # Supervised fine-tuning defaults, layered on top of configs/base.yaml.
-# Consumed by scripts/03_train_sft.py. Every value below is recorded in
+# Consumed by scripts/04_train_sft.py. Every value below is recorded in
 # runs/<name>/resolved_config.yaml, so changing anything here changes the run.
 #
 # Token budget per example, measured against configs/base.yaml (estimates from
@@ -10,9 +10,16 @@
 #   prompt.exam_protocol   ~45 tokens
 #   question               ~50-500 tokens    (vignettes are the long tail)
 #   completion             ~150-400 tokens
-# So a typical row is ~1200 tokens and a long one ~1600, against
-# model.max_seq_length 2048. That leaves real but not generous headroom, which
-# is why 03_train_sft.py prints a truncation scan during its pre-flight: a row
+# So a typical exam row is ~1200 tokens and a long one ~1600.
+#
+# The synthetic tool rows from 02_prepare_tool_data.py are the reason
+# model.max_seq_length is 8192 rather than 2048: they carry the persona plus a
+# JSON schema list (~150-500 tokens for 2-5 tools) plus a full call/result/answer
+# round-trip, and the served ReAct loop stacks further round-trips on top. The
+# exam corpus does not need that room; the agentic path does. 01b prints its own
+# token percentiles -- read them.
+#
+# 04_train_sft.py prints a truncation scan during its pre-flight either way: a row
 # truncated past its FINAL ANSWER line still trains, it just teaches the model
 # to stop before answering. If that scan reports a non-trivial rate, raise
 # model.max_seq_length rather than shrinking the persona.
@@ -42,7 +49,7 @@ lora:
   lora_dropout: 0.0
 
   # Biases are not adapted; PEFT's "none" is the only setting that stays
-  # mergeable back into the base weights for scripts/07_export_merge.py.
+  # mergeable back into the base weights for scripts/08_export_merge.py.
   bias: none
 
   # "auto" makes modeling.resolve_target_modules read the live module tree.
@@ -65,10 +72,19 @@ sft:
   # Default run directory name under runs/. --run-name overrides it.
   run_name: sft
 
-  # Written by scripts/01_prepare_data.py. Paths resolve against the harness
-  # root ($H), never the current working directory.
-  train_file: data/processed/sft_train.jsonl
-  val_file: data/processed/sft_val.jsonl
+  # Written by scripts/01_prepare_data.py (exam rows) and
+  # scripts/02_prepare_tool_data.py (synthetic tool-calling rows). Both are
+  # required: 04_train_sft.py concatenates the list and fails on a missing file,
+  # so a forgotten 01b run is an error rather than a silently tool-free model.
+  # An *empty* tool file (01b writes one when tools.enabled is false) is skipped
+  # with a log line. Paths resolve against the harness root ($H), never the
+  # current working directory.
+  train_file:
+    - data/processed/sft_train.jsonl
+    - data/processed/tool_train.jsonl
+  val_file:
+    - data/processed/sft_val.jsonl
+    - data/processed/tool_val.jsonl
 
   # The column holding prompt+completion as one rendered string. The prompt part
   # is masked out afterwards by unsloth's train_on_responses_only, not by TRL.
@@ -94,18 +110,26 @@ sft:
   # successful smoke run costs one short run; discovering the ceiling three hours
   # into the real one costs the run.
   #
-  # If the smoke run is comfortable, 8 with gradient_accumulation_steps 4 is the
+  # If the smoke run is comfortable, 4 with gradient_accumulation_steps 8 is the
   # faster configuration and keeps the same effective batch.
-  per_device_train_batch_size: 4
+  # Halved from 4 when model.max_seq_length went 2048 -> 8192. The logits
+  # arithmetic above scales linearly in sequence length:
+  #   batch 4 at 8192: 4 x 8192 x 200064 x 2 B ~= 13 GB, ~26 GB with the copy
+  #   batch 2 at 8192: 2 x 8192 x 200064 x 2 B ~= 6.6 GB, ~13 GB with the copy
+  # Batch 2 puts the worst case back where batch 4 at 2048 was, which is the
+  # configuration that was reasoned about above. Padding is dynamic and the exam
+  # rows are still ~1200 tokens, so the steady state is far below the worst case;
+  # the budget is sized for the long tool conversations, not the median row.
+  per_device_train_batch_size: 2
 
-  # Raised from 4 to hold 4 x 8 = effective batch 32, unchanged. This matters:
+  # Raised from 8 to hold 2 x 16 = effective batch 32, unchanged. This matters:
   # learning_rate below was chosen for an effective batch of 32, so the micro
   # batch could be reduced without touching the optimization trajectory. Smaller
   # micro-batches cost some GPU utilisation, not correctness.
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 16
 
   # Forward-only, so it fits twice the training micro-batch. Halved alongside it.
-  per_device_eval_batch_size: 8
+  per_device_eval_batch_size: 4
 
   # 2e-4 is the standard LoRA SFT rate at r=32 with scale 1.0. An order of
   # magnitude below this underfits in one epoch; above it, the FINAL ANSWER
@@ -160,7 +184,7 @@ sft:
   logging_steps: 10
 
   # Periodic validation loss is the only in-training signal available (accuracy
-  # needs generation, which happens in scripts/05_evaluate.py).
+  # needs generation, which happens in scripts/06_evaluate.py).
   eval_strategy: steps
   eval_steps: 250
 

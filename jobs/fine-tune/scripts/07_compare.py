@@ -5,7 +5,7 @@ Only items evaluated by both runs are compared; when the item sets differ the
 difference is reported as a warning instead of being silently averaged away.
 
 Example:
-    ./scripts/06_compare.py --runs baseline sft dpo \
+    ./scripts/07_compare.py --runs baseline sft dpo \
         --suite cosimo_test cosimo_unseen_stems
 """
 
@@ -155,7 +155,7 @@ def main() -> None:
             payload = compare_runs(runs_dir, run_a, run_b, args.suites)
         except FileNotFoundError as exc:
             raise SystemExit(
-                f"{exc} A run is only comparable once 05_evaluate.py has written its "
+                f"{exc} A run is only comparable once 06_evaluate.py has written its "
                 "metrics.json."
             ) from exc
         if not payload["suites"]:

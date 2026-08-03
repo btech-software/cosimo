@@ -41,7 +41,7 @@ Options:
   --eval-only         Evaluate the baseline and any existing adapters, then
                       compare. Never trains, never exports.
   --dry-run           Print every command that would run, run none of them.
-                      (Distinct from 03_train_sft.py --dry-run, which builds the
+                      (Distinct from 04_train_sft.py --dry-run, which builds the
                       trainer for real and skips only .train(); this script runs
                       that as a pre-flight step before real SFT.)
   --limit N           Pass --limit N to every evaluation, for a smoke run.
@@ -53,9 +53,10 @@ Options:
   -h, --help          Show this message.
 
 Steps (full pipeline):
-  00_check_env -> 01_prepare_data -> 02_baseline_eval -> 03_train_sft --dry-run
-  -> 03_train_sft -> 05_evaluate sft -> 04_train_dpo -> 05_evaluate dpo
-  -> 06_compare -> 07_export_merge
+  00_check_env -> 01_prepare_data -> 02_prepare_tool_data -> 03_baseline_eval
+  -> 04_train_sft --dry-run
+  -> 04_train_sft -> 06_evaluate sft -> 05_train_dpo -> 06_evaluate dpo
+  -> 07_compare -> 08_export_merge
 EOF
 }
 
@@ -83,7 +84,7 @@ run() {
     "$@"
 }
 
-# Evaluation flags shared by 02_baseline_eval.py and 05_evaluate.py.
+# Evaluation flags shared by 03_baseline_eval.py and 06_evaluate.py.
 eval_args=()
 if [[ -n "${SUITES}" ]]; then
     # Word splitting is intended: --suites takes several names.
@@ -107,11 +108,11 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
 fi
 
 # --------------------------------------------------------------------------
-step "0/8 environment check"
+step "0/9 environment check"
 run "${PYTHON}" scripts/00_check_env.py
 
 # --------------------------------------------------------------------------
-step "1/8 data preparation"
+step "1/9 data preparation"
 if [[ -f data/processed/split_manifest.json ]]; then
     note "data/processed/split_manifest.json exists; keeping the existing splits."
     note "Re-run ./scripts/01_prepare_data.py --force to rebuild them (this changes"
@@ -125,7 +126,21 @@ else
 fi
 
 # --------------------------------------------------------------------------
-step "2/8 baseline evaluation (untuned base model)"
+# The synthetic tool-calling rows are a separate file, so this is idempotent and
+# never touches what 01_prepare_data.py wrote. configs/sft.yaml lists both files
+# and 04_train_sft.py fails on a missing one, so this step is not optional.
+step "2/9 tool-calling data generation"
+if [[ -f data/processed/tool_train.jsonl ]]; then
+    note "data/processed/tool_train.jsonl exists; keeping it."
+    note "Re-run ./scripts/02_prepare_tool_data.py --force to regenerate."
+elif [[ "${EVAL_ONLY}" -eq 1 ]]; then
+    note "--eval-only: skipping tool-data generation (evaluation does not read it)."
+else
+    run "${PYTHON}" scripts/02_prepare_tool_data.py
+fi
+
+# --------------------------------------------------------------------------
+step "3/9 baseline evaluation (untuned base model)"
 if [[ -d runs/baseline && "${FORCE_BASELINE}" -eq 0 ]]; then
     note "runs/baseline already exists and is the reference measurement for every"
     note "comparison, so it is being kept. Pass --force-baseline to re-measure it."
@@ -134,7 +149,7 @@ else
     if [[ "${FORCE_BASELINE}" -eq 1 ]]; then
         baseline_args+=(--force)
     fi
-    run "${PYTHON}" scripts/02_baseline_eval.py \
+    run "${PYTHON}" scripts/03_baseline_eval.py \
         ${baseline_args[@]+"${baseline_args[@]}"} \
         ${eval_args[@]+"${eval_args[@]}"}
 fi
@@ -143,10 +158,10 @@ compare_runs=(baseline)
 
 if [[ "${EVAL_ONLY}" -eq 1 ]]; then
     # --------------------------------------------------------------------------
-    step "3/8 evaluate existing checkpoints (--eval-only: no training)"
+    step "4/9 evaluate existing checkpoints (--eval-only: no training)"
     for name in "${SFT_RUN}" "${DPO_RUN}"; do
         if has_adapter "${name}"; then
-            run "${PYTHON}" scripts/05_evaluate.py \
+            run "${PYTHON}" scripts/06_evaluate.py \
                 --run-name "${name}" --adapter "runs/${name}/adapter" \
                 ${eval_args[@]+"${eval_args[@]}"}
             compare_runs+=("${name}")
@@ -156,33 +171,33 @@ if [[ "${EVAL_ONLY}" -eq 1 ]]; then
     done
 else
     # --------------------------------------------------------------------------
-    step "3/8 SFT pre-flight (builds everything, trains nothing)"
-    run "${PYTHON}" scripts/03_train_sft.py --run-name "${SFT_RUN}" --dry-run
+    step "4/9 SFT pre-flight (builds everything, trains nothing)"
+    run "${PYTHON}" scripts/04_train_sft.py --run-name "${SFT_RUN}" --dry-run
 
-    step "4/8 SFT training"
-    run "${PYTHON}" scripts/03_train_sft.py --run-name "${SFT_RUN}" \
+    step "5/9 SFT training"
+    run "${PYTHON}" scripts/04_train_sft.py --run-name "${SFT_RUN}" \
         ${train_args[@]+"${train_args[@]}"}
 
-    step "5/8 evaluate the SFT adapter"
-    run "${PYTHON}" scripts/05_evaluate.py \
+    step "6/9 evaluate the SFT adapter"
+    run "${PYTHON}" scripts/06_evaluate.py \
         --run-name "${SFT_RUN}" --adapter "runs/${SFT_RUN}/adapter" \
         ${eval_args[@]+"${eval_args[@]}"}
     compare_runs+=("${SFT_RUN}")
 
-    step "6/8 DPO training on top of the SFT adapter"
-    run "${PYTHON}" scripts/04_train_dpo.py --run-name "${DPO_RUN}" \
+    step "7/9 DPO training on top of the SFT adapter"
+    run "${PYTHON}" scripts/05_train_dpo.py --run-name "${DPO_RUN}" \
         --sft-adapter "runs/${SFT_RUN}/adapter" \
         ${train_args[@]+"${train_args[@]}"}
 
-    step "7/8 evaluate the DPO adapter"
-    run "${PYTHON}" scripts/05_evaluate.py \
+    step "8/9 evaluate the DPO adapter"
+    run "${PYTHON}" scripts/06_evaluate.py \
         --run-name "${DPO_RUN}" --adapter "runs/${DPO_RUN}/adapter" \
         ${eval_args[@]+"${eval_args[@]}"}
     compare_runs+=("${DPO_RUN}")
 fi
 
 # --------------------------------------------------------------------------
-step "8/8 comparison"
+step "9/9 comparison"
 comparable=()
 for name in "${compare_runs[@]}"; do
     if [[ "${DRY_RUN}" -eq 1 ]] || has_metrics "${name}"; then
@@ -192,14 +207,14 @@ for name in "${compare_runs[@]}"; do
     fi
 done
 if [[ "${#comparable[@]}" -ge 2 ]]; then
-    run "${PYTHON}" scripts/06_compare.py --runs "${comparable[@]}"
+    run "${PYTHON}" scripts/07_compare.py --runs "${comparable[@]}"
 else
     note "fewer than two evaluated runs; nothing to compare."
 fi
 
 if [[ "${EVAL_ONLY}" -eq 0 ]]; then
     step "export: merge the DPO adapter into bf16 weights"
-    run "${PYTHON}" scripts/07_export_merge.py --run-name "${DPO_RUN}" \
+    run "${PYTHON}" scripts/08_export_merge.py --run-name "${DPO_RUN}" \
         ${train_args[@]+"${train_args[@]}"}
 fi
 

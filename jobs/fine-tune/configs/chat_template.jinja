@@ -1,1 +1,94 @@
-{% for message in messages %}{% if message['role'] == 'system' %}{{ '<|system|>' + message['content'] }}{% if 'tools' in message and message['tools'] is not none %}{{ '<|tool|>' + message['tools'] + '<|/tool|>' }}{% endif %}{{ '<|end|>' }}{% endif %}{% endfor %}{% for message in messages %}{% if message['role'] != 'system' %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% else %}{{ eos_token }}{% endif %}
+{#- Cosimo chat template.
+
+     Structure, markers and eos behaviour follow the Phi-4 vendor template minus
+     its hardcoded vendor identity preamble, which contradicts the identity being
+     trained. (The preamble is quoted verbatim in cosimo_ft/chat.py and in
+     tests/conftest.py, which assert it survives nowhere; it is deliberately not
+     repeated in this file, because those assertions read this file's text.)
+
+     TOOL CALLING (for the LangGraph -> ChatOpenAI -> vLLM serving path):
+
+     * `tools` arrives as a TOP-LEVEL variable. That is what
+       transformers' apply_chat_template(..., tools=[...]) populates, and
+       therefore what vLLM's OpenAI server passes through from the request's
+       `tools` parameter. The vendor template read `message['tools']` instead --
+       a per-message key nothing ever sets -- so tool schemas were silently
+       dropped and the model answered as though no tools existed. That key is
+       still honoured as a fallback, but nothing in the harness sets it.
+
+     * Assistant tool calls render as <tool_call>{"name":..,"arguments":{..}}</tool_call>,
+       which is what vLLM's `--tool-call-parser hermes` reads back off the
+       generated text. The markers are ordinary text, not special tokens: adding
+       special tokens would require an embedding resize, and LoRA targets only
+       the projections (configs/sft.yaml), so new embedding rows would never
+       train.
+
+     * Tool results render as a <|user|> turn wrapping <tool_response>. Using the
+       user marker is deliberate: unsloth's train_on_responses_only splits on
+       chat.instruction_part / chat.response_part, so in a multi-turn tool
+       conversation every assistant turn stays supervised and every tool result
+       stays masked, with no change to the masking configuration.
+
+     A [system, user] conversation with no tools renders byte-identically to the
+     pre-tool-calling version of this template, so already-prepared data and the
+     FakeTokenizer in tests/conftest.py are unaffected.
+-#}
+{%- set ns = namespace(system_seen=false) -%}
+{%- for message in messages -%}
+{%- if message['role'] == 'system' -%}
+{{- '<|system|>' -}}
+{%- if 'content' in message and message['content'] -%}
+{{- message['content'] -}}
+{%- endif -%}
+{%- if tools and not ns.system_seen -%}
+{{- '<|tool|>' + (tools | tojson) + '<|/tool|>' -}}
+{%- elif 'tools' in message and message['tools'] -%}
+{{- '<|tool|>' + message['tools'] + '<|/tool|>' -}}
+{%- endif -%}
+{%- set ns.system_seen = true -%}
+{{- '<|end|>' -}}
+{%- endif -%}
+{%- endfor -%}
+{#- Tools bound without any system message would otherwise be dropped, which is
+    the exact failure this template was changed to fix. -#}
+{%- if tools and not ns.system_seen -%}
+{{- '<|system|><|tool|>' + (tools | tojson) + '<|/tool|><|end|>' -}}
+{%- endif -%}
+{%- for message in messages -%}
+{%- if message['role'] == 'tool' -%}
+{{- '<|user|><tool_response>' -}}
+{%- if 'name' in message and message['name'] -%}
+{{- {'name': message['name'], 'content': message['content']} | tojson -}}
+{%- else -%}
+{{- {'content': message['content']} | tojson -}}
+{%- endif -%}
+{{- '</tool_response><|end|>' -}}
+{%- elif message['role'] != 'system' -%}
+{{- '<|' + message['role'] + '|>' -}}
+{%- if 'content' in message and message['content'] -%}
+{{- message['content'] -}}
+{%- endif -%}
+{%- if 'tool_calls' in message and message['tool_calls'] -%}
+{%- for call in message['tool_calls'] -%}
+{#- OpenAI wire shape is {"function": {"name", "arguments"}}; transformers and
+    LangChain both also emit the flattened {"name", "args"} shape locally. -#}
+{%- set fn = call['function'] if 'function' in call else call -%}
+{%- set fn_args = fn['arguments'] if 'arguments' in fn else fn['args'] -%}
+{{- '<tool_call>{"name": ' + (fn['name'] | tojson) + ', "arguments": ' -}}
+{#- `arguments` is a JSON *string* on the OpenAI wire and a mapping locally. -#}
+{%- if fn_args is string -%}
+{{- fn_args -}}
+{%- else -%}
+{{- fn_args | tojson -}}
+{%- endif -%}
+{{- '}</tool_call>' -}}
+{%- endfor -%}
+{%- endif -%}
+{{- '<|end|>' -}}
+{%- endif -%}
+{%- endfor -%}
+{%- if add_generation_prompt -%}
+{{- '<|assistant|>' -}}
+{%- else -%}
+{{- eos_token -}}
+{%- endif -%}

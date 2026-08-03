@@ -1,5 +1,5 @@
 # ORPO defaults, layered on top of configs/base.yaml.
-# Consumed by scripts/04b_train_orpo.py. ORPO is the documented *alternative* to
+# Consumed by scripts/05b_train_orpo.py. ORPO is the documented *alternative* to
 # the default SFT -> DPO pipeline: one stage, one adapter, trained from the base
 # model on preference pairs. It folds the supervised NLL term and the odds-ratio
 # preference term into a single loss, so it needs no reference model and no
@@ -72,19 +72,20 @@ orpo:
   max_steps: -1
 
   # As DPO: chosen and rejected are both forward-propagated every step, so the
-  # activation cost per sequence is several times an SFT step's.
-  per_device_train_batch_size: 2
+  # activation cost per sequence is several times an SFT step's. Halved from 2
+  # when model.max_seq_length went 2048 -> 8192.
+  per_device_train_batch_size: 1
 
-  # 2 x 8 = effective batch 16 pairs, matching DPO so the two runs see the same
+  # 1 x 16 = effective batch 16 pairs, matching DPO so the two runs see the same
   # number of pairs per optimizer step.
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 16
 
   # Forward-only, but each eval item still carries the ~600-token identity
-  # prefix on both candidates, so this drops from 4 alongside the longer prompts.
-  per_device_eval_batch_size: 2
+  # prefix on both candidates, so this drops alongside the longer prompts.
+  per_device_eval_batch_size: 1
 
   # Total prompt+completion budget, matching model.max_seq_length in base.yaml.
-  max_length: 2048
+  max_length: 8192
 
   # Raised from 768, which was actively dangerous. The rendered prompt carries the
   # identity block (~600 tokens) plus the question (~50-500), so it runs ~650-1150
@@ -93,22 +94,22 @@ orpo:
   # exactly where the identity block lives. At 768 every long-vignette pair would
   # have trained against a persona-less prompt that does not match serving.
   #
-  # 1408 is an ESTIMATE, not a measurement: nothing in the harness reports
-  # prompt-only token lengths (01_prepare_data.py's percentiles cover
-  # prompt+completion). The pre-flight truncation scan in 04b_train_orpo.py prints
-  # the observed prompt p99/max and how many rows hit this cap -- read it on the
-  # first dry run and raise this if it is biting.
-  max_prompt_length: 1408
+  # 6144 is deliberately far above the ~650-1150 tokens a rendered exam prompt
+  # actually needs. With max_length at 8192 the cap costs nothing when it is not
+  # binding, and the failure it prevents is silent and severe. The pre-flight
+  # truncation scan in 05b_train_orpo.py prints the observed prompt p99/max and
+  # how many rows hit this cap -- read it on the first dry run.
+  max_prompt_length: 6144
   # Matches configs/dpo.yaml so the two paths stay comparable.
 
-  # 2048 - 1408. Reasoning traces plus the FINAL ANSWER line run ~150-400 tokens,
-  # so 640 should be comfortable -- but note the failure mode: completions are cut
+  # 8192 - 6144. Reasoning traces plus the FINAL ANSWER line run ~150-400 tokens,
+  # so 2048 is generous -- but note the failure mode: completions are cut
   # as chosen[:max_completion_length] (dpo_trainer.py:740-742), i.e. from the
   # RIGHT, so an over-long completion loses its trailing FINAL ANSWER line. That
   # is the one place chosen and rejected differ, so tail truncation can make a
   # pair identical and its preference gradient degenerate. The pre-flight scan
   # counts both the rows at this cap and any identical pairs it produced.
-  max_completion_length: 640
+  max_completion_length: 2048
 
   # NOTE: this does NOT control prompt truncation. The prompt is cut from the left
   # unconditionally at max_prompt_length (dpo_trainer.py:738,

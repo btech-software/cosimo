@@ -14,9 +14,9 @@ real run into a throwaway directory, which is what actually exercises the
 forward/backward path:
 
 Example:
-    ./scripts/03_train_sft.py --dry-run
-    ./scripts/03_train_sft.py --run-name sft_smoke --set sft.max_steps=5 --force
-    ./scripts/03_train_sft.py --run-name sft
+    ./scripts/04_train_sft.py --dry-run
+    ./scripts/04_train_sft.py --run-name sft_smoke --set sft.max_steps=5 --force
+    ./scripts/04_train_sft.py --run-name sft
 
 If the smoke run fails inside compute_loss with logits that are missing or a
 sentinel, set UNSLOTH_RETURN_LOGITS=1: Unsloth's compiled forward can skip
@@ -51,6 +51,7 @@ from trl import SFTConfig, SFTTrainer  # noqa: E402
 from cosimo_ft import chat  # noqa: E402
 from cosimo_ft import config as config_mod  # noqa: E402
 from cosimo_ft import modeling  # noqa: E402
+from cosimo_ft import tools as tools_mod  # noqa: E402
 from cosimo_ft.runlog import RunDir  # noqa: E402
 
 logger = logging.getLogger("train_sft")
@@ -125,16 +126,37 @@ def install_chat_template(tokenizer: Any, cfg: dict) -> None:
         )
 
 
-def load_jsonl_split(path: str, label: str) -> Any:
-    """Load one prepared JSONL file as a datasets.Dataset."""
-    resolved = config_mod.harness_path(path)
-    if not resolved.is_file():
-        raise SystemExit(
-            f"missing {label} file: {resolved}\n"
-            "Run scripts/01_prepare_data.py first, or point at another file with "
-            f"--{label.replace('_', '-')} / --set sft.{label}=<path>."
-        )
-    return load_dataset("json", data_files=str(resolved), split="train")
+def load_jsonl_split(path: str | list[str], label: str) -> Any:
+    """Load the prepared JSONL file(s) for one split as a datasets.Dataset.
+
+    A list is concatenated, which is how the synthetic tool-calling rows from
+    scripts/02_prepare_tool_data.py are mixed into the exam corpus. Every listed
+    file must exist; an empty one (01b writes those when tools.enabled is false)
+    is skipped with a log line rather than silently, because "the tool rows are
+    missing" and "the tool rows are empty" are different problems.
+    """
+    paths = [path] if isinstance(path, str) else list(path)
+    if not paths:
+        raise SystemExit(f"{label} is empty; nothing to load")
+
+    resolved_paths = []
+    for entry in paths:
+        resolved = config_mod.harness_path(entry)
+        if not resolved.is_file():
+            raise SystemExit(
+                f"missing {label} file: {resolved}\n"
+                "Run scripts/01_prepare_data.py (and scripts/02_prepare_tool_data.py "
+                "for the tool-calling rows) first, or point at another file with "
+                f"--{label.replace('_', '-')} / --set sft.{label}=<path>."
+            )
+        if resolved.stat().st_size == 0:
+            logger.warning("%s is empty; skipping it", resolved)
+            continue
+        resolved_paths.append(str(resolved))
+
+    if not resolved_paths:
+        raise SystemExit(f"every {label} file is empty: {paths}")
+    return load_dataset("json", data_files=resolved_paths, split="train")
 
 
 def as_int_list(values: Any) -> list[int]:
@@ -172,16 +194,21 @@ def resolve_masking_report(
     questions: list[str],
     instruction_part: str,
     response_part: str,
+    index: int = 0,
 ) -> dict:
-    """Decode the supervised and unsupervised spans of the first training example.
+    """Decode the supervised and unsupervised spans of one training example.
 
     ``train_on_responses_only`` may drop fully masked rows, so the source record
     of ``train_dataset[0]`` is located by finding which of the first
     ``ALIGNMENT_WINDOW`` questions appears in the fully decoded sequence. The
     question is used for the human-readable report only; correctness is asserted
     structurally against the marker token ids.
+
+    ``index`` selects the row: 0 is the first (exam) row, and the last row is used
+    to verify the synthetic tool-calling conversations, whose masking is a
+    different shape -- several assistant turns with a tool result between them.
     """
-    example = trainer.train_dataset[0]
+    example = trainer.train_dataset[index]
     if "labels" not in example:
         raise RuntimeError(
             "train_on_responses_only did not add a 'labels' column to the training "
@@ -234,6 +261,10 @@ def resolve_masking_report(
         "instruction_marker_in_supervised": instruction_in_supervised,
         "response_part": response_part,
         "instruction_part": instruction_part,
+        # A synthetic tool row from 02_prepare_tool_data.py. Identified by the
+        # schema markers in the prompt, which every tool row carries -- unlike
+        # <tool_call>, which the tools.no_call_rate rows deliberately lack.
+        "is_tool_row": tools_mod.TOOL_SCHEMA_OPEN in tokenizer.decode(input_ids),
     }
 
 
@@ -252,7 +283,11 @@ def check_masking(report: dict, tag: str) -> None:
             "survives truncation."
         )
 
-    if tag not in supervised:
+    # Tool rows are rendered with exam=False and carry no final-answer tag by
+    # design: the FINAL ANSWER contract is an exam-grading artefact and must not
+    # leak into a tool-mediated answer. Their supervised span is checked
+    # structurally below, like every other row.
+    if not report["is_tool_row"] and tag not in supervised:
         raise RuntimeError(
             f"the supervised span does not contain the final-answer tag {tag!r}.\n"
             "Either the completion was truncated before its last line (raise "
@@ -307,20 +342,28 @@ def truncation_report(trainer: Any, tokenizer: Any, max_length: int, tag: str) -
     n = min(TRUNCATION_SAMPLE, len(dataset))
     at_cap = 0
     missing_tag = 0
+    tool_rows = 0
     for i in range(n):
         row = dataset[i]
         input_ids = as_int_list(row["input_ids"])
         labels = as_int_list(row["labels"])
         if len(input_ids) >= max_length:
             at_cap += 1
+        # Tool rows carry no final-answer tag by design, so counting them as
+        # truncated would report a fabricated truncation rate.
+        if tools_mod.TOOL_SCHEMA_OPEN in tokenizer.decode(input_ids):
+            tool_rows += 1
+            continue
         supervised = [t for t, lab in zip(input_ids, labels) if lab != -100]
         if tag not in tokenizer.decode(supervised):
             missing_tag += 1
+    scored = n - tool_rows
     return {
         "sampled": n,
         "at_length_cap": at_cap,
+        "tool_rows": tool_rows,
         "missing_final_answer": missing_tag,
-        "missing_rate": (missing_tag / n) if n else 0.0,
+        "missing_rate": (missing_tag / scored) if scored else 0.0,
     }
 
 
@@ -328,7 +371,8 @@ def print_truncation_report(report: dict, max_length: int) -> None:
     print(
         f"truncation scan: {report['at_length_cap']}/{report['sampled']} rows at the "
         f"{max_length}-token cap, {report['missing_final_answer']} without a "
-        "final-answer tag in the supervised span"
+        "final-answer tag in the supervised span "
+        f"({report['tool_rows']} tool rows excluded, they carry no tag by design)"
     )
     if report["missing_rate"] > TRUNCATION_WARN_RATE:
         logger.warning(
@@ -522,6 +566,31 @@ def main() -> None:
     print_masking_report(report)
     check_masking(report, tag)
     logger.info("response-only masking verified on the first training example")
+
+    # The tool rows are appended after the exam corpus (configs/sft.yaml lists
+    # them second), so the last row is one of them. Their masking is a different
+    # shape -- two assistant turns with a tool result between them -- and it is
+    # only correct because the chat template renders that tool result as a
+    # <|user|> turn, which is what train_on_responses_only masks on. That is
+    # load-bearing and unproven at this point in the run, so it is checked rather
+    # than assumed.
+    tail_report = resolve_masking_report(
+        trainer,
+        tokenizer,
+        list(questions),
+        instruction_part,
+        response_part,
+        index=len(trainer.train_dataset) - 1,
+    )
+    if tail_report["is_tool_row"]:
+        check_masking(tail_report, tag)
+        logger.info("response-only masking verified on a tool-calling example")
+    else:
+        logger.warning(
+            "the last training row is not a tool-calling example, so multi-turn "
+            "tool masking was not verified. Did scripts/02_prepare_tool_data.py "
+            "run, and is tools.enabled true?"
+        )
 
     max_length = int(config_mod.get(cfg, "model.max_seq_length", 2048))
     trunc = truncation_report(trainer, tokenizer, max_length, tag)
