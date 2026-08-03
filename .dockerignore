@@ -1,0 +1,44 @@
+# Build context for docker/app/ and docker/fine-tune/ is the repository root, so everything below
+# is tarred and sent to the daemon on every build unless excluded here.
+#
+# docker/fine-tune/Dockerfile copies only pyproject.toml; docker/app/Dockerfile copies
+# pyproject.toml, uv.lock, cosimo/ and config-docker.yml. Nothing else is needed by either build.
+#
+# The entries that actually matter are jobs/fine-tune/data and jobs/fine-tune/runs: they are
+# written inside the context by the harness (tokenized datasets, checkpoints, and a ~7.6 GB merged
+# bf16 export), so without this file every rebuild after a training run ships tens of GB to the
+# daemon before the first layer is even considered.
+
+# Version control and IDE state
+.git
+.github
+.gitignore
+.idea
+.vscode
+.pre-commit-config.yaml
+
+# Local environments and caches
+.venv
+.env
+.claude
+.pytest_cache
+.ruff_cache
+.coverage
+coverage.xml
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+
+# Generated fine-tuning artifacts: datasets, checkpoints, adapters, merged exports (tens of GB)
+jobs/fine-tune/data
+jobs/fine-tune/runs
+
+# Dataset generation inputs/outputs; the image builds and trains from the Hub, never from these
+dataset/
+
+# Documentation and local scratch
+docs/
+tmp/
+temp-*
+docker-volumes/
+*.db
