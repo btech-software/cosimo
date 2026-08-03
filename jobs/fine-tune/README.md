@@ -552,6 +552,19 @@ work on this hardware. The smoke test tells you whether it actually does *on you
 rely on it. If it fails, stay on bf16; you lose nothing, because 128 GB of unified memory makes
 quantizing a 3.8 B model pointless.
 
+### `04_train_sft.py` fails in `attach_lora` with "incompatible version of torchao"
+
+```
+ImportError: Found an incompatible version of torchao. Found version 0.14.0+git,
+but only versions above 0.16.0 are supported
+```
+
+The NGC base image ships torchao 0.14.0+git; `peft==0.20.0` wants >0.16.0 and *raises* rather than
+returning False, from a dispatcher PEFT walks for every LoRA target module — so adapter injection
+dies even though the default path uses no quantization at all. The Dockerfile removes torchao for
+this reason. **Rebuild the image** (`bash docker/fine-tune/build.sh`) if you built it before that
+change; the fix is not in an already-built image.
+
 ### Out of memory on a 128 GB machine
 
 Host and GPU **share** the 128 GB. Host page cache counts against you, so a training run that fits

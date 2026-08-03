@@ -62,6 +62,23 @@ RUN set -eux \
  && python /usr/local/bin/torch_arch_guard.py --stage "the dependency group" \
       --expect-torch-version "$(cat /tmp/torch-version-before)"
 
+# torchao is removed, and the training path never uses it. The NGC base image ships torchao
+# 0.14.0+git (a source build tied to its torch), while peft 0.20.0 requires >0.16.0 and its
+# is_torchao_available() RAISES ImportError on an older one instead of returning False. PEFT calls
+# it from dispatch_torchao(), which sits in the unconditional dispatcher chain walked for every
+# LoRA target module, so get_peft_model() dies during adapter injection even on a pure bf16 run
+# with no quantization anywhere:
+#   ImportError: Found an incompatible version of torchao. Found version 0.14.0+git, ...
+# Removing the package makes find_spec("torchao") return None, which is the one branch of that
+# check that exits cleanly. Every torchao import in unsloth is already guarded (find_spec or
+# try/except) and transformers uses its own non-raising probe, so nothing else regresses.
+# The alternative -- upgrading torchao to >=0.16.0 -- would pull a PyPI torch and destroy the
+# aarch64 CUDA 13 build, which is exactly what the guard below exists to prevent.
+RUN set -eux \
+ && pip uninstall -y torchao \
+ && python /usr/local/bin/torch_arch_guard.py --stage "the torchao removal" \
+      --expect-torch-version "$(cat /tmp/torch-version-before)"
+
 # unsloth and unsloth_zoo are installed with --no-deps and are intentionally NOT part of the locked
 # dependency group: their declared dependencies (torch, bitsandbytes, transformers bounds) conflict
 # with the NGC-tuned stack and cannot be co-resolved by uv. --no-deps is what protects the NGC torch
