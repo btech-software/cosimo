@@ -299,7 +299,7 @@ MIT. Attribution appreciated:
 
 ```bibtex
 @misc{cosimo2026,
-  title  = {Cosimo: A Synthetic, Code-Verified CFA/FRM Financial Reasoning Dataset},
+  title  = {Cosimo Financial Dataset: A Synthetic, Code-Verified CFA/FRM Financial Reasoning Dataset},
   author = {Sant'Anna, Bruno},
   year   = {2026},
   url    = {https://huggingface.co/datasets/btech-software/cosimo-cfa-frm-71k}
