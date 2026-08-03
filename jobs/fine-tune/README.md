@@ -25,7 +25,7 @@ Default pipeline: **LoRA SFT → DPO**, with a complete **ORPO** single-stage al
 | `scripts/` | The numbered pipeline, `00` … `07` |
 | `tests/` | CPU-only unit tests (no GPU, no network, no torch) |
 | `run_all.sh` | Thin orchestrator that chains the documented commands |
-| `../../docker/fine-tune/` | `Dockerfile`, `build.sh`, `run.sh` — the only supported environment |
+| `../../docker/fine-tune/` | `Dockerfile`, `build.sh`, `run.sh`, `torch_arch_guard.py` — the only supported environment |
 
 Generated and gitignored: `data/` (prepared JSONL + `split_manifest.json`) and `runs/`
 (adapters, checkpoints, merged weights, generations, metrics, TensorBoard logs).
@@ -462,10 +462,17 @@ Unsloth/PEFT**. Treat it as an inference-only comparison point, never as a train
 
 ### `00_check_env.py` reports a hard failure
 
-It exits 1 only on things that make the rest pointless: no CUDA, a torch build without sm_121, a
-Triton kernel that will not run, `import unsloth` failing, or a version mismatch on
-transformers / trl / unsloth. Fix those before anything else; the report is written to
-`runs/env_check.json` either way.
+It exits 1 only on things that make the rest pointless: no CUDA, a torch build carrying no
+architecture a GB10 can run, a Triton kernel that will not run, `import unsloth` failing, or a
+version mismatch on transformers / trl / unsloth. Fix those before anything else; the report is
+written to `runs/env_check.json` either way.
+
+On the "arch list" check specifically: a GB10 is sm_121, but the torch does **not** need literal
+`sm_121` cubins. CUDA guarantees binary compatibility from one minor revision to the next within a
+major architecture, so `sm_120` cubins execute on an sm_121 device, with `compute_120` PTX as the
+JIT fallback. `nvcr.io/nvidia/pytorch:25.11-py3` ships `sm_80/86/90/100/110/120 + compute_120` and
+no literal `sm_121`, and it runs bf16 matmuls, Triton kernels and bitsandbytes 4-bit linears on a
+Spark. The check accepts any of `sm_121`, `sm_120`, `compute_121`, `compute_120`.
 
 ### The bitsandbytes 4-bit smoke test fails
 
@@ -529,7 +536,12 @@ error rather than a note.
 ### The Docker build fails with "the … install replaced the NGC torch"
 
 Working as intended: something in the dependency group tried to pull a PyPI torch, which would
-destroy the aarch64 CUDA 13 build for sm_121. Do not remove the guard — fix the pin.
+destroy the aarch64 CUDA 13 build for a GB10. Do not remove the guard — fix the pin.
+
+The guard is `docker/fine-tune/torch_arch_guard.py`, run after every stage that could disturb
+torch. It reads `torch._C._cuda_getArchFlags()` rather than `torch.cuda.get_arch_list()`: the
+public wrapper returns `[]` when `torch.cuda.is_available()` is False, and there is no CUDA driver
+inside `docker build`, so a `get_arch_list()` check can never pass at build time.
 
 ---
 
