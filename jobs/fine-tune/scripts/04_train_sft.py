@@ -159,6 +159,18 @@ def load_jsonl_split(path: str | list[str], label: str) -> Any:
     return load_dataset("json", data_files=resolved_paths, split="train")
 
 
+def split_files_present(path: str | list[str]) -> bool:
+    """True when every file listed for an optional split exists.
+
+    `sft.val_file` is a list (exam rows plus tool rows), so the scalar
+    `harness_path(path).is_file()` check cannot be applied to it directly.
+    """
+    paths = [path] if isinstance(path, str) else list(path)
+    return bool(paths) and all(
+        config_mod.harness_path(entry).is_file() for entry in paths
+    )
+
+
 def as_int_list(values: Any) -> list[int]:
     """Normalize a labels/input_ids column entry to a plain list of ints."""
     if hasattr(values, "tolist"):
@@ -491,7 +503,7 @@ def main() -> None:
     val_path = args.val_file or config_mod.get(cfg, "sft.val_file")
     raw_train = load_jsonl_split(train_path, "train_file")
     raw_val = None
-    if val_path and config_mod.harness_path(val_path).is_file():
+    if val_path and split_files_present(val_path):
         raw_val = load_jsonl_split(val_path, "val_file")
     else:
         logger.warning("no validation file at %s; periodic eval disabled", val_path)
