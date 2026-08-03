@@ -28,17 +28,16 @@ ENV CPLUS_INCLUDE_PATH=${CUDA_HOME}/include:${CPLUS_INCLUDE_PATH}
 # pinned stack. It is extracted here with stdlib tomllib and never restated in this Dockerfile.
 COPY pyproject.toml /tmp/pyproject.toml
 
-# Base-image guard, run before anything is installed. The torch guard below only proves that the
-# torch we ended with is the torch we started with; it says nothing about whether that torch can
-# run on a GB10. These three assertions do, and none of them needs a GPU at build time:
-#   * sm_121 in torch.cuda.get_arch_list() - the compiled arch list is baked into the binary, so
-#     a base image without GB10 kernels is caught here instead of at the first kernel launch;
-#   * platform.machine() == aarch64 - an amd64 manifest pulled through an emulating builder
-#     (docker buildx on an x86 host, or a stale multi-arch tag) otherwise builds perfectly green
-#     and then dies on the Spark;
-#   * torch.version.cuda starting with 13 - a CUDA 12 torch would not match CUDA_HOME above.
+# The guard every stage below runs. It lives in a file rather than being inlined three times,
+# because two of the three inlined copies of it were wrong in the same two ways; see the module
+# docstring for what those were. It needs no GPU: `docker build` has no CUDA driver.
+COPY docker/fine-tune/torch_arch_guard.py /usr/local/bin/torch_arch_guard.py
+
+# Base-image guard, run before anything is installed. The version-comparing guards below only
+# prove that the torch we ended with is the torch we started with; they say nothing about whether
+# that torch can run on a GB10 at all. This one does.
 RUN set -eux \
- && python -c 'import platform, sys, torch; archs = list(torch.cuda.get_arch_list()); machine = platform.machine(); cuda = torch.version.cuda or ""; problems = ([] if "sm_121" in archs else ["torch %s was not compiled for sm_121 (arch list: %s); a GB10 Grace Blackwell cannot run it" % (torch.__version__, ", ".join(archs) or "empty")]) + ([] if machine == "aarch64" else ["this image is %s, not aarch64; an amd64 manifest was pulled (emulating builder or stale multi-arch tag)" % machine]) + ([] if cuda.startswith("13") else ["torch reports CUDA %s, expected 13.x to match CUDA_HOME" % (cuda or "none")]); problems and sys.exit("FATAL: wrong base image for a DGX Spark:\n  - " + "\n  - ".join(problems)); print("base image ok: torch %s, cuda %s, %s, arch list %s" % (torch.__version__, cuda, machine, ", ".join(archs)))'
+ && python /usr/local/bin/torch_arch_guard.py --stage "base image"
 
 # Plain pip, deliberately NOT `uv pip install --group`: pip accepts the pre-installed NGC
 # pre-release torch as already satisfying the transitive `torch>=...` requirements of
@@ -47,7 +46,7 @@ RUN set -eux \
 #
 # torch guard: the NGC torch version is recorded before the install and compared after. A silently
 # swapped torch is the single most damaging failure mode for this image and must break the build.
-# The sm_121 arch list is re-checked with it, so a same-version-different-wheel swap is caught too.
+# The arch list is re-checked with it, so a same-version-different-wheel swap is caught too.
 #
 # bitsandbytes is pinned to 0.49.2 in the group, NOT to the 0.48.0 used by Unsloth's own DGX Spark
 # Dockerfile: unsloth's metadata excludes exactly 0.46.0 and 0.48.0, and `uv lock` proves 0.48.0
@@ -60,7 +59,8 @@ RUN set -eux \
  && python -c 'import pathlib, sys, tomllib; groups = tomllib.loads(pathlib.Path("/tmp/pyproject.toml").read_text()).get("dependency-groups", {}); reqs = groups.get("fine-tune") or sys.exit("FATAL: pyproject.toml has no [dependency-groups] fine-tune group"); pathlib.Path("/tmp/fine-tune-requirements.txt").write_text("\n".join(reqs) + "\n")' \
  && cat /tmp/fine-tune-requirements.txt \
  && pip install --no-cache-dir -r /tmp/fine-tune-requirements.txt \
- && python -c 'import pathlib, sys, torch; before = pathlib.Path("/tmp/torch-version-before").read_text().strip(); before == torch.__version__ or sys.exit("FATAL: the dependency-group install replaced the NGC torch %s with %s. The aarch64 CUDA 13 build for sm_121 is gone; do not ship this image." % (before, torch.__version__)); "sm_121" in torch.cuda.get_arch_list() or sys.exit("FATAL: torch still reports %s but no longer carries sm_121 kernels; the wheel was swapped underneath the version string." % torch.__version__); print("torch guard ok after dependency group: " + torch.__version__)'
+ && python /usr/local/bin/torch_arch_guard.py --stage "the dependency group" \
+      --expect-torch-version "$(cat /tmp/torch-version-before)"
 
 # unsloth and unsloth_zoo are installed with --no-deps and are intentionally NOT part of the locked
 # dependency group: their declared dependencies (torch, bitsandbytes, transformers bounds) conflict
@@ -73,7 +73,8 @@ RUN set -eux \
 # It is the resolved transitive closure, which pyproject.toml's direct pins do not record.
 RUN set -eux \
  && pip install --no-deps --no-cache-dir unsloth==2026.8.1 unsloth_zoo==2026.8.1 \
- && python -c 'import pathlib, sys, torch; before = pathlib.Path("/tmp/torch-version-before").read_text().strip(); before == torch.__version__ or sys.exit("FATAL: the unsloth install replaced the NGC torch %s with %s. The aarch64 CUDA 13 build for sm_121 is gone; do not ship this image." % (before, torch.__version__)); "sm_121" in torch.cuda.get_arch_list() or sys.exit("FATAL: torch still reports %s but no longer carries sm_121 kernels; the wheel was swapped underneath the version string." % torch.__version__); print("torch guard ok after unsloth: " + torch.__version__)' \
+ && python /usr/local/bin/torch_arch_guard.py --stage "the unsloth install" \
+      --expect-torch-version "$(cat /tmp/torch-version-before)" \
  && mkdir -p /opt/cosimo \
  && pip freeze > /opt/cosimo/pip-freeze.txt \
  && wc -l /opt/cosimo/pip-freeze.txt

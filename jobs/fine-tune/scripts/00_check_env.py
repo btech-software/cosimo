@@ -2,7 +2,7 @@
 """Verify the fine-tuning environment before anything expensive is run.
 
 Checks the interpreter, the CUDA device (a DGX Spark GB10 reports compute capability (12, 1) and
-the torch build must carry sm_121 in its compiled arch list), that a real Triton kernel compiles
+the torch build must carry an arch a GB10 can run), that a real Triton kernel compiles
 and launches, the installed versions against the pinned ``fine-tune`` dependency group in the
 repository ``pyproject.toml``, whether ``unsloth`` imports, whether a bitsandbytes 4-bit linear
 actually runs on this GPU, free disk space on both the harness and the ``HF_HOME`` filesystem, and
@@ -11,7 +11,7 @@ whether a Hugging Face token is reachable.
 Only stdlib is imported at module level and every other import is guarded, so this script still
 produces a useful report on a broken or CPU-only environment instead of raising. It writes
 ``runs/env_check.json``, prints a summary table, and exits 1 on a hard failure: no CUDA, a CUDA
-device query that raises, a torch build without sm_121, a Triton kernel that will not run,
+device query that raises, a torch with no GB10-runnable arch, a Triton kernel that will not run,
 ``import unsloth`` failing, a version mismatch on transformers / trl / unsloth, huggingface-hub
 1.x, or a report file that cannot be written.
 
@@ -42,7 +42,13 @@ REPO_ROOT = HARNESS_ROOT.parents[1]
 
 MIN_PYTHON = (3, 12)  # pyproject.toml requires-python
 EXPECTED_CAPABILITY = (12, 1)  # GB10 Grace Blackwell, sm_121
-EXPECTED_ARCH = "sm_121"  # must appear in torch.cuda.get_arch_list()
+
+# A GB10 is sm_121, but a torch does not need literal sm_121 cubins to run on it: CUDA guarantees
+# binary compatibility from one minor revision to the next within a major architecture, so sm_120
+# cubins execute on an sm_121 device, and compute_120 PTX is the JIT fallback. The NGC aarch64
+# image ships sm_80/86/90/100/110/120 + compute_120 and no literal sm_121, and runs bf16 matmuls
+# on a Spark. At least one of these must appear in torch.cuda.get_arch_list().
+GB10_RUNNABLE_ARCHS = ("sm_121", "sm_120", "compute_121", "compute_120")
 DEPENDENCY_GROUP = "fine-tune"
 
 # unsloth and unsloth_zoo are installed with --no-deps in docker/fine-tune/Dockerfile and are
@@ -271,7 +277,7 @@ def check_cuda() -> dict:
     # launch does. Kept separate from info["error"], which drives the device-query verdict.
     try:
         info["arch_list"] = [str(arch) for arch in torch.cuda.get_arch_list()]
-        info["arch_ok"] = EXPECTED_ARCH in info["arch_list"]
+        info["arch_ok"] = bool(set(info["arch_list"]) & set(GB10_RUNNABLE_ARCHS))
     except Exception as exc:
         info["arch_error"] = f"torch.cuda.get_arch_list() raised: {exc}"
 
@@ -712,7 +718,8 @@ def evaluate(report: dict) -> tuple[list[str], list[str]]:
     if cuda["torch_installed"] and not cuda["arch_ok"]:
         failures.append(
             f"this torch ({cuda['torch_version']}, cuda {cuda['torch_cuda_version']}, "
-            f"{report['python']['machine']}) was not compiled for {EXPECTED_ARCH}: arch list "
+            f"{report['python']['machine']}) carries no architecture a GB10 can run "
+            f"({', '.join(GB10_RUNNABLE_ARCHS)}): arch list "
             f"{cuda['arch_list'] if cuda['arch_list'] is not None else cuda['arch_error']}. "
             "Every kernel launch on a GB10 will fail; the NGC aarch64 CUDA 13 torch has been "
             "replaced or the wrong base image was used"
@@ -843,7 +850,7 @@ def print_report(report: dict) -> None:
         (
             "torch arch list",
             state(bool(cuda["arch_ok"])) if cuda["torch_installed"] else "WARN",
-            f"{EXPECTED_ARCH} {'present' if cuda['arch_ok'] else 'MISSING'} in "
+            f"GB10-runnable arch {'present' if cuda['arch_ok'] else 'MISSING'} in "
             f"{cuda['arch_list'] if cuda['arch_list'] is not None else cuda['arch_error']}"
             if cuda["torch_installed"]
             else "torch not installed",
