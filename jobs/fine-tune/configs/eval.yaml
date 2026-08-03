@@ -1,0 +1,49 @@
+# Evaluation defaults, layered on top of configs/base.yaml.
+# Used by scripts/02_baseline_eval.py and scripts/05_evaluate.py; every run
+# records the resolved config, so changing anything here changes the config
+# hash stored in metrics.json.
+eval:
+  # Suites evaluated when --suites is not given. The two cosimo suites are read
+  # from data/processed/ (produced by 01_prepare_data.py); gsm8k and math500 are
+  # downloaded from the Hub and exist to detect general-reasoning regression,
+  # not finance skill.
+  suites:
+    - cosimo_test          # held-out IID slice: the headline in-domain number
+    - cosimo_unseen_stems  # stem families excluded from all training: generalisation
+    - gsm8k                # grade-school math regression check
+    - math500              # competition math regression check
+
+  # Items per suite. null = evaluate every item in the suite. The math suites are
+  # subsampled because 250 items is enough to detect a meaningful regression and
+  # keeps a full evaluation to a sane wall clock. Subsampling is deterministic
+  # (seeded by the top-level `seed`), so every run scores the same items.
+  # cosimo_unseen_stems is sampled by default: the six held-out stem families are
+  # ~8.5% of 71k, i.e. ~6,000 items, which would dominate every evaluation (hours
+  # per model, multiplied by baseline/SFT/DPO). 1000 items is ample for the
+  # generalisation read; set it to null for a final, full-slice number.
+  samples:
+    cosimo_test: null
+    cosimo_unseen_stems: 1000
+    gsm8k: 250
+    math500: 250
+
+  # Decoding budget per item. 768 covers a full reasoning trace plus the
+  # FINAL ANSWER line with headroom; generations that hit this ceiling are
+  # counted in metrics.json as truncation_rate.
+  max_new_tokens: 768
+
+  # 0.0 = greedy decoding (do_sample=False). Evaluation must be deterministic so
+  # a base-vs-tuned delta is a model difference, not sampling noise.
+  temperature: 0.0
+
+  # Nucleus cutoff, only consulted when temperature > 0.
+  top_p: 1.0
+
+  # Prompts generated per forward pass. Prompts are bucketed by length before
+  # batching, so this trades unified memory for throughput; lower it first on OOM.
+  batch_size: 16
+
+  # Relative tolerance for numeric answer matching (0.1%). Loose enough to accept
+  # rounding differences in a multi-step calculation, tight enough that a wrong
+  # intermediate step still fails.
+  rel_tol: 1.0e-3

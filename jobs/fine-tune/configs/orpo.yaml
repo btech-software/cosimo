@@ -1,0 +1,160 @@
+# ORPO defaults, layered on top of configs/base.yaml.
+# Consumed by scripts/04b_train_orpo.py. ORPO is the documented *alternative* to
+# the default SFT -> DPO pipeline: one stage, one adapter, trained from the base
+# model on preference pairs. It folds the supervised NLL term and the odds-ratio
+# preference term into a single loss, so it needs no reference model and no
+# preceding SFT run. Use it when you want a second, independently trained
+# artifact to compare against the SFT -> DPO chain.
+#
+# Note: TRL 0.24.0 prints a deprecation warning on ORPOTrainer construction
+# (the trainer is a candidate for a move to trl.experimental). It is informational;
+# set TRL_EXPERIMENTAL_SILENCE=1 to suppress it.
+#
+# The identity block in configs/base.yaml adds ~600 tokens to the prompt half of
+# every pair. ORPO's loss reads only the completion tokens -- the identity is
+# unsupervised *context*, never a training target -- but it is still forward and
+# backward propagated for both candidates, so the persona roughly doubles the
+# cost of a step. That is the deliberate, accepted price of training under the
+# same prompt the model is served with; do not shrink the persona to buy speed.
+
+lora:
+  # Deliberately identical to configs/sft.yaml. ORPO only tells us something
+  # useful if the adapter geometry matches the SFT -> DPO chain it is being
+  # compared against; changing r or alpha here confounds the comparison.
+  r: 32
+  lora_alpha: 32
+  lora_dropout: 0.0
+  bias: none
+
+  # REQUIRED: unsloth/Phi-4-mini-reasoning has fused projections (qkv_proj,
+  # o_proj, gate_up_proj, down_proj). "auto" resolves them from the live module
+  # tree via modeling.resolve_target_modules.
+  target_modules: auto
+  use_rslora: false
+
+  # Unsloth's checkpointing offloads activations into unified memory, which is
+  # what makes a four-forward-pass step fit alongside a 2048-token batch.
+  use_gradient_checkpointing: unsloth
+
+orpo:
+  # Default run directory name under runs/. --run-name overrides it.
+  run_name: orpo
+
+  # Same preference files the DPO stage consumes, so the two paths are trained on
+  # exactly the same pairs and evaluated on exactly the same held-out slices.
+  train_file: data/processed/pref_train.jsonl
+  val_file: data/processed/pref_val.jsonl
+
+  # Weight of the odds-ratio preference term relative to the supervised NLL term.
+  # 0.1 is the value from the ORPO paper and TRL's default; higher values start
+  # to dominate the NLL term, and the NLL term is what teaches the FINAL ANSWER
+  # protocol in the absence of a preceding SFT stage.
+  beta: 0.1
+
+  # Between the SFT rate (2e-4) and the DPO rate (5e-6): the run starts from an
+  # untuned adapter, so it must actually learn the task, but half its gradient is
+  # a preference term that punishes a large step. 8e-6 is the ORPO paper's
+  # setting for this model scale.
+  learning_rate: 8.0e-6
+
+  # Cosine decay to ~0 over the single epoch, matching the other two stages.
+  lr_scheduler_type: cosine
+
+  # 10% warmup, as in DPO: the preference term is the destabilising one and it is
+  # active from step 0 here.
+  warmup_ratio: 0.1
+
+  # One epoch over the ~24.7k preference pairs. Note this is roughly a third of
+  # the SFT corpus, so ORPO sees far less supervised signal than SFT -> DPO does.
+  num_train_epochs: 1
+
+  # -1 = run the full epoch. Set positive for a smoke run.
+  max_steps: -1
+
+  # As DPO: chosen and rejected are both forward-propagated every step, so the
+  # activation cost per sequence is several times an SFT step's.
+  per_device_train_batch_size: 2
+
+  # 2 x 8 = effective batch 16 pairs, matching DPO so the two runs see the same
+  # number of pairs per optimizer step.
+  gradient_accumulation_steps: 8
+
+  # Forward-only, but each eval item still carries the ~600-token identity
+  # prefix on both candidates, so this drops from 4 alongside the longer prompts.
+  per_device_eval_batch_size: 2
+
+  # Total prompt+completion budget, matching model.max_seq_length in base.yaml.
+  max_length: 2048
+
+  # Raised from 768, which was actively dangerous. The rendered prompt carries the
+  # identity block (~600 tokens) plus the question (~50-500), so it runs ~650-1150
+  # tokens. TRL truncates an over-long prompt as prompt[-max_prompt_length:]
+  # (orpo_trainer.py:505) -- unconditionally, from the LEFT -- and the left is
+  # exactly where the identity block lives. At 768 every long-vignette pair would
+  # have trained against a persona-less prompt that does not match serving.
+  #
+  # 1408 is an ESTIMATE, not a measurement: nothing in the harness reports
+  # prompt-only token lengths (01_prepare_data.py's percentiles cover
+  # prompt+completion). The pre-flight truncation scan in 04b_train_orpo.py prints
+  # the observed prompt p99/max and how many rows hit this cap -- read it on the
+  # first dry run and raise this if it is biting.
+  max_prompt_length: 1408
+  # Matches configs/dpo.yaml so the two paths stay comparable.
+
+  # 2048 - 1408. Reasoning traces plus the FINAL ANSWER line run ~150-400 tokens,
+  # so 640 should be comfortable -- but note the failure mode: completions are cut
+  # as chosen[:max_completion_length] (dpo_trainer.py:740-742), i.e. from the
+  # RIGHT, so an over-long completion loses its trailing FINAL ANSWER line. That
+  # is the one place chosen and rejected differ, so tail truncation can make a
+  # pair identical and its preference gradient degenerate. The pre-flight scan
+  # counts both the rows at this cap and any identical pairs it produced.
+  max_completion_length: 640
+
+  # NOTE: this does NOT control prompt truncation. The prompt is cut from the left
+  # unconditionally at max_prompt_length (dpo_trainer.py:738,
+  # orpo_trainer.py:505); truncation_mode is consulted only later, on the already
+  # concatenated prompt+completion against max_length (dpo_trainer.py:1337-1356).
+  # So there is no "keep the identity instead" option -- the only lever on the
+  # prompt is max_prompt_length above. keep_end is TRL's default and is the right
+  # choice for the concatenated pass: it keeps the answer, which is what the loss
+  # reads. The pre-flight truncation scan reports whether either cap is actually
+  # biting; do not guess from these numbers.
+  truncation_mode: keep_end
+
+  # Deterministic forward passes; the odds-ratio term compares two sequences and
+  # dropout noise between them is indistinguishable from a preference signal.
+  disable_dropout: true
+
+  # See configs/sft.yaml: adamw_8bit is avoided to keep bitsandbytes off the
+  # critical path, not because it lacks sm_121 kernels (0.49.2 ships them).
+  optim: adamw_torch_fused
+
+  # Standard global-norm clip.
+  max_grad_norm: 1.0
+
+  # Native bf16 on Blackwell; the base checkpoint is already bf16.
+  bf16: true
+  fp16: false
+
+  # Unsloth installs its own checkpointing on the model, so TRL must not enable a
+  # second implementation on top of it.
+  gradient_checkpointing: false
+
+  # Mild decoupled weight decay, as in SFT: this run also trains the adapter from
+  # scratch, so the update norm can drift.
+  weight_decay: 0.01
+
+  logging_steps: 10
+  eval_strategy: steps
+  eval_steps: 250
+  save_strategy: steps
+  save_steps: 250
+  save_total_limit: 3
+
+  # Matches the other stages.
+  dataloader_num_workers: 4
+
+  # Worker count for TRL's tokenisation/prompt-extraction map passes.
+  dataset_num_proc: 4
+
+  seed: 3407

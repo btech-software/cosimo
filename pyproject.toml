@@ -17,6 +17,27 @@ dependencies = [
 packages = ["cosimo"]
 
 [dependency-groups]
+# Post-training stack for jobs/fine-tune, executed on an NVIDIA DGX Spark
+# (GB10 Grace Blackwell, aarch64, CUDA 13). torch is intentionally absent: it is
+# provided by the NGC base image (docker/fine-tune/Dockerfile) and must not be
+# replaced by a PyPI build. unsloth/unsloth_zoo are installed with --no-deps in
+# that Dockerfile because their metadata pins conflict with the NGC-tuned stack.
+# Version bounds are dictated by unsloth 2026.8.1: trl<=0.24.0, datasets<4.4.0,
+# peft>=0.18.0, bitsandbytes!=0.46.0,!=0.48.0.
+fine-tune = [
+    "transformers==4.56.2",
+    "trl==0.24.0",
+    "peft==0.20.0",
+    "datasets==4.3.0",
+    "accelerate==1.14.0",
+    "bitsandbytes==0.49.2 ; sys_platform == 'linux'",
+    "huggingface-hub>=0.34.0,<1.0",
+    "hf-transfer>=0.1.8",
+    "sentencepiece>=0.2.0",
+    "tensorboard==2.21.0",
+    "pyyaml>=6.0",
+    "tqdm>=4.66.0",
+]
 dev = [
     "pre-commit~=4.6.0",
     "ruff~=0.15.10",

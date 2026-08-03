@@ -1,0 +1,196 @@
+# Supervised fine-tuning defaults, layered on top of configs/base.yaml.
+# Consumed by scripts/03_train_sft.py. Every value below is recorded in
+# runs/<name>/resolved_config.yaml, so changing anything here changes the run.
+#
+# Token budget per example, measured against configs/base.yaml (estimates from
+# character counts; 01_prepare_data.py writes the real percentiles into
+# data/processed/split_manifest.json -- check them before trusting these):
+#   prompt.identity        ~550-640 tokens   (on 85% of training rows)
+#   prompt.identity_short  ~20 tokens        (on the 15% variation_rate rows)
+#   prompt.exam_protocol   ~45 tokens
+#   question               ~50-500 tokens    (vignettes are the long tail)
+#   completion             ~150-400 tokens
+# So a typical row is ~1200 tokens and a long one ~1600, against
+# model.max_seq_length 2048. That leaves real but not generous headroom, which
+# is why 03_train_sft.py prints a truncation scan during its pre-flight: a row
+# truncated past its FINAL ANSWER line still trains, it just teaches the model
+# to stop before answering. If that scan reports a non-trivial rate, raise
+# model.max_seq_length rather than shrinking the persona.
+#
+# Response-only masking means the identity block is unsupervised *context*, not
+# a training target: the model is never asked to reproduce those ~600 tokens, it
+# only ever conditions on them. They still cost forward and backward compute, so
+# throughput is roughly halved versus a bare instruction. That cost is the
+# deliberate price of binding the identity to every example.
+
+lora:
+  # Rank 32 over the four fused projections is ~46M trainable params, ~1.2% of the
+  # 3.8B base (32 layers x 32 x [(3072+5120) qkv + (3072+3072) o + (3072+16384)
+  # gate_up + (8192+3072) down]): enough capacity to
+  # learn the FINAL ANSWER protocol and the CFA/FRM calculation style, small
+  # enough that the optimizer state stays negligible against the 128 GB budget.
+  r: 32
+
+  # alpha == r gives a LoRA scale of 1.0. Keeping the scale at 1 means the
+  # learning rate below is the only thing controlling update size, which makes
+  # SFT and the later DPO stage comparable.
+  lora_alpha: 32
+
+  # No dropout: the dataset is 71k synthetic rows over only 71 generator stems,
+  # so the run is a single epoch and there is no time to overfit. Dropout would
+  # only add gradient noise. It also lets Unsloth take its fast fused LoRA path.
+  lora_dropout: 0.0
+
+  # Biases are not adapted; PEFT's "none" is the only setting that stays
+  # mergeable back into the base weights for scripts/07_export_merge.py.
+  bias: none
+
+  # "auto" makes modeling.resolve_target_modules read the live module tree.
+  # REQUIRED for this checkpoint: unsloth/Phi-4-mini-reasoning has *fused*
+  # projections (qkv_proj, o_proj, gate_up_proj, down_proj) and none of the usual
+  # q_proj/k_proj/v_proj/gate_proj/up_proj, so a hardcoded seven-module list
+  # would silently match nothing.
+  target_modules: auto
+
+  # Rank-stabilised LoRA rescales by 1/sqrt(r); at r=32 with alpha=r it changes
+  # the effective LR and would invalidate the tuned value below. Off by default.
+  use_rslora: false
+
+  # Unsloth's own checkpointing implementation offloads activations to the shared
+  # CPU/GPU memory pool. On unified memory that offload is nearly free, and it is
+  # what makes per_device_train_batch_size 8 at 2048 tokens fit at all.
+  use_gradient_checkpointing: unsloth
+
+sft:
+  # Default run directory name under runs/. --run-name overrides it.
+  run_name: sft
+
+  # Written by scripts/01_prepare_data.py. Paths resolve against the harness
+  # root ($H), never the current working directory.
+  train_file: data/processed/sft_train.jsonl
+  val_file: data/processed/sft_val.jsonl
+
+  # The column holding prompt+completion as one rendered string. The prompt part
+  # is masked out afterwards by unsloth's train_on_responses_only, not by TRL.
+  dataset_text_field: text
+
+  # Deliberately 4, not the spec's 8. Do NOT "optimise" this back without
+  # re-reading the arithmetic, which is not tight:
+  #
+  #   The dominant transient is the logits tensor, batch x seq x vocab in bf16:
+  #     batch 4: 4 x 2048 x 200064 x 2 B  ~= 3.3 GB, ~6.6 GB with TRL's
+  #              .contiguous() copy in compute_loss
+  #     batch 8: 8 x 2048 x 200064 x 2 B  ~= 6.6 GB, ~13 GB with the copy
+  #   Against 128 GB unified memory, even batch 8 fits with room to spare, so
+  #   this is a caution margin rather than a hard limit.
+  #
+  # The reason for taking it anyway: the identity block put ~600 more tokens on
+  # every example (measured: identity ~550-640, exam_protocol ~45), so a typical
+  # rendered row went from ~600 to ~1200 tokens. Padding is dynamic, so the
+  # steady-state activation footprint roughly doubled (8 x ~600 ~= 4.8k tokens
+  # before, 8 x ~1200 ~= 9.6k now) while the worst case stayed 8 x 2048 = 16.4k.
+  # GB10's 128 GB is shared with the host, so the headroom is competing with the
+  # page cache and the dataset. Starting conservative and raising it after a
+  # successful smoke run costs one short run; discovering the ceiling three hours
+  # into the real one costs the run.
+  #
+  # If the smoke run is comfortable, 8 with gradient_accumulation_steps 4 is the
+  # faster configuration and keeps the same effective batch.
+  per_device_train_batch_size: 4
+
+  # Raised from 4 to hold 4 x 8 = effective batch 32, unchanged. This matters:
+  # learning_rate below was chosen for an effective batch of 32, so the micro
+  # batch could be reduced without touching the optimization trajectory. Smaller
+  # micro-batches cost some GPU utilisation, not correctness.
+  gradient_accumulation_steps: 8
+
+  # Forward-only, so it fits twice the training micro-batch. Halved alongside it.
+  per_device_eval_batch_size: 8
+
+  # 2e-4 is the standard LoRA SFT rate at r=32 with scale 1.0. An order of
+  # magnitude below this underfits in one epoch; above it, the FINAL ANSWER
+  # formatting starts degrading before the arithmetic improves.
+  learning_rate: 2.0e-4
+
+  # Cosine decay to ~0 by the end of the single epoch, so the last steps are
+  # small and the final checkpoint is stable without an explicit averaging pass.
+  lr_scheduler_type: cosine
+
+  # 3% warmup (~65 steps on the full set). Enough to get the freshly initialised
+  # LoRA B matrices off zero before the peak rate arrives.
+  warmup_ratio: 0.03
+
+  # One epoch over ~68k rows. The dataset is synthetic and generated from only 71
+  # stems; a second epoch memorises stem wording instead of teaching method.
+  num_train_epochs: 1
+
+  # -1 = run the full epoch. Set to a small positive number (e.g. --set
+  # sft.max_steps=20) for a smoke run that actually touches the optimizer.
+  max_steps: -1
+
+  # Mild decoupled weight decay on the adapter matrices only; keeps the update
+  # norm from drifting over ~2k steps.
+  weight_decay: 0.01
+
+  # NOT adamw_8bit. bitsandbytes 0.49.2's aarch64 wheel does ship sm_121 cubins
+  # (verified in libbitsandbytes_cuda130.so), so 8-bit would probably work — but
+  # the fused torch AdamW is pure CUDA, drops bitsandbytes from the critical path
+  # entirely, and the extra optimizer state is irrelevant for a ~46M-parameter
+  # adapter. 00_check_env.py smoke-tests bnb on-device if you want to reconsider.
+  optim: adamw_torch_fused
+
+  # Standard global-norm clip. LoRA at 2e-4 occasionally spikes on the longest
+  # vignette rows; clipping keeps one bad batch from moving the adapter.
+  max_grad_norm: 1.0
+
+  # bf16 throughout: Blackwell has native bf16 and the base checkpoint is bf16,
+  # so there is no cast and no loss scaler to tune.
+  bf16: true
+
+  # fp16 would need a GradScaler and has no accuracy or speed advantage here.
+  fp16: false
+
+  # Unsloth already installs its own gradient checkpointing on the model (see
+  # lora.use_gradient_checkpointing). Leaving this true would make TRL call
+  # enable_gradient_checkpointing() a second time on the same modules.
+  gradient_checkpointing: false
+
+  # ~10 logged points per 100 steps: a readable TensorBoard curve at negligible
+  # cost.
+  logging_steps: 10
+
+  # Periodic validation loss is the only in-training signal available (accuracy
+  # needs generation, which happens in scripts/05_evaluate.py).
+  eval_strategy: steps
+  eval_steps: 250
+
+  # Checkpoint on the same cadence as eval so every eval point is recoverable.
+  save_strategy: steps
+  save_steps: 250
+
+  # Three checkpoints is ~3 x adapter size (small) plus optimizer state; enough
+  # to roll back two evals without filling the disk.
+  save_total_limit: 3
+
+  # Four loader workers keep the tokenised Arrow batches ahead of the GPU without
+  # competing with the Grace cores that the model itself is using.
+  dataloader_num_workers: 4
+
+  # Length grouping reduces padding but correlates batch content with length,
+  # which biases the loss curve. Off: correctness of the curve beats throughput.
+  group_by_length: false
+
+  # Dataset .map() worker count for TRL's tokenisation pass. 4 matches the
+  # loader workers and keeps peak host RAM during preprocessing bounded.
+  dataset_num_proc: 4
+
+  # Worker count for unsloth's response-only masking .map(). Small and explicit
+  # on purpose: left to itself unsloth_zoo picks ~cpu_count+4 and forks workers
+  # *after* the model is resident on the GPU (forking a live CUDA context is
+  # unsupported), and its auto-sizing path imports psutil, which is not in the
+  # pinned dependency group -- unsloth_zoo is installed with --no-deps, so it may
+  # not be present. The masking map is cheap, so 2 costs nothing.
+  masking_num_proc: 2
+
+  # Seeded from the top-level `seed` in base.yaml unless overridden here.
+  seed: 3407

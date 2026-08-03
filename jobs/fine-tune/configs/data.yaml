@@ -1,0 +1,44 @@
+# Data preparation defaults, layered on top of configs/base.yaml.
+# Used by scripts/01_prepare_data.py. The resolved config is hashed into
+# data/processed/split_manifest.json, so changing anything here changes the
+# recorded hash and the split assignment is traceable to it.
+data:
+  # Fraction of the non-held-out pool reserved for validation. 1% of ~65k rows
+  # is ~650 examples: enough for a stable eval-loss curve, small enough that
+  # mid-training evaluation costs minutes rather than hours.
+  val_frac: 0.01
+
+  # Fraction reserved for the IID test slice reported as the headline in-domain
+  # accuracy. Kept at 1% for the same reason: ~650 items at 768 new tokens each
+  # is a tolerable evaluation wall clock, and the Wilson interval at that n is
+  # narrow enough to resolve the effect sizes we expect.
+  test_frac: 0.01
+
+  # Cap on the number of SFT training rows written to sft_train.jsonl.
+  # null = use every train-split record. Set it to shorten an epoch without
+  # touching the split assignment; the subsample is seeded, so it is stable.
+  # Preference rows are not capped by this — DPO reads its own pref_train.jsonl.
+  # Note the identity block puts ~600-630 tokens on every example, so a step
+  # costs roughly twice what a bare instruction would; this is the knob to reach
+  # for when the resulting wall clock is the problem.
+  max_train_records: null
+
+  # Stem families excluded from train/val/test entirely; every one of their
+  # records lands in the unseen_stems evaluation slice (~8-9% of the corpus).
+  # Chosen to span all five programs and both question styles, so the
+  # generalisation number is not a single-topic artefact. Held out by *family*:
+  # the v_/cr_/m_ wrapper generators share a base stem, and holding out only the
+  # wrapper would leak the same question structure into training.
+  holdout_families:
+    - fi_modified_duration   # CFA L1, fixed income
+    - port_sharpe_treynor    # CFA L1, portfolio management
+    - deriv_bsm_call         # CFA L2, derivatives
+    - attr_carino            # CFA L3, performance attribution
+    - mkt_cvar               # FRM P1, market risk
+    - credit_el              # FRM P2, credit risk
+
+  # Drop rows whose `verified` flag is false. These failed the generator's own
+  # answer-recomputation check, so their answer and reasoning trace cannot be
+  # trusted as a supervised target. The dropped count is logged and recorded in
+  # split_manifest.json.
+  drop_unverified: true

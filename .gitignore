@@ -18,3 +18,7 @@ coverage.xml
 tmp/
 temp-*
 docker-volumes/
+
+# IDE
+.idea/
+.vscode/

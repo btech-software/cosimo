@@ -1,0 +1,164 @@
+# Direct Preference Optimisation defaults, layered on top of configs/base.yaml.
+# Consumed by scripts/04_train_dpo.py, which is stage 2 of the default pipeline
+# (SFT -> DPO). It continues training the adapter produced by 03_train_sft.py;
+# there is no `lora:` block here because no new adapter is created.
+#
+# This is the memory-tightest stage in the harness. Every step runs four forward
+# passes (chosen/rejected x policy/reference), and the identity block in
+# configs/base.yaml added ~600 tokens to the prompt half of each of them. The
+# prompt is shared context the loss never scores -- DPO reads only completion
+# tokens -- but it is still forward-propagated four times per step, so the
+# persona roughly doubles the cost of a DPO step. That is the deliberate,
+# accepted price of training preferences under the same prompt the model is
+# served with; do not shrink the persona to buy the time back.
+
+dpo:
+  # Default run directory name under runs/. --run-name overrides it.
+  run_name: dpo
+
+  # Written by scripts/01_prepare_data.py from the dataset's preference_pairs
+  # config. Split assignment is joined on `id`, so no question in these files can
+  # appear in the test or unseen-stems eval slices.
+  train_file: data/processed/pref_train.jsonl
+  val_file: data/processed/pref_val.jsonl
+
+  # KL strength against the implicit reference. Read this carefully: the implicit
+  # reference is the model with the adapter DISABLED, which is the pre-SFT BASE
+  # policy, not the SFT policy. beta therefore pulls back toward the untuned base
+  # and works AGAINST the FINAL ANSWER formatting that stage 1 installed. 0.1 is
+  # the TRL default and the value the sigmoid loss was tuned for; it is low enough
+  # to move away from the pitfall answers without dragging the model all the way
+  # back to base behaviour. If DPO degrades format compliance, LOWER this (or cut
+  # steps) -- raising it makes the regression worse.
+  beta: 0.1
+
+  # TRL 0.24.0 types DPOConfig.loss_type as list[str] (multiple losses can be
+  # combined for MPO), so this must be a list, not the bare string "sigmoid".
+  # Plain sigmoid is the original DPO objective and the right default when the
+  # rejected answers are deliberate distractors rather than noisy human labels.
+  loss_type:
+    - sigmoid
+
+  # Two orders of magnitude below the SFT rate. DPO starts from an already
+  # competent policy and only needs to shift relative likelihoods; anything near
+  # the SFT rate collapses the reasoning trace within a few hundred steps.
+  learning_rate: 5.0e-6
+
+  # Cosine decay to ~0 over the single epoch, matching the SFT schedule.
+  lr_scheduler_type: cosine
+
+  # 10% warmup, longer than SFT's 3%: the first DPO steps see the largest
+  # logit gaps and are the easiest place to destabilise the adapter.
+  warmup_ratio: 0.1
+
+  # One epoch over the ~24.7k preference pairs that survive split assignment.
+  num_train_epochs: 1
+
+  # -1 = run the full epoch. Set positive for a smoke run.
+  max_steps: -1
+
+  # Every DPO step runs four forward passes (chosen/rejected x policy/reference),
+  # so the resident activation cost per sequence is roughly four times SFT's.
+  # 2 is what keeps a 2048-token pair inside the unified memory budget.
+  per_device_train_batch_size: 2
+
+  # 2 x 8 = effective batch 16 pairs. Preference gradients are noisier than
+  # cross-entropy ones, so accumulation is doing the real work here.
+  gradient_accumulation_steps: 8
+
+  # Forward-only, but each eval item still carries the ~600-token identity
+  # prefix on both candidates, so this drops from 4 alongside the longer prompts.
+  per_device_eval_batch_size: 2
+
+  # Total prompt+completion budget, matching model.max_seq_length in base.yaml.
+  max_length: 2048
+
+  # Raised from 768, which was actively dangerous. The rendered prompt carries the
+  # identity block (~600 tokens) plus the question (~50-500), so it runs ~650-1150
+  # tokens. TRL truncates an over-long prompt as prompt[-max_prompt_length:]
+  # (dpo_trainer.py:738) -- unconditionally, from the LEFT -- and the left is
+  # exactly where the identity block lives. At 768 every long-vignette pair would
+  # have trained against a persona-less prompt that does not match serving.
+  #
+  # 1408 is an ESTIMATE, not a measurement: nothing in the harness reports
+  # prompt-only token lengths (01_prepare_data.py's percentiles cover
+  # prompt+completion). The pre-flight truncation scan in 04_train_dpo.py prints
+  # the observed prompt p99/max and how many rows hit this cap -- read it on the
+  # first dry run and raise this if it is biting.
+  max_prompt_length: 1408
+
+  # 2048 - 1408. Reasoning traces plus the FINAL ANSWER line run ~150-400 tokens,
+  # so 640 should be comfortable -- but note the failure mode: completions are cut
+  # as chosen[:max_completion_length] (dpo_trainer.py:740-742), i.e. from the
+  # RIGHT, so an over-long completion loses its trailing FINAL ANSWER line. That
+  # is the one place chosen and rejected differ, so tail truncation can make a
+  # pair identical and its preference gradient degenerate. The pre-flight scan
+  # counts both the rows at this cap and any identical pairs it produced.
+  max_completion_length: 640
+
+  # NOTE: this does NOT control prompt truncation. The prompt is cut from the left
+  # unconditionally at max_prompt_length (dpo_trainer.py:738,
+  # orpo_trainer.py:505); truncation_mode is consulted only later, on the already
+  # concatenated prompt+completion against max_length (dpo_trainer.py:1337-1356).
+  # So there is no "keep the identity instead" option -- the only lever on the
+  # prompt is max_prompt_length above. keep_end is TRL's default and is the right
+  # choice for the concatenated pass: it keeps the answer, which is what the loss
+  # reads. The pre-flight truncation scan reports whether either cap is actually
+  # biting; do not guess from these numbers.
+  truncation_mode: keep_end
+
+  # See configs/sft.yaml: adamw_8bit is avoided to keep bitsandbytes off the
+  # critical path, not because it lacks sm_121 kernels (0.49.2 ships them).
+  optim: adamw_torch_fused
+
+  # Standard global-norm clip.
+  max_grad_norm: 1.0
+
+  # Native bf16 on Blackwell; the base checkpoint is already bf16.
+  bf16: true
+  fp16: false
+
+  # Gradient checkpointing is a property of the MODEL, not of the adapter. In this
+  # stage it is installed by FastLanguageModel.from_pretrained inside
+  # modeling.load_for_training, whose use_gradient_checkpointing default is
+  # "unsloth"; nothing about it arrives with the SFT adapter. TRL's own default is
+  # true, which would call enable_gradient_checkpointing() a second time on the
+  # same modules (trl/models/utils.py:545), so it is disabled here.
+  #
+  # Note the asymmetry with configs/sft.yaml: `lora.use_gradient_checkpointing`
+  # only takes effect through modeling.attach_lora, which this stage never calls
+  # (DPO loads an existing adapter). That key would be silently ignored here,
+  # which is why there is no `lora:` block in this file.
+  gradient_checkpointing: false
+
+  # No weight decay, unlike SFT and ORPO which use 0.01. DPO's loss is already a
+  # KL-regularised objective -- beta constrains how far the policy may move from
+  # the reference -- so adding an L2 pull toward zero on the adapter matrices
+  # double-regularises the same thing with an unrelated knob. Stated explicitly
+  # because TrainingArguments would otherwise default it to 0.0 silently and the
+  # difference from the other two stages would look like an oversight.
+  weight_decay: 0.0
+
+  # Dropout is disabled on both policy and reference passes so the reference
+  # log-probs are deterministic; a stochastic reference makes the DPO loss noisy
+  # for reasons unrelated to the preference data.
+  disable_dropout: true
+
+  # Fewer, larger steps than SFT, so log more often per step to keep the
+  # reward-margin curve readable.
+  logging_steps: 10
+
+  # Validation loss (and reward accuracy) on the held-out preference pairs.
+  eval_strategy: steps
+  eval_steps: 250
+  save_strategy: steps
+  save_steps: 250
+  save_total_limit: 3
+
+  # Matches SFT; keeps the Arrow batches ahead of a step that is GPU-bound.
+  dataloader_num_workers: 4
+
+  # Worker count for TRL's tokenisation/prompt-extraction map passes.
+  dataset_num_proc: 4
+
+  seed: 3407
