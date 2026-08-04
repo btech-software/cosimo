@@ -32,6 +32,7 @@ FORCE_BASELINE=0
 FORCE_TRAIN=0
 LIMIT=""
 SUITES=""
+ASSISTANT_EVAL=1
 
 usage() {
     cat <<'EOF'
@@ -50,13 +51,16 @@ Options:
   --force-baseline    Re-measure runs/baseline even though it already exists.
   --force-train       Pass --force to the training scripts, overwriting their
                       run directories.
+  --no-assistant-eval Skip 09_assistant_eval.py. It is the only step that
+                      measures whether the checkpoint is still an assistant, so
+                      skip it only when you are iterating on the exam numbers.
   -h, --help          Show this message.
 
 Steps (full pipeline):
   00_check_env -> 01_prepare_data -> 02_prepare_tool_data -> 03_baseline_eval
   -> 04_train_sft --dry-run
   -> 04_train_sft -> 06_evaluate sft -> 05_train_dpo -> 06_evaluate dpo
-  -> 07_compare -> 08_export_merge
+  -> 07_compare -> 09_assistant_eval -> 08_export_merge
 EOF
 }
 
@@ -68,6 +72,7 @@ while [[ $# -gt 0 ]]; do
         --suites) SUITES="${2:?--suites needs a value}"; shift 2 ;;
         --force-baseline) FORCE_BASELINE=1; shift ;;
         --force-train) FORCE_TRAIN=1; shift ;;
+        --no-assistant-eval) ASSISTANT_EVAL=0; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
     esac
@@ -108,11 +113,11 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
 fi
 
 # --------------------------------------------------------------------------
-step "0/9 environment check"
+step "0/10 environment check"
 run "${PYTHON}" scripts/00_check_env.py
 
 # --------------------------------------------------------------------------
-step "1/9 data preparation"
+step "1/10 data preparation"
 if [[ -f data/processed/split_manifest.json ]]; then
     note "data/processed/split_manifest.json exists; keeping the existing splits."
     note "Re-run ./scripts/01_prepare_data.py --force to rebuild them (this changes"
@@ -129,7 +134,7 @@ fi
 # The synthetic tool-calling rows are a separate file, so this is idempotent and
 # never touches what 01_prepare_data.py wrote. configs/sft.yaml lists both files
 # and 04_train_sft.py fails on a missing one, so this step is not optional.
-step "2/9 tool-calling data generation"
+step "2/10 tool-calling data generation"
 if [[ -f data/processed/tool_train.jsonl ]]; then
     note "data/processed/tool_train.jsonl exists; keeping it."
     note "Re-run ./scripts/02_prepare_tool_data.py --force to regenerate."
@@ -140,7 +145,7 @@ else
 fi
 
 # --------------------------------------------------------------------------
-step "3/9 baseline evaluation (untuned base model)"
+step "3/10 baseline evaluation (untuned base model)"
 if [[ -d runs/baseline && "${FORCE_BASELINE}" -eq 0 ]]; then
     note "runs/baseline already exists and is the reference measurement for every"
     note "comparison, so it is being kept. Pass --force-baseline to re-measure it."
@@ -158,7 +163,7 @@ compare_runs=(baseline)
 
 if [[ "${EVAL_ONLY}" -eq 1 ]]; then
     # --------------------------------------------------------------------------
-    step "4/9 evaluate existing checkpoints (--eval-only: no training)"
+    step "4/10 evaluate existing checkpoints (--eval-only: no training)"
     for name in "${SFT_RUN}" "${DPO_RUN}"; do
         if has_adapter "${name}"; then
             run "${PYTHON}" scripts/06_evaluate.py \
@@ -171,25 +176,25 @@ if [[ "${EVAL_ONLY}" -eq 1 ]]; then
     done
 else
     # --------------------------------------------------------------------------
-    step "4/9 SFT pre-flight (builds everything, trains nothing)"
+    step "4/10 SFT pre-flight (builds everything, trains nothing)"
     run "${PYTHON}" scripts/04_train_sft.py --run-name "${SFT_RUN}" --dry-run
 
-    step "5/9 SFT training"
+    step "5/10 SFT training"
     run "${PYTHON}" scripts/04_train_sft.py --run-name "${SFT_RUN}" \
         ${train_args[@]+"${train_args[@]}"}
 
-    step "6/9 evaluate the SFT adapter"
+    step "6/10 evaluate the SFT adapter"
     run "${PYTHON}" scripts/06_evaluate.py \
         --run-name "${SFT_RUN}" --adapter "runs/${SFT_RUN}/adapter" \
         ${eval_args[@]+"${eval_args[@]}"}
     compare_runs+=("${SFT_RUN}")
 
-    step "7/9 DPO training on top of the SFT adapter"
+    step "7/10 DPO training on top of the SFT adapter"
     run "${PYTHON}" scripts/05_train_dpo.py --run-name "${DPO_RUN}" \
         --sft-adapter "runs/${SFT_RUN}/adapter" \
         ${train_args[@]+"${train_args[@]}"}
 
-    step "8/9 evaluate the DPO adapter"
+    step "8/10 evaluate the DPO adapter"
     run "${PYTHON}" scripts/06_evaluate.py \
         --run-name "${DPO_RUN}" --adapter "runs/${DPO_RUN}/adapter" \
         ${eval_args[@]+"${eval_args[@]}"}
@@ -197,7 +202,7 @@ else
 fi
 
 # --------------------------------------------------------------------------
-step "9/9 comparison"
+step "9/10 comparison"
 comparable=()
 for name in "${compare_runs[@]}"; do
     if [[ "${DRY_RUN}" -eq 1 ]] || has_metrics "${name}"; then
@@ -210,6 +215,24 @@ if [[ "${#comparable[@]}" -ge 2 ]]; then
     run "${PYTHON}" scripts/07_compare.py --runs "${comparable[@]}"
 else
     note "fewer than two evaluated runs; nothing to compare."
+fi
+
+# --------------------------------------------------------------------------
+# Runs last because it is the cheapest step and the one whose numbers decide
+# whether the checkpoint is shippable. Exam accuracy can rise while the model
+# stops being an assistant; nothing above would notice.
+if [[ "${ASSISTANT_EVAL}" -eq 1 ]]; then
+    step "10/10 assistant-quality evaluation (style, calibration, terminology, tools)"
+    for name in "${comparable[@]}"; do
+        assistant_args=()
+        if [[ "${name}" != "baseline" ]]; then
+            assistant_args+=(--adapter "runs/${name}/adapter")
+        fi
+        run "${PYTHON}" scripts/09_assistant_eval.py \
+            --run-name "${name}" ${assistant_args[@]+"${assistant_args[@]}"}
+    done
+else
+    note "--no-assistant-eval: skipping the assistant-quality suites."
 fi
 
 if [[ "${EVAL_ONLY}" -eq 0 ]]; then

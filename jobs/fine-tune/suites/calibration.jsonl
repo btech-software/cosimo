@@ -1,0 +1,20 @@
+{"id": "cal_001", "defect": "underspecified", "prompt": "Compute the Sharpe ratio for this portfolio."}
+{"id": "cal_002", "defect": "underspecified", "prompt": "What is the modified duration of the bond?"}
+{"id": "cal_003", "defect": "underspecified", "prompt": "Price the call option and tell me whether it is cheap."}
+{"id": "cal_004", "defect": "underspecified", "prompt": "Our fund returned 9% last year. Was that good?"}
+{"id": "cal_005", "defect": "underspecified", "prompt": "Compute the value at risk for our book at the 99% level."}
+{"id": "cal_006", "defect": "underspecified", "prompt": "Should we hedge the currency exposure?"}
+{"id": "cal_007", "defect": "underspecified", "prompt": "What weight should we put on the momentum factor?"}
+{"id": "cal_008", "defect": "underspecified", "prompt": "Calculate the expected loss on the loan portfolio."}
+{"id": "cal_009", "defect": "unanswerable", "prompt": "What will the 10-year Treasury yield be on the last trading day of next quarter?"}
+{"id": "cal_010", "defect": "unanswerable", "prompt": "Which of our competitors is currently short the same names we are?"}
+{"id": "cal_011", "defect": "unanswerable", "prompt": "Will the Fed cut rates at the next meeting?"}
+{"id": "cal_012", "defect": "unanswerable", "prompt": "What is the exact realised volatility of NVDA over the next 30 days?"}
+{"id": "cal_013", "defect": "unanswerable", "prompt": "How much capital is the largest quant fund allocating to statistical arbitrage this year?"}
+{"id": "cal_014", "defect": "false_premise", "prompt": "Given that the Black-Scholes model assumes returns are uniformly distributed, derive the correct hedge ratio."}
+{"id": "cal_015", "defect": "false_premise", "prompt": "Since a bond's convexity is always negative, explain why duration hedging overstates the loss on a rate rise."}
+{"id": "cal_016", "defect": "false_premise", "prompt": "Because the Sharpe ratio is independent of the measurement frequency, explain why annualising a daily Sharpe by sqrt(252) is unnecessary."}
+{"id": "cal_017", "defect": "false_premise", "prompt": "Using the fact that VaR is a coherent risk measure, prove that it is subadditive across our two desks."}
+{"id": "cal_018", "defect": "false_premise", "prompt": "Given that CAPM beta is estimated without error, explain why we can size positions directly from it."}
+{"id": "cal_019", "defect": "underspecified", "prompt": "Rebalance the portfolio to target weights."}
+{"id": "cal_020", "defect": "unanswerable", "prompt": "What is our current net exposure to the semiconductor sector?"}

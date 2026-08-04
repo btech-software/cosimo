@@ -1,0 +1,30 @@
+{"id": "oe_001", "topic": "fixed income", "prompt": "Walk me through how you would hedge a convexity mismatch in a long-duration liability book."}
+{"id": "oe_002", "topic": "factor models", "prompt": "What breaks in a Fama-French factor model during a liquidity crisis, and what would you watch to see it coming?"}
+{"id": "oe_003", "topic": "microstructure", "prompt": "Our execution costs have drifted up 8bp over two quarters with no change in average order size. How would you diagnose this?"}
+{"id": "oe_004", "topic": "derivatives", "prompt": "Explain why Black-Scholes will misprice a trade on a name that has just announced a merger, and what you would use instead."}
+{"id": "oe_005", "topic": "risk", "prompt": "A PM wants to raise gross exposure 20% while keeping VaR flat. What are the ways to do that, and which would you object to?"}
+{"id": "oe_006", "topic": "portfolio construction", "prompt": "When does mean-variance optimisation do more harm than good in a real book?"}
+{"id": "oe_007", "topic": "research", "prompt": "How do you tell whether a backtested signal is real or an artefact of the research process?"}
+{"id": "oe_008", "topic": "risk", "prompt": "Our CVaR model passed backtesting for three years and blew through its bound last month. Where do you look first?"}
+{"id": "oe_009", "topic": "game theory", "prompt": "Frame a share buyback announcement as a signalling game. What does the equilibrium tell you about how to trade it?"}
+{"id": "oe_010", "topic": "fixed income", "prompt": "Talk me through the trade-offs between key-rate duration hedging and a single-duration hedge for a barbell portfolio."}
+{"id": "oe_011", "topic": "credit", "prompt": "How would you decompose the spread on a high-yield bond into compensation for default, liquidity and risk premium?"}
+{"id": "oe_012", "topic": "derivatives", "prompt": "Why does delta hedging a short gamma position lose money in a trending market, and how do you size that cost in advance?"}
+{"id": "oe_013", "topic": "implementation", "prompt": "I want to implement the deep hedging approach from Buehler et al. in production. What are the failure modes you would guard against?"}
+{"id": "oe_014", "topic": "portfolio construction", "prompt": "What is your view on risk parity as an allocation framework for a pension book in a rising-rate regime?"}
+{"id": "oe_015", "topic": "microstructure", "prompt": "Explain adverse selection in a limit order book to a portfolio manager who thinks passive fills are free."}
+{"id": "oe_016", "topic": "risk", "prompt": "How should we think about model risk when the same vendor model is used by most of our competitors?"}
+{"id": "oe_017", "topic": "attribution", "prompt": "Our attribution shows positive selection and negative allocation every single month. What does that pattern usually mean?"}
+{"id": "oe_018", "topic": "equity", "prompt": "When is a DCF the wrong tool for valuing a company, and what do you reach for instead?"}
+{"id": "oe_019", "topic": "research", "prompt": "A researcher shows me a strategy with a Sharpe of 2.8 over eight years of daily data. What questions do I ask?"}
+{"id": "oe_020", "topic": "macro", "prompt": "How would you position a multi-asset book ahead of a central bank meeting where the market is pricing a 60% chance of a cut?"}
+{"id": "oe_021", "topic": "derivatives", "prompt": "Explain the difference between the volatility risk premium and the variance risk premium, and why the distinction matters for a systematic seller."}
+{"id": "oe_022", "topic": "risk", "prompt": "What is wrong with using historical correlation to size a pairs trade, and what would you do instead?"}
+{"id": "oe_023", "topic": "implementation", "prompt": "Design the architecture for a system that reprices a 40,000-line derivatives book intraday. What are the hard parts?"}
+{"id": "oe_024", "topic": "fixed income", "prompt": "Our mortgage book keeps extending duration exactly when we do not want it to. Explain the mechanism and the hedge."}
+{"id": "oe_025", "topic": "portfolio construction", "prompt": "How do you set a rebalancing band that trades off tracking error against transaction costs?"}
+{"id": "oe_026", "topic": "game theory", "prompt": "Two market makers are quoting the same illiquid name. Model the quoting decision and tell me what determines the equilibrium spread."}
+{"id": "oe_027", "topic": "risk", "prompt": "Explain to a board why our stress tests did not capture the last drawdown, without blaming the scenarios."}
+{"id": "oe_028", "topic": "equity", "prompt": "What does it mean when a factor's returns decay after publication, and how would you test whether that happened to ours?"}
+{"id": "oe_029", "topic": "alternatives", "prompt": "How would you build a fair benchmark for a private credit sleeve where marks are quarterly and smoothed?"}
+{"id": "oe_030", "topic": "research", "prompt": "Read me the difference between what a paper claims about a model and what actually survives contact with production data. Use an example."}

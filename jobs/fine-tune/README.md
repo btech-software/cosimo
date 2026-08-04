@@ -24,6 +24,7 @@ Default pipeline: **LoRA SFT → DPO**, with a complete **ORPO** single-stage al
 | `cosimo_ft/` | The library: config, chat rendering, schema, splits, grading, generation, evaluation, reporting |
 | `scripts/` | The numbered pipeline, `00` … `08`. `05b_train_orpo.py` is the alternative to stage `05`, not a step of its own (see [ORPO](#the-orpo-alternative-path)) |
 | `cosimo_ft/tools.py` | The tool-calling wire format, shared by the chat template and the data generator (see [Tool calling](#tool-calling-and-the-langgraph-flow)) |
+| `suites/` | Hand-written assistant-quality prompt sets and the terminology glossary (see [Assistant-quality evaluation](#assistant-quality-evaluation-09_assistant_evalpy)) |
 | `tests/` | CPU-only unit tests (no GPU, no network, no torch) |
 | `run_all.sh` | Thin orchestrator that chains the documented commands |
 | `../../docker/fine-tune/` | `Dockerfile`, `build.sh`, `run.sh`, `torch_arch_guard.py` — the only supported environment |
@@ -104,7 +105,12 @@ python scripts/06_evaluate.py --run-name dpo --adapter runs/dpo/adapter
 
 python scripts/07_compare.py --runs baseline sft dpo             # -> runs/comparisons/*.md
 
-python scripts/08_export_merge.py --run-name dpo                 # -> runs/dpo/merged (bf16)
+# Is it still an assistant? Run it for the baseline too — every number below is
+# only meaningful as a base-vs-tuned delta.
+python scripts/09_assistant_eval.py --run-name baseline
+python scripts/09_assistant_eval.py --run-name sft --adapter runs/sft/adapter
+
+python scripts/08_export_merge.py --run-name sft                 # -> runs/sft/merged (bf16)
 ```
 
 A one-shot command works too, without an interactive shell:
@@ -412,6 +418,7 @@ python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | --- | --- | --- |
 | `data.val_frac` / `data.test_frac` | `0.01` each | ~650 rows each; enough for a stable eval-loss curve and a usable Wilson interval, small enough to keep evaluation affordable. |
 | `data.max_train_records` | `null` | Cap on SFT training rows (seeded subsample). The knob to reach for when wall clock is the problem. Does not affect DPO. |
+| `data.preference_holdout_frac` | `0.5` | Fraction of preference-carrying records **reserved** for the preference stage: excluded from `sft_*.jsonl`, written to `pref_*.jsonl`. `0.0` is the original behaviour and makes DPO a no-op — see below. At `0.5`: SFT 52 750 rows, DPO 10 950 pairs, overlap 0. |
 | `data.holdout_families` | six families | Excluded from **all** training; see [`unseen_stems`](#why-unseen_stems-exists). |
 | `data.drop_unverified` | `true` | Drop rows that failed the generator's own answer-recomputation check. The dropped count is logged and recorded in the manifest. |
 
@@ -552,13 +559,21 @@ eval loss 1e-9 to 1e-10, and the adapter moved 0.16 % in relative Frobenius norm
 (`‖DPO−SFT‖_F / ‖SFT‖_F = 0.0016`). Every suite delta was within noise (McNemar p = 1, 1, 0.5, 1)
 and `distractor_rate` did not improve.
 
-The cause is in the data, not the code: the corpus `reasoning_trace` **is** the `chosen` side of the
-preference pair, and SFT trains on those same rows. By the time DPO starts, the policy already
-assigns overwhelming relative likelihood to chosen over rejected, the implicit reward margin is
-hundreds of nats, the sigmoid saturates, and the gradient is zero. **DPO as configured cannot
-learn anything.** To get a working preference stage, the preference-pair rows must be held out of
-SFT so the margin is not pre-saturated. Until that changes, `05_train_dpo.py` costs ~5 h and
-produces a checkpoint indistinguishable from the SFT one — prefer the SFT adapter.
+The cause was in the data, not the code: the corpus `reasoning_trace` **is** the `chosen` side of
+the preference pair, and SFT trained on those same rows — all 22 048 of them, a 100 % overlap. By
+the time DPO started, the policy already assigned overwhelming relative likelihood to chosen over
+rejected, the implicit reward margin was hundreds of nats, the sigmoid saturated, and the gradient
+was zero.
+
+**This is now fixed by `data.preference_holdout_frac` (default `0.5`).** Half the preference-carrying
+records are reserved for the preference stage and excluded from SFT, so DPO trains on pairs whose
+`chosen` trace the policy has never been fit to. `01_prepare_data.py` writes the overlap into
+`split_manifest.json` and the validation gate **fails** if it is non-zero, so the failure cannot
+recur silently. The result on the real corpus: SFT 52 750 rows (was 63 700), DPO 10 950 pairs
+(was 22 048), overlap 0.
+
+Runs produced before that change still have the old behaviour baked in; a re-prepared dataset is
+required to benefit, and re-preparing changes the split assignment.
 
 The in-domain / held-out gap was `cosimo_test` 62.9 % vs `cosimo_unseen_stems` 18.0 %. Quote the
 second number, as this document has always said.
@@ -570,7 +585,8 @@ steps and a `FINAL ANSWER:` line — which is correct for exams and wrong for th
 hypothetical: the first run compressed mean response length from ~750 tokens to 120.**
 
 GSM8K and MATH-500 detect regression in **general reasoning**. They do **not** measure financial
-assistant quality, and nothing in this harness does. Before shipping any checkpoint:
+assistant quality — [`09_assistant_eval.py`](#assistant-quality-evaluation-09_assistant_evalpy)
+does, and it is the step to read before shipping. Alongside it, still do this by hand:
 
 1. Ask the merged checkpoint and the base model the same **open-ended** financial questions — "walk
    me through how you'd hedge a convexity mismatch in this book", "what breaks in this factor model
@@ -581,6 +597,54 @@ assistant quality, and nothing in this harness does. Before shipping any checkpo
    epochs or `data.max_train_records`, or mix in non-exam data before another attempt.
 
 ---
+
+## Assistant-quality evaluation (`09_assistant_eval.py`)
+
+The exam suites answer *was the number right*. This answers *is it still an assistant* — the gap
+that let the first run raise exam accuracy while collapsing mean response length from ~750 tokens
+to 120 and answering an open-ended hedging question in `Step 1./Step 2.` form, inventing a
+"Durbin-Watson duration" on the way.
+
+```bash
+python scripts/09_assistant_eval.py --run-name baseline                          # do this first
+python scripts/09_assistant_eval.py --run-name sft --adapter runs/sft/adapter
+python scripts/09_assistant_eval.py --run-name sft --merged runs/sft/merged
+```
+
+**Every number here is only meaningful as a base-vs-tuned delta.** There is no gold answer and no
+absolute standard; a 40 % exam-shape rate means nothing until you know the base model's.
+
+| Suite | Items | What it measures |
+| --- | --- | --- |
+| `open_ended` | 30 | Real Head-of-Quant questions — hedging, factor breakdowns, execution, paper implementation. Judgement questions with no single number. |
+| `calibration` | 20 | Underspecified, unanswerable and false-premise prompts. Does the model ask, or answer anyway. |
+| `agentic` | 16 | Mock-tool ReAct trajectories: single-call, **multi-call**, and no-call-appropriate. |
+
+Metrics (`runs/<name>/assistant_eval/metrics.json`):
+
+* **`exam_shape_rate`** — fraction of answers carrying `ASSUMPTIONS:`, a run of three or more
+  `Step N.` lines, or `FINAL ANSWER:`. The direct read on style collapse, and the headline number.
+  A single enumerated step is normal writing and does not count.
+* **`abstention_rate`** — fraction that ask for missing information or decline, measured on the
+  *opening* of the response so that committing first and hedging later does not count. The persona
+  claims honesty about what it does not know while every supervised target is a confident
+  computation; this is where that contradiction shows up.
+* **`unknown_terms`** — technical terms absent from the curriculum taxonomy plus `suites/glossary.txt`,
+  ranked by frequency. **A triage aid, not a hallucination detector**: the vocabulary is incomplete,
+  so a real term it has not heard of is reported exactly like an invented one. Read the list; do not
+  threshold on it. It is here because scanning twenty flagged phrases is tractable and reading four
+  hundred responses is not.
+* **`multi_step_accuracy`** — broken out from overall agentic accuracy because
+  `02_prepare_tool_data.py` generates exactly **one** tool round-trip per example. Anything longer is
+  extrapolation, and this is the number that says whether chaining generalised.
+* **`no_call_precision`** — did it decline to call a tool when none fit.
+* **`hallucinated_tool_rate`** — did it invent a tool that was never offered.
+
+The prompts are hand-written and small on purpose: they are meant to be read and argued with, and a
+generated suite would inherit the same template bias as the training corpus. `configs/assistant.yaml`
+deliberately does **not** append `prompt.exam_protocol` — instructing the `FINAL ANSWER:` contract
+into the prompt would manufacture the exact format being measured. The persona is still sent,
+because it is sent at serving time.
 
 ## The ORPO alternative path
 
@@ -766,21 +830,24 @@ for all three preference-pair shapes, and the config merge/override surface.
    `tests/test_grading.py` pinning the intended behaviour; remove the marker when it is fixed.
 5. **GSM8K and MATH-500 measure regression, not finance skill.** They tell you whether general
    reasoning survived. They say nothing about whether the model is still a good assistant.
-6. **Nothing here measures assistant quality.** There is no open-ended eval, no rubric, no LLM
-   judge, no human comparison. The manual spot-check described under
-   [Style collapse](#style-collapse-check-for-it-before-you-ship) is currently the only defence, and
-   it is a weak one.
+6. **Assistant quality is measured behaviourally, not for correctness.**
+   [`09_assistant_eval.py`](#assistant-quality-evaluation-09_assistant_evalpy) scores response
+   *shape*, abstention, terminology and tool trajectories — all without a gold answer. Nothing
+   grades whether an open-ended answer is actually **good**: there is still no rubric, no LLM judge
+   and no human comparison. A model can score perfectly on every metric in that script and still be
+   wrong about finance.
 7. **Memory figures and the evaluation wall clock are still estimates.** Training wall clock is
    measured (one run); nothing else in that table is.
 8. **One epoch, one seed, no sweep.** The hyperparameters are defensible defaults with reasons
    attached, not tuned values. Nobody has run this twice.
 9. **The DPO preference pairs cover only ~35 % of the corpus** (the rows that carry a
    `preference_pair`), so the preference stage sees a narrower slice of topics than SFT does.
-10. **The DPO stage cannot currently learn.** SFT trains on the `chosen` traces of the very pairs
-    DPO then uses, so the preference margin is saturated before DPO starts and the gradient is
-    zero. Measured: loss `0.0` from step 10, adapter moved 0.16 %, no metric moved. Fixing it means
-    holding the preference rows out of SFT. See
-    [What the first full run showed](#what-the-first-full-run-showed).
-11. **The results currently on disk were measured at `max_new_tokens: 768`** and are truncation-
+10. **The DPO fix is untested.** `data.preference_holdout_frac` removes the overlap that made the
+    preference stage a no-op, and the validation gate now enforces it, but no run has yet been
+    executed with it. That DPO *can* learn does not mean it *will* help.
+11. **The tool suite tests format, not judgement.** `agentic` uses mock results and checks that the
+    right tool was chosen and its output reached the answer. Nothing checks whether calling that
+    tool was the right analytical move.
+12. **The results currently on disk were measured at `max_new_tokens: 768`** and are truncation-
     bound on the baseline. They need re-measuring at the new 4096 default before any delta is
-    quoted.
+    quoted. They also predate `data.preference_holdout_frac`, so their SFT corpus is the old one.

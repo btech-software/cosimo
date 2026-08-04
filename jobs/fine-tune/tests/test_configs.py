@@ -36,6 +36,7 @@ def test_every_config_file_is_a_yaml_mapping():
         "sft.yaml",
         "dpo.yaml",
         "orpo.yaml",
+        "assistant.yaml",
     }
     for path in files:
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))

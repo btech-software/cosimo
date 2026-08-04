@@ -1,3 +1,9 @@
+> **Superseded by [`003_dataset_rev1_prompt.md`](003_dataset_rev1_prompt.md).** Kept as the
+> provenance record for `btech-software/cosimo-cfa-frm-71k`: this is the brief that produced the
+> corpus, and it explains why that corpus looks the way it does. It was executed, trained on and
+> measured; `003` documents what the measurements showed and what the next corpus must do
+> differently. Do not run this one again.
+
 Generate a large-scale, high-quality synthetic dataset for fine-tuning Cosimo — a financial reasoning specialist based on microsoft/Phi-4-mini-flash-reasoning.
 
 Goal: Produce 50k–200k original, curriculum-aligned examples covering CFA Levels I–III and core FRM topics. Each example must contain:

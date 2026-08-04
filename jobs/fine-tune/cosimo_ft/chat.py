@@ -50,9 +50,17 @@ def compose_system(cfg: dict, *, short: bool = False, exam: bool = True) -> str:
     return f"{identity}\n\n{protocol}" if protocol else identity
 
 
-def id_fraction(record_id: str) -> float:
-    """Map a record id deterministically into [0, 1) via sha256."""
-    digest = hashlib.sha256(str(record_id).encode("utf-8")).hexdigest()[:16]
+def id_fraction(record_id: str, salt: str = "") -> float:
+    """Map a record id deterministically into [0, 1) via sha256.
+
+    ``salt`` namespaces the draw. Two independent decisions keyed off the same
+    id must not be correlated: without a salt every row picked for the short
+    identity would also fall on the same side of the preference holdout, because
+    both would be thresholding the identical number. An empty salt reproduces
+    the original digest exactly, so the identity variation is unaffected.
+    """
+    material = f"{salt}\x00{record_id}" if salt else str(record_id)
+    digest = hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
     return int(digest, 16) / _HASH_SPACE
 
 

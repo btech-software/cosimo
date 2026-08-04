@@ -23,6 +23,28 @@ data:
   # for when the resulting wall clock is the problem.
   max_train_records: null
 
+  # Fraction of preference-carrying records RESERVED for the preference stage:
+  # excluded from sft_train/sft_val and written to pref_train/pref_val instead.
+  # Records not reserved stay in SFT and are dropped from the preference files.
+  #
+  # This exists because 0.0 -- the original behaviour -- makes DPO a no-op. The
+  # corpus `reasoning_trace` IS the `chosen` side of the pair, so training SFT on
+  # a row teaches the policy that exact trace. In the first full run all 22,048
+  # preference rows were also SFT rows, and by the time DPO started the policy
+  # already put overwhelming relative likelihood on chosen over rejected: the
+  # implicit reward margin was hundreds of nats, the sigmoid saturated, the loss
+  # was exactly 0.0 from step 10 and the gradient was zero. DPO cost ~5 h and
+  # moved the adapter 0.16%.
+  #
+  # 0.5 splits the difference: SFT keeps ~83% of its corpus and DPO gets ~11k
+  # pairs whose chosen trace the policy has never been trained on, so the margin
+  # is not pre-saturated. Raise it toward 1.0 for a stronger preference stage at
+  # the cost of supervised data; 0.0 restores the old (broken) behaviour.
+  #
+  # The draw is a salted hash of the record id, so it is reproducible and
+  # deliberately uncorrelated with the prompt.variation_rate draw.
+  preference_holdout_frac: 0.5
+
   # Stem families excluded from train/val/test entirely; every one of their
   # records lands in the unseen_stems evaluation slice (~8-9% of the corpus).
   # Chosen to span all five programs and both question styles, so the

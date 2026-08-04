@@ -1,0 +1,142 @@
+# Known-good finance terminology, one per line, `#` starts a comment.
+#
+# Read together with dataset/taxonomy/taxonomy.json by
+# cosimo_ft.assistant.load_vocabulary. The taxonomy supplies ~211 curriculum
+# topic and subtopic names; this file supplies the named models, statistics and
+# eponyms that appear in real answers but are not curriculum headings.
+#
+# Its ONLY job is to suppress false positives in the unknown-terms triage. A
+# term missing from here is not evidence of a hallucination -- it is a prompt to
+# go and read the response. Add terms freely as you review output.
+
+# --- named models and frameworks ---
+Black-Scholes
+Black-Scholes-Merton
+Black-Litterman
+Fama-French
+Fama-MacBeth
+Heston Model
+Hull-White
+Ho-Lee
+Cox-Ingersoll-Ross
+Vasicek Model
+Merton Model
+Nelson-Siegel
+Svensson Model
+Gordon Growth
+Modigliani-Miller
+Capital Asset Pricing Model
+Arbitrage Pricing Theory
+Efficient Market Hypothesis
+Monte Carlo
+Ito Lemma
+Girsanov Theorem
+Feynman-Kac
+Kelly Criterion
+Almgren-Chriss
+Avellaneda-Stoikov
+Kyle Lambda
+Amihud Illiquidity
+Deep Hedging
+
+# --- statistics and econometrics ---
+Durbin-Watson
+Jarque-Bera
+Augmented Dickey-Fuller
+Dickey-Fuller
+Ljung-Box
+Breusch-Pagan
+White Test
+Newey-West
+Hodrick-Prescott
+Kalman Filter
+Hidden Markov
+Principal Component Analysis
+Ordinary Least Squares
+Maximum Likelihood
+Shapiro-Wilk
+Kolmogorov-Smirnov
+Anderson-Darling
+Engle-Granger
+Johansen Test
+Granger Causality
+
+# --- risk and performance measures ---
+Value at Risk
+Conditional Value at Risk
+Expected Shortfall
+Sharpe Ratio
+Sortino Ratio
+Treynor Ratio
+Information Ratio
+Jensen Alpha
+Calmar Ratio
+Maximum Drawdown
+Tracking Error
+Modified Duration
+Macaulay Duration
+Effective Duration
+Key Rate Duration
+Option Adjusted Spread
+Probability of Default
+Loss Given Default
+Exposure at Default
+Expected Loss
+Unexpected Loss
+Credit Valuation Adjustment
+Debit Valuation Adjustment
+Funding Valuation Adjustment
+
+# --- attribution and portfolio construction ---
+Brinson Attribution
+Carino Linking
+Menchero Linking
+Risk Parity
+Mean Variance Optimisation
+Mean Variance Optimization
+Efficient Frontier
+Capital Market Line
+Security Market Line
+Shapley Value
+Marginal Contribution to Risk
+
+# --- game theory ---
+Nash Equilibrium
+Bayesian Nash
+Correlated Equilibrium
+Evolutionarily Stable Strategy
+Mechanism Design
+Signalling Game
+Signaling Game
+Prisoner Dilemma
+Minimax Regret
+Knightian Uncertainty
+
+# --- market structure and instruments ---
+Limit Order Book
+Adverse Selection
+Order Flow Toxicity
+Volume Weighted Average Price
+Time Weighted Average Price
+Implementation Shortfall
+Bid Ask Spread
+Central Counterparty
+Credit Default Swap
+Interest Rate Swap
+Total Return Swap
+Mortgage Backed Security
+Asset Backed Security
+Collateralised Loan Obligation
+Exchange Traded Fund
+Treasury Inflation Protected Securities
+
+# --- institutions and regimes ---
+Federal Reserve
+European Central Bank
+Bank of England
+Bank of Japan
+Basel Accord
+Dodd-Frank
+Solvency II
+Financial Crisis
+Global Financial Crisis

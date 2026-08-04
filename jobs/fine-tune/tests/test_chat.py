@@ -100,6 +100,31 @@ def test_id_fraction_is_bounded():
     assert all(0.0 <= v < 1.0 for v in values)
 
 
+def test_empty_salt_reproduces_the_unsalted_digest():
+    """The identity variation thresholds this; changing it would reshuffle prompts."""
+    for i in range(50):
+        assert chat.id_fraction(f"rec-{i}", "") == chat.id_fraction(f"rec-{i}")
+
+
+def test_salted_draw_is_uncorrelated_with_the_unsalted_one():
+    """Without a salt, every short-identity row would fall the same side of the
+    preference holdout, because both decisions threshold the identical number."""
+    ids = [f"rec-{i}" for i in range(2000)]
+    plain = [chat.id_fraction(i) < 0.5 for i in ids]
+    salted = [chat.id_fraction(i, "preference-holdout") < 0.5 for i in ids]
+    agreement = sum(p == s for p, s in zip(plain, salted)) / len(ids)
+    # Independent draws agree ~50% of the time; identical draws agree 100%.
+    assert 0.45 < agreement < 0.55
+
+
+def test_salted_draw_is_deterministic_and_bounded():
+    values = [chat.id_fraction(f"rec-{i}", "preference-holdout") for i in range(500)]
+    assert all(0.0 <= v < 1.0 for v in values)
+    assert values == [
+        chat.id_fraction(f"rec-{i}", "preference-holdout") for i in range(500)
+    ]
+
+
 # --------------------------------------------------------------------------
 # build_completion
 # --------------------------------------------------------------------------

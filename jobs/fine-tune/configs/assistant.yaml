@@ -1,0 +1,55 @@
+# Assistant-quality evaluation, layered on top of configs/base.yaml.
+# Used by scripts/09_assistant_eval.py.
+#
+# This is the eval the README's own "Known limitations" said did not exist:
+# nothing measured whether the checkpoint is still an assistant, only whether it
+# gets exam arithmetic right. The first full run made that gap concrete -- exam
+# accuracy rose while mean response length fell from ~750 tokens to 120 and the
+# served model answered an open-ended hedging question in Step 1./Step 2. form.
+#
+# None of these suites has a gold answer. They measure behaviour: response shape,
+# willingness to say "I need more information", terminology that does not exist,
+# and whether a tool conversation completes. Run them against the BASE model too
+# -- every number here is only meaningful as a base-vs-tuned delta.
+assistant:
+  # Curated prompt files under suites/, resolved against the harness root.
+  # They are small and hand-written on purpose: they are meant to be read, and a
+  # generated suite would inherit the same template bias as the training corpus.
+  suites:
+    open_ended: suites/open_ended.jsonl
+    calibration: suites/calibration.jsonl
+    agentic: suites/agentic.jsonl
+
+  # Suites evaluated when --suites is not given.
+  run: [open_ended, calibration, agentic]
+
+  # Vocabulary for the unknown-terms triage. The taxonomy contributes curriculum
+  # topic/subtopic names; the glossary contributes named models, statistics and
+  # eponyms that appear in real answers but are not curriculum headings.
+  # A term missing from both is a prompt to go and read the response, NOT a
+  # hallucination verdict -- see cosimo_ft/assistant.unknown_terms.
+  vocabulary_files:
+    - ../../dataset/taxonomy/taxonomy.json
+    - suites/glossary.txt
+
+  # Generous, and deliberately not the exam budget. The question under test is
+  # whether the model still writes at length when the task calls for it, so the
+  # cap must not be the thing that stops it.
+  max_new_tokens: 2048
+
+  # Greedy: a base-vs-tuned behavioural delta must not be sampling noise.
+  temperature: 0.0
+  top_p: 1.0
+  batch_size: 8
+
+  # Tool-conversation turn budget. Training contains exactly ONE round-trip per
+  # example, so 4 is enough to let a model that generalised prove it and a model
+  # that did not fail visibly. Raising it will not rescue a model that stops
+  # after one call.
+  max_tool_turns: 4
+
+  # The exam protocol is NOT appended to these prompts. That block carries the
+  # FINAL ANSWER contract, and attaching it would instruct the exam format into
+  # existence -- which is the exact behaviour being measured. The persona is
+  # still present, because it is present at serving time.
+  exam_protocol: false

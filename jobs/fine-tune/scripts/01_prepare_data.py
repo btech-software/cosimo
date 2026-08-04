@@ -47,6 +47,10 @@ EVAL_FILES = {
     splits.UNSEEN_STEMS: "eval_cosimo_unseen_stems.jsonl",
 }
 PREF_FILES = {splits.TRAIN: "pref_train.jsonl", splits.VAL: "pref_val.jsonl"}
+
+# Namespaces the preference-holdout draw so it cannot correlate with the
+# prompt.variation_rate draw, which thresholds the unsalted digest of the same id.
+PREFERENCE_HOLDOUT_SALT = "preference-holdout"
 DATA_FILES = (
     tuple(SFT_FILES.values()) + tuple(EVAL_FILES.values()) + tuple(PREF_FILES.values())
 )
@@ -416,8 +420,29 @@ def validate(
             else:
                 owner[row["id"]] = name
 
-    # A preference id legitimately repeats its SFT id, so it cannot join the
-    # owner map; what must never happen is a preference row for an evaluated id.
+    # A preference row must not share an id with the SFT rows of the same split.
+    # It is not a leak in the evaluation sense -- both are training data -- but it
+    # is the failure that made the first DPO run a no-op: SFT trains on the pair's
+    # `chosen` trace, the implicit reward margin saturates, and the preference
+    # stage spends hours at exactly zero gradient. Cheaper to fail here.
+    for split_name, pref_name in PREF_FILES.items():
+        sft_name = SFT_FILES.get(split_name)
+        if not sft_name:
+            continue
+        shared = {str(row["id"]) for row in files.get(sft_name, [])} & {
+            str(row["id"]) for row in files.get(pref_name, [])
+        }
+        if shared:
+            problems.append(
+                f"{pref_name}: {len(shared)} id(s) are also in {sft_name} "
+                f"(e.g. {sorted(shared)[:3]}). The preference stage would train "
+                "against traces SFT already fit, which yields no gradient. Raise "
+                "data.preference_holdout_frac."
+            )
+
+    # A preference id legitimately repeats its SFT id across *different* splits,
+    # so it cannot join the owner map; what must never happen is a preference row
+    # for an evaluated id.
     evaluated = {
         row["id"] for name in EVAL_FILES.values() for row in files.get(name, [])
     }
@@ -552,6 +577,14 @@ def prepare(
     val_frac = float(config_mod.get(cfg, "data.val_frac", 0.01))
     test_frac = float(config_mod.get(cfg, "data.test_frac", 0.01))
     max_train_records = config_mod.get(cfg, "data.max_train_records")
+    preference_holdout_frac = float(
+        config_mod.get(cfg, "data.preference_holdout_frac", 0.0) or 0.0
+    )
+    if not 0.0 <= preference_holdout_frac <= 1.0:
+        raise ValueError(
+            "data.preference_holdout_frac must be in [0, 1], got "
+            f"{preference_holdout_frac!r}"
+        )
     drop_unverified = bool(config_mod.get(cfg, "data.drop_unverified", True))
     holdout_families = {
         str(f) for f in (config_mod.get(cfg, "data.holdout_families") or [])
@@ -641,34 +674,19 @@ def prepare(
             len(by_split[splits.TRAIN]),
         )
 
-    # 3. render. Training rows get the per-id system message, so a deterministic
-    # `prompt.variation_rate` fraction carries the short identity; evaluation
-    # rows carry no rendered prompt at all (evalrun renders them at eval time
-    # with the full identity).
-    files: dict[str, list[dict]] = {
-        SFT_FILES[splits.TRAIN]: [
-            data_schema.to_sft_row(
-                record, tokenizer, chat.system_for_record(cfg, record.id), tag
-            )
-            for record in train_records
-        ],
-        SFT_FILES[splits.VAL]: [
-            data_schema.to_sft_row(
-                record, tokenizer, chat.system_for_record(cfg, record.id), tag
-            )
-            for record in by_split[splits.VAL]
-        ],
-        EVAL_FILES[splits.TEST]: [eval_rows[r.id] for r in by_split[splits.TEST]],
-        EVAL_FILES[splits.UNSEEN_STEMS]: [
-            eval_rows[r.id] for r in by_split[splits.UNSEEN_STEMS]
-        ],
-        PREF_FILES[splits.TRAIN]: [],
-        PREF_FILES[splits.VAL]: [],
-    }
-
+    # 3. preference rows FIRST, because which ids they claim decides which ids
+    # SFT must not be trained on. Reserving a pair only helps if the policy has
+    # never seen its `chosen` trace: the corpus reasoning_trace *is* that trace,
+    # so an id in both files gives DPO a pre-saturated margin and no gradient.
+    # See data.preference_holdout_frac in configs/data.yaml.
+    #
     # The `preference_pairs` config carries no generator column, so the stem
     # family can only come from the joined `default` record.
     generator_by_id = {record.id: record.generator for record in records}
+    pref_files: dict[str, list[dict]] = {
+        PREF_FILES[splits.TRAIN]: [],
+        PREF_FILES[splits.VAL]: [],
+    }
     mcq_outcomes: Counter = Counter()
     for row in sorted(pref_rows, key=lambda row: str(row.get("id", ""))):
         row_id = str(row.get("id", ""))
@@ -682,6 +700,12 @@ def prepare(
             dropped[
                 "pref_in_test" if split_name == splits.TEST else "pref_in_unseen_stems"
             ] += 1
+            continue
+        if chat.id_fraction(row_id, PREFERENCE_HOLDOUT_SALT) >= preference_holdout_frac:
+            # Not reserved: this row stays in SFT and the preference stage does
+            # not get it. At frac 0.0 every row takes this branch, which is the
+            # original behaviour and the reason DPO could not learn.
+            dropped["pref_kept_for_sft"] += 1
             continue
         record = data_schema.normalize_pref_row(
             {**row, "generator": generator_by_id[row_id]}
@@ -703,19 +727,63 @@ def prepare(
             # very format cue this normalisation exists to remove.
             dropped["pref_mcq_cue_unresolved"] += 1
             continue
-        files[PREF_FILES[split_name]].append(
+        pref_files[PREF_FILES[split_name]].append(
             data_schema.to_pref_row(
                 record, tokenizer, chat.system_for_record(cfg, record.id), tag
             )
         )
+
+    # Built from the rows actually written, not from the ids considered: a
+    # reserved pair that turned out unusable (blank, unresolvable MCQ cue) is not
+    # in this set, so it stays in SFT rather than being lost by both stages.
+    reserved_ids = {
+        str(row["id"]) for rows in pref_files.values() for row in rows
+    }
     LOGGER.info(
-        "preference rows: %d train, %d val; MCQ letter outcomes %s",
-        len(files[PREF_FILES[splits.TRAIN]]),
-        len(files[PREF_FILES[splits.VAL]]),
+        "preference rows: %d train, %d val (reserved %d ids from SFT at "
+        "preference_holdout_frac=%s); MCQ letter outcomes %s",
+        len(pref_files[PREF_FILES[splits.TRAIN]]),
+        len(pref_files[PREF_FILES[splits.VAL]]),
+        len(reserved_ids),
+        preference_holdout_frac,
         dict(sorted(mcq_outcomes.items())),
     )
 
-    # 4. validation gate, before anything reaches disk
+    # 4. render the supervised rows, minus everything the preference stage
+    # claimed. Training rows get the per-id system message, so a deterministic
+    # `prompt.variation_rate` fraction carries the short identity; evaluation
+    # rows carry no rendered prompt at all (evalrun renders them at eval time
+    # with the full identity).
+    files: dict[str, list[dict]] = {
+        SFT_FILES[splits.TRAIN]: [
+            data_schema.to_sft_row(
+                record, tokenizer, chat.system_for_record(cfg, record.id), tag
+            )
+            for record in train_records
+            if record.id not in reserved_ids
+        ],
+        SFT_FILES[splits.VAL]: [
+            data_schema.to_sft_row(
+                record, tokenizer, chat.system_for_record(cfg, record.id), tag
+            )
+            for record in by_split[splits.VAL]
+            if record.id not in reserved_ids
+        ],
+        EVAL_FILES[splits.TEST]: [eval_rows[r.id] for r in by_split[splits.TEST]],
+        EVAL_FILES[splits.UNSEEN_STEMS]: [
+            eval_rows[r.id] for r in by_split[splits.UNSEEN_STEMS]
+        ],
+        **pref_files,
+    }
+    LOGGER.info(
+        "sft rows: %d train, %d val (%d train rows reserved for the preference "
+        "stage)",
+        len(files[SFT_FILES[splits.TRAIN]]),
+        len(files[SFT_FILES[splits.VAL]]),
+        len(train_records) - len(files[SFT_FILES[splits.TRAIN]]),
+    )
+
+    # 5. validation gate, before anything reaches disk
     validate(
         files,
         holdout_families=holdout_families,
@@ -728,14 +796,14 @@ def prepare(
         eos_token=getattr(tokenizer, "eos_token", None) or "",
     )
 
-    # 5. write
+    # 6. write
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, rows in files.items():
         write_jsonl(out_dir / name, rows)
     config_mod.save_config(cfg, out_dir / CONFIG_FILE)
     runlog.write_json(out_dir / ENV_FILE, runlog.env_info())
 
-    # 6. manifest
+    # 7. manifest
     lengths = {
         name: percentiles(
             token_lengths(tokenizer, (row["text"] for row in files[name])),
@@ -774,6 +842,19 @@ def prepare(
             "path": config_mod.get(cfg, "chat.template_path"),
             "applied": template_applied,
             "sha256": template_hash,
+        },
+        # Which ids the preference stage claimed. `sft_pref_overlap` must be 0:
+        # any id in both files is a DPO pair whose chosen trace SFT already
+        # memorised, which contributes no gradient. The validation gate asserts it.
+        "preference_holdout": {
+            "frac": preference_holdout_frac,
+            "salt": PREFERENCE_HOLDOUT_SALT,
+            "reserved_ids": len(reserved_ids),
+            "kept_for_sft": dropped.get("pref_kept_for_sft", 0),
+            "sft_pref_overlap": len(
+                {str(row["id"]) for row in files[SFT_FILES[splits.TRAIN]]}
+                & {str(row["id"]) for row in files[PREF_FILES[splits.TRAIN]]}
+            ),
         },
         "prompt": {
             "variation_rate": variation_rate,
