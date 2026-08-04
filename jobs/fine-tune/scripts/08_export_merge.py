@@ -337,6 +337,18 @@ def main() -> None:
             "attached there is nothing to merge."
         )
     merged = model.merge_and_unload()
+
+    # Record the dtype in config.json. Unsloth loads the base model with
+    # `torch_dtype=None` on its config, and save_pretrained copies that straight
+    # through, so the exported config.json says `"torch_dtype": null` even though
+    # the safetensors hold bf16. Inference runtimes read that field to decide how
+    # to load: vLLM's `--dtype auto` resolves a null to float16, which serves a
+    # bf16-trained model in a format with a far smaller exponent range. Setting it
+    # from the dtype we actually merged in makes the checkpoint self-describing.
+    merged.config.torch_dtype = getattr(merged, "dtype", None) or modeling.torch_dtype(
+        dtype
+    )
+
     merged.save_pretrained(str(out_path), safe_serialization=True)
     tokenizer.save_pretrained(str(out_path))
 

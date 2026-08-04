@@ -328,7 +328,12 @@ def test_eval_suites_cover_in_domain_generalisation_and_regression():
 def test_evaluation_is_deterministic_by_default():
     cfg = config_mod.load_config(stage="eval")["eval"]
     assert cfg["temperature"] == 0.0, "a base-vs-tuned delta must not be sampling noise"
-    assert cfg["max_new_tokens"] == 768
+    # Not 768: that truncated the long chain-of-thought base model on 90-97% of
+    # items, so its accuracy measured the decoding budget rather than the model.
+    assert cfg["max_new_tokens"] == 4096, (
+        "the base model is a long-CoT reasoner; a small cap turns its accuracy "
+        "into a measurement of the budget and inflates every tuned-model delta"
+    )
     assert cfg["rel_tol"] == 1.0e-3
 
 

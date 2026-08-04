@@ -27,6 +27,7 @@ Default pipeline: **LoRA SFT → DPO**, with a complete **ORPO** single-stage al
 | `tests/` | CPU-only unit tests (no GPU, no network, no torch) |
 | `run_all.sh` | Thin orchestrator that chains the documented commands |
 | `../../docker/fine-tune/` | `Dockerfile`, `build.sh`, `run.sh`, `torch_arch_guard.py` — the only supported environment |
+| `../../docker/serve/run.sh` | Serves a merged checkpoint on an OpenAI-compatible API for manual testing (see [Serving](#serving)) |
 
 Generated and gitignored: `data/` (prepared JSONL + `split_manifest.json`) and `runs/`
 (adapters, checkpoints, merged weights, generations, metrics, TensorBoard logs).
@@ -159,23 +160,27 @@ not the split assignment of the full corpus.
 
 ## Expected wall clock and memory
 
-> **These are estimates, not measurements.** No GPU run has been executed against this harness. They
-> are order-of-magnitude arithmetic from record counts and token budgets, shown below so you can
-> redo them with your own numbers. The authoritative token statistics arrive when you run
-> `01_prepare_data.py`: it writes real p50/p95/p99/max token-length percentiles into
-> `data/processed/split_manifest.json`. Check those before trusting anything in this table.
+> **Training figures are now measured**; evaluation figures are still estimates. The first full
+> run (DGX Spark, 2026-08-03/04) is the source for the training rows. The authoritative token
+> statistics arrive when you run `01_prepare_data.py`: it writes real p50/p95/p99/max token-length
+> percentiles into `data/processed/split_manifest.json`.
 
-| Step | Estimated wall clock | Estimated peak resident memory |
+| Step | Wall clock | Estimated peak resident memory |
 | --- | --- | --- |
 | `00_check_env.py` | < 1 min | negligible |
 | `01_prepare_data.py` | 15–40 min (download + render + tokenize 71 k rows) | a few GB host |
-| `03_baseline_eval.py` (default suites) | 2–4 h | ~10–15 GB |
+| `03_baseline_eval.py` (default suites) | 2–4 h *(estimate; longer now, see below)* | ~10–15 GB |
 | `04_train_sft.py --dry-run` | 3–8 min | ~15–25 GB |
-| `04_train_sft.py` (1 epoch) | **10–16 h** | ~15–30 GB |
-| `06_evaluate.py` (default suites) | 2–4 h | ~10–15 GB |
-| `05_train_dpo.py` (1 epoch) | **11–18 h** | ~20–35 GB |
+| `04_train_sft.py` (1 epoch) | **6.3 h measured** (22 574 s, 2 147 steps) | ~15–30 GB |
+| `06_evaluate.py` (default suites) | 2–4 h *(estimate)* | ~10–15 GB |
+| `05_train_dpo.py` (1 epoch) | **5.1 h measured** (18 396 s, 1 378 steps) | ~20–35 GB |
 | `07_compare.py` | seconds | negligible |
 | `08_export_merge.py` | 5–15 min | ~20 GB (+15 GB written) |
+
+Both training stages came in well under the original estimate, which assumed 25–40 % MFU; the
+measured SFT run did 3.04 samples/s and 9.37 × 10¹⁷ FLOP. **Evaluation now costs more than the
+table says**: `eval.max_new_tokens` went from 768 to 4096 (see below), and the base model actually
+uses that budget. Budget generously for `03_baseline_eval.py` in particular.
 
 The arithmetic, so you can disagree with it:
 
@@ -196,8 +201,9 @@ The arithmetic, so you can disagree with it:
 * **Evaluation.** Default suites are ~650 (`cosimo_test`) + **~6 000** (`cosimo_unseen_stems`) +
   250 (GSM8K) + 250 (MATH-500) ≈ **7 150 items** at up to 768 new tokens each. Decoding is
   memory-bandwidth bound (7.6 GB of bf16 weights read per step against ~273 GB/s), so batching helps
-  but does not rescue you. **`cosimo_unseen_stems` dominates**: `eval.samples.cosimo_unseen_stems`
-  defaults to `null` (all of them). While iterating, cut it:
+  but does not rescue you. **`cosimo_unseen_stems` dominates**, which is why
+  `eval.samples.cosimo_unseen_stems` defaults to `1000` rather than the whole ~6 000-item slice.
+  To cut it further while iterating:
 
   ```bash
   python scripts/06_evaluate.py --run-name sft --adapter runs/sft/adapter \
@@ -302,16 +308,51 @@ one space teaches a format the runtime cannot parse back, and nothing else would
 
 ### Serving
 
+`../../docker/serve/run.sh` serves a merged checkpoint over an OpenAI-compatible API on
+`http://127.0.0.1:8000/v1`, for manual testing. It uses vLLM's own published image from Docker Hub
+rather than the training image, and builds nothing.
+
 ```bash
-vllm serve runs/dpo/merged \
+bash docker/serve/run.sh                                 # runs/sft/merged on :8000
+bash docker/serve/run.sh --run-name dpo --port 8001      # a different run, a different port
+bash docker/serve/run.sh -- --gpu-memory-utilization 0.7 # extra args go to vllm serve
+```
+
+```bash
+curl http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"cosimo","messages":[{"role":"user","content":"Compute the Sharpe ratio for a portfolio returning 11% with 14% vol and a 3% risk-free rate."}]}'
+```
+
+It binds to loopback and has **no authentication** — it is a testing harness, not a deployment.
+On the Spark it needs the `-aarch64` image tag, which is the default; override with
+`COSIMO_VLLM_IMAGE` to pin a version instead of tracking `latest`.
+
+The equivalent by hand, if you want to run vLLM yourself:
+
+```bash
+vllm serve runs/sft/merged \
+    --chat-template runs/sft/merged/chat_template.jinja \
     --tool-call-parser hermes \
     --enable-auto-tool-choice \
+    --dtype bfloat16 \
     --max-model-len 8192
 ```
 
 `--tool-call-parser hermes` is **required**. Without it vLLM returns the raw `<tool_call>` text as
 message content and LangGraph never sees a tool call, so the ReAct loop terminates on the first
-step with the JSON as its answer.
+step with the JSON as its answer. `--dtype bfloat16` is explicit because checkpoints exported
+before the `torch_dtype` fix in `08_export_merge.py` carry `"torch_dtype": null`, which `auto`
+resolves to float16.
+
+**`--max-model-len 8192`, not the architecture's 131072.** The config declares a 128 K LongRoPE
+window, but the LoRA was trained at 8192 and adapts attention (`qkv_proj`, `o_proj`), so
+long-context behaviour is untested and nothing in this harness measures it.
+
+**Send the trained persona.** The model was trained with `prompt.identity` on every example, so it
+carries the identity in its weights, but the app's default execution prompt
+(`cosimo/agents/react_agent/default_execution_system_prompt.txt`) is a generic four-line ReAct
+instruction the model has never seen. Serving it that prompt is a needless distribution shift.
 
 ### What the model was actually trained on
 
@@ -409,9 +450,15 @@ adapter-disabled base model as the implicit reference, so no second copy of the 
 
 ### `configs/eval.yaml` — `03_baseline_eval.py` and `06_evaluate.py`
 
-`suites` (the four below), `samples` per suite (`null` = all), `max_new_tokens: 768`,
+`suites` (the four below), `samples` per suite (`null` = all), `max_new_tokens: 4096`,
 `temperature: 0.0` (greedy — a base-vs-tuned delta must be a model difference, not sampling noise),
 `top_p: 1.0`, `batch_size: 16` (lower this first on OOM), `rel_tol: 1.0e-3`.
+
+**`max_new_tokens` was 768 and that was wrong.** The base model is a long chain-of-thought reasoner
+and 768 truncated it on 90–97 % of items, grading it wrong for running out of budget rather than for
+being wrong. `summarize_suite()` now warns when a suite's `truncation_rate` exceeds 10 %. Read that
+warning: an accuracy measured under it is a lower bound, and any delta against a short-form model is
+an overstatement of the gain.
 
 ---
 
@@ -483,10 +530,44 @@ bound that includes template familiarity. `cosimo_unseen_stems` accuracy is the 
 working. A gap that *widens* over training stages means you are buying in-distribution accuracy with
 memorisation.
 
+### What the first full run showed
+
+One complete `baseline → SFT → DPO` pass has been executed (DGX Spark, 2026-08-03/04). Three
+results are worth carrying forward, because two of them are about the harness rather than the model.
+
+**1. The baseline was truncation-bound and its numbers are not usable.** At the old
+`max_new_tokens: 768`, baseline `truncation_rate` was 0.895 / 0.929 / 0.524 / 0.968 across
+`cosimo_test` / `cosimo_unseen_stems` / `gsm8k` / `math500`. Inspecting the generations shows the
+base model solving items correctly and being cut off while writing the answer. Every reported
+base-vs-tuned delta from that run is inflated by an unknown amount. The default is now 4096; the
+whole run needs re-measuring against it before any delta is quoted.
+
+**2. Style collapse is real and large.** `mean_new_tokens` went from ~750 (baseline, against the
+cap) to **120** after SFT, p95 179 — roughly a 6× compression, on GSM8K and MATH-500 as well as on
+the exam suites. Format compliance went 4 % → 100 %. The model now answers everything in the shape
+of a four-step exam trace.
+
+**3. The DPO stage was a no-op, and structurally so.** Train loss was exactly `0.0` from step 10,
+eval loss 1e-9 to 1e-10, and the adapter moved 0.16 % in relative Frobenius norm
+(`‖DPO−SFT‖_F / ‖SFT‖_F = 0.0016`). Every suite delta was within noise (McNemar p = 1, 1, 0.5, 1)
+and `distractor_rate` did not improve.
+
+The cause is in the data, not the code: the corpus `reasoning_trace` **is** the `chosen` side of the
+preference pair, and SFT trains on those same rows. By the time DPO starts, the policy already
+assigns overwhelming relative likelihood to chosen over rejected, the implicit reward margin is
+hundreds of nats, the sigmoid saturates, and the gradient is zero. **DPO as configured cannot
+learn anything.** To get a working preference stage, the preference-pair rows must be held out of
+SFT so the margin is not pre-saturated. Until that changes, `05_train_dpo.py` costs ~5 h and
+produces a checkpoint indistinguishable from the SFT one — prefer the SFT adapter.
+
+The in-domain / held-out gap was `cosimo_test` 62.9 % vs `cosimo_unseen_stems` 18.0 %. Quote the
+second number, as this document has always said.
+
 ### Style collapse: check for it before you ship
 
 Training on terse exam traces compresses response style. The model learns that answers are five
-steps and a `FINAL ANSWER:` line — which is correct for exams and wrong for the job.
+steps and a `FINAL ANSWER:` line — which is correct for exams and wrong for the job. **This is not
+hypothetical: the first run compressed mean response length from ~750 tokens to 120.**
 
 GSM8K and MATH-500 detect regression in **general reasoning**. They do **not** measure financial
 assistant quality, and nothing in this harness does. Before shipping any checkpoint:
@@ -689,9 +770,17 @@ for all three preference-pair shapes, and the config merge/override surface.
    judge, no human comparison. The manual spot-check described under
    [Style collapse](#style-collapse-check-for-it-before-you-ship) is currently the only defence, and
    it is a weak one.
-7. **All wall-clock and memory figures in this document are estimates**, derived from record counts
-   and token budgets, not from a run. No GPU execution has been performed against this harness.
+7. **Memory figures and the evaluation wall clock are still estimates.** Training wall clock is
+   measured (one run); nothing else in that table is.
 8. **One epoch, one seed, no sweep.** The hyperparameters are defensible defaults with reasons
    attached, not tuned values. Nobody has run this twice.
 9. **The DPO preference pairs cover only ~35 % of the corpus** (the rows that carry a
    `preference_pair`), so the preference stage sees a narrower slice of topics than SFT does.
+10. **The DPO stage cannot currently learn.** SFT trains on the `chosen` traces of the very pairs
+    DPO then uses, so the preference margin is saturated before DPO starts and the gradient is
+    zero. Measured: loss `0.0` from step 10, adapter moved 0.16 %, no metric moved. Fixing it means
+    holding the preference rows out of SFT. See
+    [What the first full run showed](#what-the-first-full-run-showed).
+11. **The results currently on disk were measured at `max_new_tokens: 768`** and are truncation-
+    bound on the baseline. They need re-measuring at the new 4096 default before any delta is
+    quoted.

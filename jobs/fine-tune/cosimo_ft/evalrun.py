@@ -64,8 +64,21 @@ def _group_accuracy(rows: list[dict], key: str) -> dict:
     }
 
 
-def summarize_suite(rows: list[dict], max_new_tokens: int) -> dict:
-    """Aggregate one suite's generation rows into the metrics block."""
+# Above this share of generations hitting the decoding cap, the suite's accuracy
+# stops being a measurement of the model and starts being a measurement of the
+# budget. 10% is low enough to fire long before a run is ruined and high enough
+# not to nag about the occasional runaway generation.
+TRUNCATION_WARN_RATE = 0.10
+
+
+def summarize_suite(rows: list[dict], max_new_tokens: int, suite: str = "") -> dict:
+    """Aggregate one suite's generation rows into the metrics block.
+
+    Warns when the suite is truncation-bound. A long chain-of-thought model that
+    runs out of budget mid-answer is graded wrong for a reason that has nothing
+    to do with its reasoning, so a high rate here makes the accuracy a LOWER
+    BOUND and makes any delta against a short-form model an overstatement.
+    """
     n = len(rows)
     if n == 0:
         return {
@@ -85,6 +98,19 @@ def summarize_suite(rows: list[dict], max_new_tokens: int) -> dict:
     correct = sum(1 for row in rows if row["correct"])
     tokens = [float(row.get("new_tokens") or 0) for row in rows]
     low, high = report.wilson_ci(correct, n)
+    truncation_rate = sum(1 for t in tokens if t >= max_new_tokens) / n
+    if truncation_rate > TRUNCATION_WARN_RATE:
+        logger.warning(
+            "%s: %.1f%% of generations hit the %d-token cap. This accuracy "
+            "(%.1f%%) is a LOWER BOUND -- items that ran out of budget are "
+            "graded wrong regardless of their reasoning. Raise "
+            "eval.max_new_tokens and re-measure before comparing this run "
+            "against a shorter-form model.",
+            suite or "suite",
+            100 * truncation_rate,
+            max_new_tokens,
+            100 * correct / n,
+        )
     return {
         "n": n,
         "accuracy": correct / n,
@@ -93,7 +119,7 @@ def summarize_suite(rows: list[dict], max_new_tokens: int) -> dict:
         "distractor_rate": sum(1 for row in rows if row.get("matched_distractor")) / n,
         "mean_new_tokens": sum(tokens) / n,
         "p95_new_tokens": _percentile(tokens, 0.95),
-        "truncation_rate": sum(1 for t in tokens if t >= max_new_tokens) / n,
+        "truncation_rate": truncation_rate,
         "by_program": _group_accuracy(rows, "program"),
         "by_question_type": _group_accuracy(rows, "question_type"),
         "by_topic": _group_accuracy(rows, "topic"),
@@ -293,7 +319,7 @@ def run_evaluation(
                 len(rows) - len(scored),
                 target.name,
             )
-        suite_metrics[name] = summarize_suite(scored, max_new_tokens)
+        suite_metrics[name] = summarize_suite(scored, max_new_tokens, name)
 
     metrics = {
         "run": run_name,
