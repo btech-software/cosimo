@@ -58,6 +58,12 @@ docker_args=(
     -v "${REPO_ROOT}:/workspace/cosimo"
     -v "${HF_CACHE}:/workspace/.hf"
     -w /workspace/cosimo/jobs/fine-tune
+    # Unified memory makes allocator fragmentation expensive: a caching allocator
+    # that reserves a large segment and cannot reuse it is holding host RAM the
+    # kernel cannot swap, and overshooting is an OOM-kill rather than a catchable
+    # torch.cuda.OutOfMemoryError. expandable_segments lets the allocator grow
+    # and release segments instead of pinning the high-water mark.
+    -e PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 )
 
 if [[ "${COSIMO_RUN_AS_HOST_USER:-0}" == "1" ]]; then

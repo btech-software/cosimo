@@ -192,6 +192,13 @@ def run_evaluation(
     rel_tol = float(config_mod.get(cfg, "eval.rel_tol", 1e-3))
     max_new_tokens = int(config_mod.get(cfg, "eval.max_new_tokens", 768))
     batch_size = int(config_mod.get(cfg, "eval.batch_size", 16))
+    # Upper bound on `sequences x (prompt + max_new_tokens)` per forward pass.
+    # `batch_size` alone does not bound memory: raising max_new_tokens at a fixed
+    # count multiplies the KV reservation, which on unified memory is an
+    # unswappable driver allocation and takes the host down rather than raising
+    # a catchable CUDA OOM. See generation.plan_batches.
+    max_batch_tokens = config_mod.get(cfg, "eval.max_batch_tokens")
+    max_batch_tokens = int(max_batch_tokens) if max_batch_tokens else None
     temperature = float(config_mod.get(cfg, "eval.temperature", 0.0))
     top_p = float(config_mod.get(cfg, "eval.top_p", 1.0))
     seed = int(config_mod.get(cfg, "seed", 3407))
@@ -283,6 +290,7 @@ def run_evaluation(
                 temperature=temperature,
                 top_p=top_p,
                 seed=seed,
+                max_batch_tokens=max_batch_tokens,
                 progress=False,
             )
             rows = []

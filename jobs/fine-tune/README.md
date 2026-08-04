@@ -185,8 +185,9 @@ not the split assignment of the full corpus.
 
 Both training stages came in well under the original estimate, which assumed 25–40 % MFU; the
 measured SFT run did 3.04 samples/s and 9.37 × 10¹⁷ FLOP. **Evaluation now costs more than the
-table says**: `eval.max_new_tokens` went from 768 to 4096 (see below), and the base model actually
-uses that budget. Budget generously for `03_baseline_eval.py` in particular.
+table says**: `eval.max_new_tokens` went from 768 to 2048 (see below), and the base model actually
+uses that budget. Batches also shrink to stay inside `eval.max_batch_tokens`, so throughput drops
+with the larger budget. Budget generously for `03_baseline_eval.py` in particular.
 
 The arithmetic, so you can disagree with it:
 
@@ -457,7 +458,8 @@ adapter-disabled base model as the implicit reference, so no second copy of the 
 
 ### `configs/eval.yaml` — `03_baseline_eval.py` and `06_evaluate.py`
 
-`suites` (the four below), `samples` per suite (`null` = all), `max_new_tokens: 4096`,
+`suites` (the four below), `samples` per suite (`null` = all), `max_new_tokens: 2048`,
+`max_batch_tokens: 24576`,
 `temperature: 0.0` (greedy — a base-vs-tuned delta must be a model difference, not sampling noise),
 `top_p: 1.0`, `batch_size: 16` (lower this first on OOM), `rel_tol: 1.0e-3`.
 
@@ -546,8 +548,10 @@ results are worth carrying forward, because two of them are about the harness ra
 `max_new_tokens: 768`, baseline `truncation_rate` was 0.895 / 0.929 / 0.524 / 0.968 across
 `cosimo_test` / `cosimo_unseen_stems` / `gsm8k` / `math500`. Inspecting the generations shows the
 base model solving items correctly and being cut off while writing the answer. Every reported
-base-vs-tuned delta from that run is inflated by an unknown amount. The default is now 4096; the
-whole run needs re-measuring against it before any delta is quoted.
+base-vs-tuned delta from that run is inflated by an unknown amount. The default is now 2048 with a
+KV-cache bound (`eval.max_batch_tokens`); the whole run needs re-measuring before any delta is
+quoted. 4096 was tried first and OOM-killed the machine — see
+[Troubleshooting](#the-machine-swaps-or-the-oom-killer-runs-during-evaluation).
 
 **2. Style collapse is real and large.** `mean_new_tokens` went from ~750 (baseline, against the
 cap) to **120** after SFT, p95 179 — roughly a 6× compression, on GSM8K and MATH-500 as well as on
@@ -710,6 +714,52 @@ dies even though the default path uses no quantization at all. The Dockerfile re
 this reason. **Rebuild the image** (`bash docker/fine-tune/build.sh`) if you built it before that
 change; the fix is not in an already-built image.
 
+### The machine swaps, or the OOM killer runs during evaluation
+
+Symptoms: the desktop session dies, `dbus`/`pipewire` are killed, and the kernel log shows
+
+```
+NVRM: Check failed: Out of memory [NV_ERR_NO_MEMORY] from _memdescAllocInternal
+Out of memory: Killed process NNNN (python) total-vm:158493688kB anon-rss:1000kB
+```
+
+**Read the `anon-rss`.** 158 GB of virtual address space and ~1 MB resident, with swap almost
+untouched, means the memory went to **CUDA/NVRM driver allocations** — which on unified memory are
+host RAM, pinned and unswappable. The kernel has nothing to page out, so it kills whatever it can
+instead of raising a catchable `torch.cuda.OutOfMemoryError`. `free` will not show it as the
+Python process's usage.
+
+Two causes, both real:
+
+1. **Something else is holding the GPU.** `docker/serve/run.sh` runs vLLM, which reserves
+   `gpu_memory_utilization` (0.9 by default) up front — ~109 GB of the 121 GB the host also lives
+   in. **Stop the server before running the pipeline**, or start it with
+   `-- --gpu-memory-utilization 0.35`. Check with `docker ps` first.
+
+2. **The generation budget outgrew the batch.** `batch_size` does not bound memory; every sequence
+   reserves `prompt + max_new_tokens` of KV cache, so raising `max_new_tokens` at a fixed count
+   multiplies the reservation. Measured on this hardware:
+
+   | `batch × (prompt + max_new_tokens)` | Outcome |
+   | --- | --- |
+   | 16 × (575 + 768) = **21 488** | completed |
+   | 16 × (575 + 4096) = **74 736** | exhausted 121 GB, OOM-killed |
+
+   `eval.max_batch_tokens` (default **24 576**) now caps that product. Batches shrink automatically
+   as `max_new_tokens` rises, so a larger budget costs wall clock rather than stability, and the
+   planned batching is logged before generation starts:
+
+   ```
+   2150 prompts in 239 batches (max 9/batch, peak 23607 token slots, budget 24576)
+   ```
+
+   Read that line. If `peak` is at the budget and the run still dies, lower `eval.max_batch_tokens`
+   — not `batch_size`, which is only the count ceiling.
+
+`docker/fine-tune/run.sh` also sets `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, which lets
+the caching allocator release segments instead of pinning its high-water mark. Rebuilding is not
+required, but you must start the container through `run.sh` for it to apply.
+
 ### Out of memory on a 128 GB machine
 
 Host and GPU **share** the 128 GB. Host page cache counts against you, so a training run that fits
@@ -849,5 +899,5 @@ for all three preference-pair shapes, and the config merge/override surface.
     right tool was chosen and its output reached the answer. Nothing checks whether calling that
     tool was the right analytical move.
 12. **The results currently on disk were measured at `max_new_tokens: 768`** and are truncation-
-    bound on the baseline. They need re-measuring at the new 4096 default before any delta is
+    bound on the baseline. They need re-measuring at the new 2048 default before any delta is
     quoted. They also predate `data.preference_holdout_frac`, so their SFT corpus is the old one.

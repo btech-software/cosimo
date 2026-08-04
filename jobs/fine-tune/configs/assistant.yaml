@@ -42,6 +42,12 @@ assistant:
   top_p: 1.0
   batch_size: 8
 
+  # Same KV-cache bound as configs/eval.yaml, and it applies here too: these
+  # prompts are short but max_new_tokens is 2048, so 8 sequences would reserve
+  # 8 x (~200 + 2048) = ~18 000 slots. Within budget, but the cap is what keeps
+  # it that way if either number is raised. See generation.plan_batches.
+  max_batch_tokens: 24576
+
   # Tool-conversation turn budget. Training contains exactly ONE round-trip per
   # example, so 4 is enough to let a model that generalised prove it and a model
   # that did not fail visibly. Raising it will not rescue a model that stops

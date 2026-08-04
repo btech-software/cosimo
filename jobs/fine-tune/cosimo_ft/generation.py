@@ -40,6 +40,73 @@ def _normalize_stop_ids(model: Any, stop_token_ids: list[int] | None) -> list[in
     return [int(t) for t in eos]
 
 
+def plan_batches(
+    lengths: list[int],
+    order: list[int],
+    *,
+    batch_size: int,
+    max_new_tokens: int,
+    max_batch_tokens: int | None,
+) -> list[list[int]]:
+    """Group ``order`` into batches bounded by count **and** by token footprint.
+
+    A fixed batch count is the wrong unit. Every sequence in a batch reserves
+    ``prompt + max_new_tokens`` slots of KV cache, so the batch's real cost is
+    ``len(batch) * (longest_prompt + max_new_tokens)`` -- which means raising
+    ``max_new_tokens`` silently multiplies memory at a constant ``batch_size``.
+    On the DGX Spark that is not a recoverable CUDA OOM: unified memory is
+    shared with the host and the driver's allocations are unswappable, so the
+    kernel OOM-killer takes the desktop session down with the job. Measured:
+    16 x (575 + 768) = 21 488 slots completed; 16 x (575 + 4096) = 74 736 slots
+    exhausted 121 GB and was killed.
+
+    ``max_batch_tokens`` caps that product, so a larger generation budget costs
+    wall clock (smaller batches) instead of stability. ``None`` disables the cap
+    and restores pure count-based batching.
+
+    ``order`` is expected sorted by ascending length, so the last index appended
+    carries the batch's longest prompt.
+    """
+    if batch_size < 1:
+        raise ValueError("batch_size must be >= 1")
+
+    batches: list[list[int]] = []
+    current: list[int] = []
+    longest = 0
+    for index in order:
+        prompt_tokens = lengths[index]
+        candidate_longest = max(longest, prompt_tokens)
+        footprint = (len(current) + 1) * (candidate_longest + max_new_tokens)
+        too_many = len(current) >= batch_size
+        too_big = (
+            max_batch_tokens is not None
+            and current
+            and footprint > max_batch_tokens
+        )
+        if current and (too_many or too_big):
+            batches.append(current)
+            current, longest = [], 0
+            candidate_longest = prompt_tokens
+        current.append(index)
+        longest = candidate_longest
+    if current:
+        batches.append(current)
+
+    # A single sequence over budget is emitted alone rather than dropped: the
+    # caller asked for it, and refusing here would silently skip an eval item.
+    if max_batch_tokens is not None:
+        for batch in batches:
+            cost = len(batch) * (max(lengths[i] for i in batch) + max_new_tokens)
+            if cost > max_batch_tokens:
+                logger.warning(
+                    "a single prompt needs %d token slots, over the %d budget; "
+                    "generating it alone. Lower max_new_tokens if this OOMs.",
+                    cost,
+                    max_batch_tokens,
+                )
+    return batches
+
+
 def _progress_iter(items, enabled: bool, total: int):
     if not enabled:
         return items
@@ -61,6 +128,7 @@ def generate(
     top_p: float = 1.0,
     seed: int = 3407,
     stop_token_ids: list[int] | None = None,
+    max_batch_tokens: int | None = None,
     progress: bool = True,
 ) -> list[dict]:
     """Generate a continuation for each prompt.
@@ -94,7 +162,25 @@ def generate(
     order = sorted(range(len(prompts)), key=lambda i: (lengths[i], i))
     results: list[dict | None] = [None] * len(prompts)
 
-    batches = [order[i : i + batch_size] for i in range(0, len(order), batch_size)]
+    batches = plan_batches(
+        lengths,
+        order,
+        batch_size=batch_size,
+        max_new_tokens=max_new_tokens,
+        max_batch_tokens=max_batch_tokens,
+    )
+    widest = max(
+        (len(b) * (max(lengths[i] for i in b) + max_new_tokens) for b in batches),
+        default=0,
+    )
+    logger.info(
+        "%d prompts in %d batches (max %d/batch, peak %d token slots, budget %s)",
+        len(prompts),
+        len(batches),
+        max(len(b) for b in batches) if batches else 0,
+        widest,
+        max_batch_tokens if max_batch_tokens is not None else "unbounded",
+    )
     try:
         for batch in _progress_iter(batches, progress, len(batches)):
             encoded = tokenizer(

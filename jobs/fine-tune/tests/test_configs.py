@@ -331,10 +331,15 @@ def test_evaluation_is_deterministic_by_default():
     assert cfg["temperature"] == 0.0, "a base-vs-tuned delta must not be sampling noise"
     # Not 768: that truncated the long chain-of-thought base model on 90-97% of
     # items, so its accuracy measured the decoding budget rather than the model.
-    assert cfg["max_new_tokens"] == 4096, (
+    # Not 4096 either: at a fixed batch_size that reserved 74 736 token slots of
+    # KV cache and was OOM-killed on a 121 GB unified-memory machine.
+    assert cfg["max_new_tokens"] == 2048, (
         "the base model is a long-CoT reasoner; a small cap turns its accuracy "
         "into a measurement of the budget and inflates every tuned-model delta"
     )
+    # The bound that makes max_new_tokens safe to raise: without it, batch_size
+    # does not constrain memory at all.
+    assert cfg["max_batch_tokens"] == 24576
     assert cfg["rel_tol"] == 1.0e-3
 
 

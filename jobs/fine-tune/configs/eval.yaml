@@ -27,7 +27,7 @@ eval:
     gsm8k: 250
     math500: 250
 
-  # Decoding budget per item. 4096, NOT the 768 this started at: the base model
+  # Decoding budget per item. 2048, NOT the 768 this started at: the base model
   # is a long chain-of-thought reasoner that routinely spends well over a
   # thousand tokens thinking before it answers, and 768 cut it off mid-sentence
   # on 90-97% of items in the first full run:
@@ -40,12 +40,27 @@ eval:
   # its </think> block when the cap hit. That understates the baseline, and every
   # base-vs-tuned delta measured against it is inflated by the difference.
   #
-  # The tuned model emits ~120 tokens and never approaches this ceiling, so the
-  # extra budget costs it nothing; it is spent almost entirely on making the
-  # BASELINE honest. Do not lower this to speed up an evaluation unless every
-  # model in the comparison is short-form -- check truncation_rate first, which
-  # summarize_suite() now warns about when it goes above 10%.
-  max_new_tokens: 4096
+  # It is NOT 4096, which was tried and killed the machine: at a fixed
+  # batch_size of 16 that reserved 16 x (575 + 4096) = 74 736 token slots of KV
+  # cache, exhausted all 121 GB of unified memory, and was OOM-killed along with
+  # the desktop session. max_batch_tokens below now bounds that product, so this
+  # value is safe to raise -- it costs wall clock (smaller batches), not
+  # stability. Raise it if truncation_rate is still high and you can afford the
+  # time; summarize_suite() warns above 10%.
+  max_new_tokens: 2048
+
+  # Hard cap on `sequences x (longest_prompt + max_new_tokens)` per forward pass.
+  # batch_size alone does not bound memory -- this does. Derived from the run
+  # that completed: 16 x (575 + 768) = 21 488 slots. 24 576 keeps ~14% headroom
+  # over that known-good point and is far below the 74 736 that died.
+  #
+  # Why it matters more here than on a discrete GPU: unified memory is shared
+  # with the host and the driver's reservations are unswappable, so overshooting
+  # is not a catchable torch.cuda.OutOfMemoryError -- the kernel OOM-killer runs
+  # and takes unrelated processes with it. Raise only after measuring, and note
+  # that prompt lengths come from split_manifest.json (p95 552, max 575 today).
+  # null disables the cap and restores pure count-based batching.
+  max_batch_tokens: 24576
 
   # 0.0 = greedy decoding (do_sample=False). Evaluation must be deterministic so
   # a base-vs-tuned delta is a model difference, not sampling noise.

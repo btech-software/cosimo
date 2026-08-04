@@ -13,6 +13,14 @@
 # This is a MANUAL TESTING harness, not a deployment. It binds to 127.0.0.1, has no
 # authentication, and serves whatever checkpoint you point it at.
 #
+# DO NOT RUN THIS ALONGSIDE A TRAINING OR EVALUATION JOB. vLLM reserves
+# gpu_memory_utilization (0.9 by default) up front, which on the DGX Spark's unified
+# memory is ~109 GB of the 121 GB the host also lives in. Anything started next to it
+# -- 03_baseline_eval.py, 04_train_sft.py -- pushes the machine into swap and then into
+# the OOM-killer, which takes unrelated processes down with it. Stop this server before
+# running the pipeline, or pass a smaller share:
+#   bash docker/serve/run.sh -- --gpu-memory-utilization 0.35
+#
 # WHY A DIFFERENT IMAGE: the fine-tuning image (cosimo-fine-tune:latest) exists to train, and
 # its NGC/unsloth stack is pinned for that. Serving is a different job with a different stack,
 # so this uses vLLM's own published image rather than adding an inference server to the training

@@ -89,6 +89,7 @@ def run_prose_suite(
         temperature=float(config_mod.get(cfg, "assistant.temperature", 0.0)),
         top_p=float(config_mod.get(cfg, "assistant.top_p", 1.0)),
         seed=int(config_mod.get(cfg, "seed", 3407)),
+        max_batch_tokens=config_mod.get(cfg, "assistant.max_batch_tokens"),
     )
     scored = []
     for row, output in zip(rows, outputs):
