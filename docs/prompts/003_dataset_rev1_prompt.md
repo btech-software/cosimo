@@ -151,6 +151,6 @@ Everything reproducible lives under `dataset/` relative to the repository root, 
 - Prefer incremental, resumable generation. Write all artifacts to disk. Do not run training.
 - Do not prescribe architecture, exact decomposition, or a fixed number of rounds. Decide the best technical approach yourself.
 
-**Measure before you declare done.** The corpus is finished when it wins the bar on all six axes at scale, covers a large majority of the taxonomy, draws from hundreds of distinct generators, and carries a response-length distribution that does not collapse the base model's ability to think at length.
+**Measure before you declare done.** The corpus is finished when it wins the bar on all six axes at scale, covers a large majority of the taxonomy, draws from hundreds of distinct generators, and carries a response-length distribution that does not collapse the base model's ability to think at length using chain-of-thought.
 
 Start now.

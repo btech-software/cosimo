@@ -11,11 +11,19 @@ own arithmetic.
 
 Schema (JSONL, one record per line) is defined by FORMAT.md.
 """
-import hashlib, json, math, os, random, re
+import hashlib, json, math, os, random, re, shutil
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SHARDS_DIR = os.path.join(BASE_DIR, "shards")
-PROGRESS_DIR = os.path.join(BASE_DIR, "progress")
+# COSIMO_SHARDS_DIR lets the smoke run write to a scratch directory instead of the
+# real corpus. Without it a verification run would append to shards/.
+SHARDS_DIR = os.environ.get("COSIMO_SHARDS_DIR") or os.path.join(BASE_DIR, "shards")
+# Keep the progress page beside whichever shards it describes, so a smoke run
+# cannot overwrite the real one with its own counts.
+PROGRESS_DIR = (
+    os.path.join(os.path.dirname(SHARDS_DIR), "progress")
+    if os.environ.get("COSIMO_SHARDS_DIR")
+    else os.path.join(BASE_DIR, "progress")
+)
 
 
 def sha_of(*parts):
@@ -23,6 +31,17 @@ def sha_of(*parts):
     for p in parts:
         h.update(str(p).encode("utf-8"))
     return h.hexdigest()[:16]
+
+
+def stable_hash(*parts):
+    """Process-stable integer digest of the parts.
+
+    Python's builtin hash() is salted by PYTHONHASHSEED, so a seed derived from
+    it changes between runs and every record gets a new id. Generation is only
+    deterministic, resumable and idempotent if the (program, template, variant)
+    key maps to the same seed in every process.
+    """
+    return int(sha_of(*parts), 16)
 
 
 def make_id(program, seq, payload):
@@ -40,6 +59,68 @@ def pct(x, dp=2):
 def load_taxonomy():
     with open(os.path.join(BASE_DIR, "taxonomy", "taxonomy.json")) as f:
         return json.load(f)
+
+
+def load_seed_config():
+    try:
+        with open(os.path.join(BASE_DIR, "config", "seed.json")) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+# Which generation round produced a record. Stamped on every record so a later
+# session can ask whether round-N data moved round-N metrics, and so a round can
+# be held out as a unit. Bump it in config/seed.json before each new round.
+ROUND = int(load_seed_config().get("round", 1))
+
+TRACE_STYLES = ("assumptions_steps", "prose", "table", "backward")
+
+
+def render_trace(rng, assumptions, steps, conclusion="", style=None):
+    """Render a computed reasoning trace in one of several shapes.
+
+    `steps` is a list of (label, text); the numbers in them are already computed
+    by the caller, so only the presentation varies here and the recomputation gate
+    is unaffected. The style is drawn from the variant's seeded RNG, which makes
+    it reproducible -- verify_all re-derives the identical string from the seed.
+
+    The first corpus emitted `ASSUMPTIONS:` + `Step N.` on every single record, and
+    the model learned that being Cosimo means answering in four steps. A model
+    cannot learn that structure is a *choice* if it only ever sees one structure.
+    """
+    style = style or rng.choice(list(TRACE_STYLES))
+    assumptions = list(assumptions or [])
+    steps = list(steps or [])
+
+    if style == "assumptions_steps":
+        head = f"ASSUMPTIONS: {'; '.join(assumptions)}.\n" if assumptions else ""
+        body = "\n".join(f"Step {i}. {text}" for i, (_, text) in enumerate(steps, 1))
+        return head + body + (f"\n{conclusion}" if conclusion else "")
+
+    if style == "prose":
+        head = (
+            "Taking " + ", ".join(assumptions) + " as given, " if assumptions else ""
+        )
+        body = " ".join(
+            f"{text[0].lower()}{text[1:]}" if i and text else text
+            for i, (_, text) in enumerate(steps)
+        )
+        return (head + body).strip() + (f" {conclusion}" if conclusion else "")
+
+    if style == "table":
+        head = f"Assumptions: {'; '.join(assumptions)}.\n\n" if assumptions else ""
+        width = max((len(label) for label, _ in steps), default=8)
+        rows = "\n".join(f"{label:<{width}} | {text}" for label, text in steps)
+        return head + rows + (f"\n\n{conclusion}" if conclusion else "")
+
+    # backward: state the result, then justify it in reverse
+    lead = conclusion or (steps[-1][1] if steps else "")
+    rest = "\n".join(
+        f"- {text}" for _, text in reversed(steps[:-1] if conclusion == "" else steps)
+    )
+    tail = f"\nThis holds under {'; '.join(assumptions)}." if assumptions else ""
+    return f"{lead}\n\nWorking backwards:\n{rest}{tail}"
 
 
 class RNG:
@@ -69,7 +150,7 @@ class RNG:
 
 def record(program, topic, subtopic, difficulty, qtype, question, answer,
            distractors, trace, verified=True, verification=None, metadata=None,
-           preference_pair=None, seq=0, seed=None):
+           preference_pair=None, seq=0, seed=None, record_type=None, **extra_fields):
     payload = [program, topic, subtopic, question, answer]
     rid = make_id(program, seq, payload)
     meta = {
@@ -80,7 +161,14 @@ def record(program, topic, subtopic, difficulty, qtype, question, answer,
         "seed": seed,
         "generator": metadata.get("generator", "cosimo_template") if metadata else "cosimo_template",
         "generator_version": "1.0.0",
+        "round": ROUND,
     }
+    # Carry through generator-specific metadata (defect, call_depth, language,
+    # source_template, ...). The canonical keys above win; nothing is overwritten,
+    # so a generator cannot silently redefine topic/subtopic/generator.
+    for k, v in (metadata or {}).items():
+        if k not in meta and k != "pitfalls":
+            meta[k] = v
     rec = {
         "id": rid, "program": program, "topic": topic, "subtopic": subtopic,
         "difficulty": difficulty, "question_type": qtype,
@@ -90,6 +178,11 @@ def record(program, topic, subtopic, difficulty, qtype, question, answer,
         "verification": verification or {},
         "metadata": meta,
     }
+    if record_type:
+        rec["record_type"] = record_type
+    for k, v in extra_fields.items():
+        if v is not None:
+            rec[k] = v
     if preference_pair:
         rec["preference_pair"] = preference_pair
     return rec
@@ -102,17 +195,49 @@ def shard_path(program, shard_idx):
 
 
 def append_record(program, shard_idx, rec, finalize=False):
-    """Append one record to the current shard file (temp, then rename on finalize)."""
+    """Append one record to the current shard file (temp, then rename on finalize).
+
+    When the shard already has a finalized file and no write is in flight, the temp
+    is seeded from it first. Without that, finalizing a resumed run renames a temp
+    holding only the newly generated rows over a full shard and destroys it.
+    """
     prog_dir = os.path.join(SHARDS_DIR, program)
     os.makedirs(prog_dir, exist_ok=True)
     fname = f"{program}_shard_{shard_idx:04d}.jsonl"
     tmp = os.path.join(prog_dir, fname + ".tmp")
     final = os.path.join(prog_dir, fname)
+    if not os.path.exists(tmp) and os.path.exists(final):
+        shutil.copyfile(final, tmp)
     with open(tmp, "a") as f:
         f.write(json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n")
     if finalize:
         os.replace(tmp, final)
     return final
+
+
+def existing_ids(program=None):
+    """Every record id already committed to a finalized shard.
+
+    Generation skips ids in this set, which is what makes a re-run idempotent
+    rather than duplicating: seeds are stable per (program, template, variant),
+    so a repeated key reproduces a record that is already on disk.
+    """
+    ids = set()
+    if not os.path.isdir(SHARDS_DIR):
+        return ids
+    for prog in ([program] if program else sorted(os.listdir(SHARDS_DIR))):
+        d = os.path.join(SHARDS_DIR, prog)
+        if not os.path.isdir(d):
+            continue
+        for fn in sorted(os.listdir(d)):
+            if not fn.endswith(".jsonl"):
+                continue
+            with open(os.path.join(d, fn)) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        ids.add(json.loads(line)["id"])
+    return ids
 
 
 def shard_counts(program=None):

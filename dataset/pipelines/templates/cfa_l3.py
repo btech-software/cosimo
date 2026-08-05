@@ -209,10 +209,263 @@ def deriv_covered_call(rng, seq):
             "reasoning_trace":tr, "flawed":flaw,
             "params":{"s0":s0,"k":k,"prem":prem,"st":st}}
 
+def alloc_monte_carlo(rng, seq):
+    n_scenarios = rng.randint(1000, 5000)
+    mu = rng.uniform(0.05, 0.10, 3)
+    sigma = rng.uniform(0.12, 0.22, 3)
+    v0 = rng.randint(50, 200) * 1000000
+    t = rng.choice([1, 3, 5])
+    # approximate 5th percentile: V0 * exp((mu-0.5*sigma^2)*t - 1.645*sigma*sqrt(t))
+    log_return = (mu - 0.5 * sigma**2) * t - 1.645 * sigma * math.sqrt(t)
+    pctile_5 = v0 * math.exp(log_return)
+    q = (f"Monte Carlo simulation: {n_scenarios:,} scenarios. Expected return  {pct(mu,1)}, "
+          f"volatility {pct(sigma,1)}, horizon {t}y, current value {fmt(v0)}. "
+          f"Approximate the 5th percentile terminal value using log-normal.")
+    tr = (_assume([f"terminal value ~ log-normal", f"5th pctile: exp((μ−0.5σ²)t − 1.645σ√t)"]) +
+          f"Step 1. Drift-adjusted μᵈ = {pct(mu,1)} − ½×{pct(sigma,1)}² = {mu - 0.5*sigma**2:.4f}.\n"
+          f"Step 2. √t = {math.sqrt(t):.2f}; 1.645×σ×√t = {1.645*sigma*math.sqrt(t):.4f}.\n"
+          f"Step 3. ln(V_T/V₀) = ({mu - 0.5*sigma**2:.4f})×{t} − {1.645*sigma*math.sqrt(t):.4f} = {log_return:.4f}.\n"
+          f"Step 4. V_T(5th) = {fmt(v0)}×e^{log_return:.4f} ≈ {fmt(pctile_5)}.\n"
+          f"Step 5. Trap: using the mean return (μ) without the ½σ² adjustment overstates the percentile.")
+    wrong_pctile = v0 * math.exp(mu * t - 1.645 * sigma * math.sqrt(t))  # forgot log correction
+    flaw = {"answer": f"{fmt(wrong_pctile)}", "pitfall": "log-normal drift adjustment",
+            "reasoning_trace": (_assume([f"forgot ½σ² term"]) +
+            f"Step 1. ln(V_T/V₀) = μt − 1.645σ√t = {mu*t:.4f} − {1.645*sigma*math.sqrt(t):.4f} = {mu*t - 1.645*sigma*math.sqrt(t):.4f}. "
+            f"Correct: μᵈ = μ − ½σ² = {mu - 0.5*sigma**2:.4f}, giving V_T(5th) ≈ {fmt(pctile_5)}.")}
+    return {"meta":{"topic":"Portfolio Management","subtopic":"Scenario Analysis","difficulty":"L3_Hard",
+                    "question_type":"Calculation","pitfalls":["log-normal drift","Monte Carlo interpretation"]},
+            "question":q, "answer":f"{fmt(pctile_5)}",
+            "distractors":[f"{fmt(wrong_pctile)}", f"{fmt(v0*math.exp(mu*t))}", f"{fmt(v0)}"],
+            "reasoning_trace":tr, "flawed":flaw, "params":{"mu":mu,"sigma":sigma,"v0":v0,"t":t}}
+
+
+def fip_yield_curve(rng, seq):
+    fut_exp = rng.uniform(0.02, 0.04, 3)
+    cur_spread = rng.uniform(0.01, 0.03, 3)
+    fut_spread = cur_spread - rng.uniform(0.003, 0.008, 3)
+    q = (f"Yield-curve strategy: expected 1y inflation shift = {pct(fut_exp,1)}, "
+          f"current term premium = {pct(cur_spread,1)}, expected to narrow to {pct(fut_spread,1)}. "
+          f"What duration positioning in a steepening environment?")
+    tr = (_assume([f"steepening = short end stable, long end higher"]) +
+          f"Step 1. Inflation expectations ↑ by {pct(fut_exp,1)} → central bank likely raises short rates or holds stance.\n"
+          f"Step 2. Term premium narrowing from {pct(cur_spread,1)} to {pct(fut_spread,1)} makes long bonds *less* attractive than steepening.\n"
+          f"Step 3. Optimal: short duration or barbell; long-duration bonds underperform in steepening as long rates rise more.\n"
+          f"Step 4. Trap: extending duration in steepening assumes downward-sloping curve shift; steepening = long end outpaces short end rises.")
+    flaw = {"answer": "extend duration for capital gains", "pitfall": "yield-curve steepening",
+            "reasoning_trace": (_assume([f"steepening implies falling yields at all maturities"]) +
+            f"Step 1. Assuming all yields fall → capital gains from duration extension. But steepening means long-end rises more than short end; extending duration is a loss in this scenario.")}
+    return {"meta":{"topic":"Fixed Income","subtopic":"Yield Curve Strategies","difficulty":"L3_Hard",
+                    "question_type":"Calculation","pitfalls":["steepening","term premium"]},
+            "question":q, "answer":"short duration or barbell",
+            "distractors":["extend duration", "go overweight long-end only", "maintain bullet"],
+            "reasoning_trace":tr, "flawed":flaw, "params":{"fut_exp":fut_exp,"cur_spread":cur_spread,"fut_spread":fut_spread}}
+
+
+def pe_estate_planning(rng, seq):
+    estate_val = rng.randint(300, 800) * 1000000
+    estate_tax_rate = rng.choice([0.30, 0.35, 0.40])
+    annual_gift = rng.randint(25, 200) * 100000  # annual gift tax exclusion
+    yrs = rng.randint(5, 15)
+    tax_free = annual_gift * yrs * 2  # married couple
+    tax_saved = (estate_val - tax_free) * estate_tax_rate * 0.5  # rough half saved
+    q = (f"Estate planning: gross estate {fmt(estate_val)}, tax rate {pct(estate_tax_rate,1)}. "
+          f"Using annual exclusion gifts of {fmt(annual_gift)}/year for {yrs}y by a couple. "
+          f"Estimate approximate tax savings.")
+    tr = (_assume([f"gift tax exclusion reduces taxable estate", f"married couple ×2"]) +
+          f"Step 1. Annual total exclusion = {fmt(annual_gift)} ×2 = {fmt(annual_gift*2)}.\n"
+          f"Step 2. Total excluded over {yrs}y = {fmt(annual_gift*2)} × {yrs} = {fmt(tax_free)}.\n"
+          f"Step 3. Taxable estate after exclusion ≈ {fmt(estate_val - tax_free)}.\n"
+          f"Step 4. Tax without gifts = {fmt(estate_val)}×{pct(estate_tax_rate,1)} = {fmt(estate_val*estate_tax_rate)}.\n"
+          f"Step 5. Tax after gifts ≈ {fmt(estate_val-tax_free)}×{pct(estate_tax_rate,1)} = {fmt((estate_val-tax_free)*estate_tax_rate)}.\n"
+          f"Step 6. Savings ≈ {fmt(tax_saved)}.\n"
+          f"Step 7. Trap: ignoring step-up in basis; assets received as inheritance get step-up, which gifts avoid.")
+    flaw_ans = f"tax savings {fmt(estate_val * estate_tax_rate * 0.25)}"  # underestimates
+    flaw = {"answer": flaw_ans, "pitfall": "gift tax exclusion math",
+            "reasoning_trace": (_assume([f"forgot spouse exclusion"]) +
+            f"Step 1. Only counting one spouse: excluded = {fmt(annual_gift)}×{yrs} = {fmt(annual_gift*yrs)}, "
+            f"overstating taxable estate by {fmt(annual_gift*yrs)} and understating savings.")}
+    return {"meta":{"topic":"Private Wealth","subtopic":"Estate Planning","difficulty":"L3_Hard",
+                    "question_type":"Calculation","pitfalls":["gift exclusion","step-up in basis"]},
+            "question":q, "answer":f"~{fmt(tax_saved)} saved",
+            "distractors":[f"~{fmt(estate_val * estate_tax_rate * 0.25)} saved",
+                           f"~{fmt(estate_val * estate_tax_rate * 0.10)} saved", "no savings possible"],
+            "reasoning_trace":tr, "flawed":flaw, "params":{"estate_val":estate_val,"estate_tax_rate":estate_tax_rate,
+                                                            "annual_gift":annual_gift,"yrs":yrs}}
+
+
+def inst_endowment(rng, seq):
+    endowment = rng.randint(500, 2000) * 1000000
+    spend_rate = rng.choice([0.04, 0.045, 0.05])
+    total_ret = rng.uniform(0.06, 0.10, 3)
+    inv_exp = rng.uniform(0.015, 0.025, 3)  # investment expense
+    spending = endowment * spend_rate
+    surpl = endowment * (total_ret - inv_exp) - spending
+    q = (f"Endowment: fund value {fmt(endowment)}, spending policy {pct(spend_rate,1)}, "
+          f"total return target {pct(total_ret,1)}, annual investment expense {pct(inv_exp,1)}. "
+          f"Is the spending sustainable (positive surplus)?")
+    tr = (_assume([f"spending must come from spending of total return net of expenses"]) +
+          f"Step 1. After-expense return = {pct(total_ret,1)} − {pct(inv_exp,1)} = {pct(total_ret - inv_exp,1)}.\n"
+          f"Step 2. Spending = {pct(spend_rate,1)}×{fmt(endowment)} = {fmt(spending)}.\n"
+          f"Step 3. Income after expenses = {fmt(endowment)}×{pct(total_ret - inv_exp,1)} = {fmt(endowment*(total_ret-inv_exp))}.\n"
+          f"Step 4. Surplus = {fmt(endowment*(total_ret-inv_exp))} − {fmt(spending)} = {fmt(surpl)}.\n"
+          f"Step 5. {'Yes—spending is sustainable (positive surplus).' if surpl > 0 else 'No—spending exceeds total return net of expenses; corpus erodes.'}\n"
+          f"Step 6. Trap: comparing spending rate to total return (ignoring expenses) is misleading.")
+    flaw_ans = "sustainable" if surpl <= 0 else "not sustainable"
+    flaw_ans2 = 'ignores expenses—compares {pct(spend_rate,1)} < {pct(total_ret,1)}'
+    flaw = {"answer": flaw_ans, "pitfall": "ignoring investment expenses",
+            "reasoning_trace": (_assume([f"comparing spend rate to gross return"]) +
+            f"Step 1. Surplus = {fmt(surpl)}. Quoting '{flaw_ans}' ignores {pct(inv_exp,1)} expense drag, "
+            f"so spend rate vs gross return is misleading.")}
+    return {"meta":{"topic":"Institutional Portfolio","subtopic":"Endowment Management","difficulty":"L3_Medium",
+                    "question_type":"Calculation","pitfalls":["spending vs return","investment expenses"]},
+            "question":q, "answer":"sustainable" if surpl > 0 else "not sustainable",
+            "distractors":["sustainable", "not sustainable", "depends on reinvestment"],
+            "reasoning_trace":tr, "flawed":flaw, "params":{"endowment":endowment,"spend_rate":spend_rate,
+                                                            "total_ret":total_ret,"inv_exp":inv_exp}}
+
+
+def perf_benchmark(rng, seq):
+    active_ret = rng.uniform(0.02, 0.08, 3)
+    active_beta = rng.uniform(0.85, 1.15, 3)
+    info_ratio = active_ret / rng.uniform(0.02, 0.06, 3) * active_beta
+    q = (f"Active-return risk-budgeting: active return (tracking-error scaled)  {pct(active_ret,1)}, "
+          f"active beta {active_beta:.2f}. Compute the active-risk-adjusted metric: "
+          f"active return × active beta.")
+    tr = (_assume([f"risk-budgeting aims to maximize active risk-adjusted performance"]) +
+          f"Step 1. Active beta = {active_beta:.2f} indicates leverage of active bets.\n"
+          f"Step 2. Metric = {pct(active_ret,1)} × {active_beta:.2f} = {active_ret*active_beta:.4f}.\n"
+          f"Step 3. Trap: ignoring active beta treats all active return equally; beta > 1 amplifies active risk.\n"
+          f"Step 4. If active beta > 1, the manager uses active concentration on higher-returning styles; benchmark: same.")
+    flaw_ans = f"{pct(active_ret,1)}"
+    flaw = {"answer": flaw_ans, "pitfall": "ignoring active beta",
+            "reasoning_trace": (_assume([f"equal weight to all active return"]) +
+            f"Step 1. Quoting {pct(active_ret,1)} without multiplying by active beta {active_beta:.2f} ignores active risk amplification; "
+            f"correct metric = {pct(active_ret,1)} × {active_beta:.2f} = {active_ret*active_beta:.4f}.")}
+    return {"meta":{"topic":"Portfolio Management","subtopic":"Active Risk Budgeting","difficulty":"L3_Hard",
+                    "question_type":"Calculation","pitfalls":["active beta","risk-budgeting"]},
+            "question":q, "answer":f"{active_ret*active_beta:.4f}",
+            "distractors":[f"{pct(active_ret,1)}", f"{pct(active_ret*active_beta*2)}", f"{pct(active_ret/active_beta)}"],
+            "reasoning_trace":tr, "flawed":flaw, "params":{"active_ret":active_ret,"active_beta":active_beta}}
+
+
+def risk_extreme(rng, seq):
+    port_sig = rng.uniform(0.12, 0.25, 3)
+    mean_ret = rng.uniform(0.06, 0.12, 3)
+    # Normal distribution values at z=-1.645 (5th percentile):
+    # phi(z) ≈ 0.1031, Phi(z) = 0.05
+    z_5 = -1.645
+    var5 = mean_ret + z_5 * port_sig
+    # CVaR (expected shortfall) = μ - σ·φ(z)/Φ(z) where z is the VaR cutoff
+    # Using phi(-1.645) ≈ 0.1031, Φ(-1.645) = 0.05
+    phi_z = 0.1031
+    cdf_z = 0.05
+    cvar = mean_ret - port_sig * phi_z / cdf_z
+    q = (f"Extreme-value / tail-risk: portfolio μ={pct(mean_ret,1)}, σ={pct(port_sig,1)}. "
+          f"Compute the 5% VaR and CVaR (expected shortfall).")
+    q2 = (f"VaR(5%) = μ + z·σ = {pct(mean_ret,1)} + ({z_5:.3f}) × {pct(port_sig,1)} = {var5:.4f}. "
+          f"CVaR = μ − σ·φ(z)/Φ(z) ≈ {pct(mean_ret,1)} − {pct(port_sig,1)}×{phi_z:.4f}/{cdf_z:.2f} = {cvar:.4f}.")
+    tr = (_assume([f"VaR at 5%: z = −1.645", f"φ(−1.645) ≈ 0.1031, Φ(−1.645) = 0.05"]) +
+          f"Step 1. z(5%) = {z_5:.3f}.\n"
+          f"Step 2. VaR(5%) = {pct(mean_ret,1)} + ({z_5:.3f}) × {pct(port_sig,1)} = {var5:.4f}.\n"
+          f"Step 3. φ({z_5:.3f}) = {phi_z:.4f}; Φ({z_5:.3f}) = {cdf_z:.2f}.\n"
+          f"Step 4. CVaR ≈ {pct(mean_ret,1)} − {pct(port_sig,1)} × {phi_z:.4f}/{cdf_z:.2f} = {cvar:.4f}.\n"
+          f"Step 5. Interpretation: on the worst 5% of outcomes, average loss is {pct(cvar,1)}.\n"
+          f"Step 6. Trap: using just VaR (ignoring the tail beyond VaR) underestimates expected loss.")
+    flaw_ans = f"CVaR ≈ {var5:.4f}"  # confusing VaR = CVaR
+    flaw = {"answer": flaw_ans, "pitfall": "VaR vs CVaR",
+            "reasoning_trace": (_assume([f"equating VaR with CVaR"]) +
+            f"Step 1. Stating CVaR = {var5:.4f} (just VaR) ignores that conditional expectation below VaR is pulled further down. "
+            f"Correct CVaR ≈ {cvar:.4f} after the φ/Φ tail adjustment.")}
+    return {"meta":{"topic":"Risk Management","subtopic":"Extreme Value / Tail Risk","difficulty":"L3_Hard",
+                    "question_type":"Calculation","pitfalls":["tail expectation","conditional VaR","VaR vs CVaR"]},
+            "question":q+q2, "answer":f"CVaR ≈ {cvar:.4f}",
+            "distractors":[f"CVaR ≈ {var5:.4f}", f"CVaR ≈ {mean_ret:.4f}", f"CVaR ≈ {mean_ret + port_sig:.4f}"],
+            "reasoning_trace":tr, "flawed":flaw, "params":{"port_sig":port_sig,"mean_ret":mean_ret,"var5":var5,"cvar":cvar}}
+
+
+def alloc_black_litter(rng, seq):
+    eq_prem = rng.uniform(0.04, 0.07, 3)
+    risk_av = rng.choice([1.5, 2.0, 2.5])
+    cov_mat_diag = rng.uniform(0.04, 0.10, 3)
+    # implied equilibrium weight = expected return / (risk aversion * variance)
+    eq_weight = eq_prem / (risk_av * cov_mat_diag)
+    eq_weight = min(eq_weight, 1.0)  # cap
+    q = (f"Black-Litterman: equity risk premium {pct(eq_prem,1)}, investor risk aversion {risk_av}, "
+          f"market variance {pct(cov_mat_diag,1)}. Compute the implied equilibrium weight.")
+    tr = (_assume([f"We_q = E[R_q] / (δ · Var[R_q])", f"δ = risk aversion"]) +
+          f"Step 1. Implied weight = {pct(eq_prem,1)} / ({risk_av} × {pct(cov_mat_diag,1)}) = {eq_prem:.4f} / ({risk_av * cov_mat_diag:.4f}) = {eq_weight:.4f}.\n"
+          f"Step 2. Cap at 1.0 if exceeded.\n"
+          f"Step 3. Trap: ignoring risk aversion (setting δ=1) overweights the asset.\n"
+          f"Step 4. Trap: using standard deviation instead of variance gives {eq_prem / (risk_av * math.sqrt(cov_mat_diag)):.4f}.")
+    flaw1 = eq_prem / math.sqrt(cov_mat_diag) * 0.5  # used std instead of var
+    flaw = {"answer": f"{flaw1:.4f}", "pitfall": "std vs variance",
+            "reasoning_trace": (_assume([f"used std instead of variance"]) +
+            f"Step 1. Wrong: {pct(eq_prem,1)} / ({risk_av} × √{pct(cov_mat_diag,1)}) = {flaw1:.4f}. "
+            f"Correct: divide by δ × variance = {risk_av * cov_mat_diag:.4f}, giving {eq_weight:.4f}.")}
+    return {"meta":{"topic":"Portfolio Management","subtopic":"Black-Litterman","difficulty":"L3_Hard",
+                    "question_type":"Calculation","pitfalls":["variance vs std","risk aversion"]},
+            "question":q, "answer":f"{eq_weight:.4f}",
+            "distractors":[f"{flaw1:.4f}", f"{eq_prem:.4f}", f"{eq_prem * cov_mat_diag:.4f}"],
+            "reasoning_trace":tr, "flawed":flaw, "params":{"eq_prem":eq_prem,"risk_av":risk_av,
+                                                            "cov_mat_diag":cov_mat_diag}}
+
+
+def pw_behavioral(rng, seq):
+    initial = rng.randint(50, 200) * 100000
+    gain = rng.randint(10, 40) * 100000
+    final_val = initial + gain
+    ref_pt = rng.randint(80, 120) * 100000
+    val_fn_gain = 1.0  # risk seeking in gains
+    val_fn_loss = 2.25  # loss aversion
+    if final_val >= ref_pt:
+        utils_gain = (final_val - ref_pt) ** val_fn_gain
+    else:
+        utils_loss = ref_pt - final_val
+        utils_gain = -(val_fn_loss * utils_loss ** 2)
+    q = (f"Behavioral portfolio theory: current value {fmt(final_val)}, reference point {fmt(ref_pt)}. "
+          f"Using value function v(x) = x^α for gains (α=1) and v(x) = −λ·|x|^β for losses (λ=2.25). "
+          f"Compute the subjective value.")
+    tr = (_assume([f"prospect theory reference-dependence"]) +
+          f"Step 1. Current value {fmt(final_val)} vs reference {fmt(ref_pt)}.\n"
+          f"Step 2. {'Outcome is above reference point: subjective value = (Final − Reference)^1 = ' if final_val >= ref_pt else f'Outcome is below reference point: subjective value = −2.25 × |{final_val} − {ref_pt}|^2.5 = '}")
+    if final_val >= ref_pt:
+        subj_val = utils_gain
+        trace_detail = f"Step 3. v({final_val - ref_pt}) = ({final_val - ref_pt})^1 = {utils_gain:.2f}.\n"
+        trace_detail += f"Step 4. Trap: using endowment effect only (ignoring reference point) gives value {fmt(final_val)}.\n"
+    else:
+        subj_val = utils_gain
+        trace_detail = f"Step 3. v({final_val - ref_pt}) = −2.25 × {abs(final_val - ref_pt)}^1 = {utils_gain:.2f}.\n"
+        trace_detail += f"Step 4. Trap: using absolute value {fmt(final_val)} ignores loss aversion.\n"
+    trace_full = (_assume([f"prospect theory reference-dependence"]) +
+                  f"Step 1. {fmt(final_val)} vs reference {fmt(ref_pt)}.\n"
+                  f"Step 2. {'Gain' if final_val >= ref_pt else f'Loss of {fmt(abs(final_val-ref_pt))} from reference.'}\n"
+                  f"{trace_detail}"
+                  f"Step 5. Subjective value = {utils_gain:.2f}.\n"
+                  f"Step 6. Key: loss aversion (λ = 2.25) makes losses feel ~2.25× larger than comparable gains.")
+    flaw_ans = f"{fmt(final_val)}"  # using absolute value
+    flaw = {"answer": flaw_ans, "pitfall": "absolute value vs reference point",
+            "reasoning_trace": (_assume([f"reference-independent valuation"]) +
+            f"Step 1. Using absolute value {fmt(final_val)} ignores the reference point {fmt(ref_pt)} and gives subjective value {utils_gain:.2f}. Prospect theory shows evaluation reference-dependent.")}
+    return {"meta":{"topic":"Private Wealth","subtopic":"Behavioral Finance","difficulty":"L3_Medium",
+                    "question_type":"Calculation","pitfalls":["reference dependence","loss aversion"]},
+            "question":q, "answer":f"{utils_gain:.2f}",
+            "distractors":[f"{fmt(final_val)}", f"{fmt(initial)}", f"{fmt(gain)}"],
+            "reasoning_trace":trace_full, "flawed":flaw,
+            "params":{"initial":initial,"gain":gain,"final_val":final_val,"ref_pt":ref_pt}}
+
+
 TEMPLATES = {
     "perf_twrr": perf_twrr, "perf_mwrr": perf_mwrr, "imm_duration_gap": imm_duration_gap,
     "risk_var": risk_var, "attr_carino": attr_carino, "tax_taxable_equiv": tax_taxable_equiv,
     "spend_rule": spend_rule,
     "alloc_rebalancing": alloc_rebalancing,
     "deriv_covered_call": deriv_covered_call,
+    "alloc_monte_carlo": alloc_monte_carlo,
+    "fip_yield_curve": fip_yield_curve,
+    "pe_estate_planning": pe_estate_planning,
+    "inst_endowment": inst_endowment,
+    "perf_benchmark": perf_benchmark,
+    "risk_extreme": risk_extreme,
+    "alloc_black_litter": alloc_black_litter,
+    "pw_behavioral": pw_behavioral,
 }
