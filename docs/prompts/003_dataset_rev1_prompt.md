@@ -1,156 +1,176 @@
-Generate the second Cosimo training corpus: a **complementary** dataset that teaches the reasoning and judgement the first one could not, designed to be **mixed** with `btech-software/cosimo-cfa-frm-71k` rather than to replace it.
+# Cosimo dataset v2 — iteration 2
 
-This supersedes `001_dataset_prompt.md`. That brief was executed, the corpus it produced was trained on, and the run was measured end-to-end. Read the findings below before designing anything: they are not predictions, they are results, and every requirement here exists because something specific went wrong.
+Work in `dataset/`. This prompt is self-contained; the original brief is preserved at
+`docs/prompts/003_dataset_rev1_brief.md` — read it for the full rationale, but do not
+wait on it to start.
 
-**The objective is the one in `jobs/fine-tune/README.md`:** an assistant to a Head of Quantitative Asset Management — one that reasons about valuation, risk, market microstructure and research papers, and is honest about what it does not know. Exam accuracy is a milestone, not the target. This corpus is one increment in a planned series; it does not have to teach everything, but it must not repeat what the first one got wrong.
+## Objective
 
----
+A corpus that teaches an assistant to a **Head of Quantitative Asset Management**: one
+that reasons about valuation, risk, market microstructure and papers, and is honest
+about what it does not know. Exam accuracy is a milestone, not the target. The first
+corpus raised exam accuracy while collapsing the model's mean response from ~750 tokens
+to 120 and teaching it to answer every question as a four-step exam trace. Everything
+below exists to stop that recurring.
 
-## What the first corpus got right — keep all of it
+## State
 
-- **Every number is computed, never written.** Templates compute, then stringify; verification re-executes from the stored seed and compares. Keep this absolutely.
-- **Deterministic, resumable, idempotent generation** keyed by `(program, template, variant)`. Generation runs for days; it must survive restarts.
-- **Content-hashed ids, atomic shard writes, a 4-axis regression gate.** All good engineering. Reuse it.
-- **Original content only**, inspired by public Learning Outcome Statements. Never reproduce proprietary exam material.
+**Done — do not redo, do not re-audit:**
+- The generation pipeline. Deterministic, resumable, idempotent, all 277 generators run.
+- The verification harness: 9 gates in `verification/`, the blind A/B in `eval/ab_eval.py`,
+  the gold-bar validator in `goldbar/validate.py`.
+- 70 analysis gold transcripts (mean 579 tokens, genuinely varied — median pairwise
+  Jaccard 0.08). **Keep these. Do not regenerate them.**
 
-## What it got wrong — all measured, all must be fixed
+**Not done:** everything in the ordered list below. The corpus is still 6,704 rows and
+99.96% exam records; no bulk generation has run.
 
-1. **71 generator stems produced 71 000 rows.** Scale came from randomising numbers inside a fixed set of templates, so the model memorised phrasing skeletons. Measured: in-domain accuracy **62.9 %** against **18.0 %** on held-out stem families — a 45-point gap that is memorisation, not capability.
+## Definition of done
 
-2. **The corpus covers 13.6 % of its own taxonomy.** Only **25 of 184** declared subtopics have any generator at all:
+These three commands all exit 0:
 
-   | Program | Subtopics | Covered | Gap |
-   | --- | ---: | ---: | ---: |
-   | CFA Level I | 58 | 12 | 46 |
-   | CFA Level II | 55 | 8 | 47 |
-   | CFA Level III | 45 | 5 | 40 |
-   | FRM Part 1 | 21 | 4 | 17 |
-   | FRM Part 2 | 28 | 2 | 26 |
+```
+python3 scripts/smoke_generate.py      # 8 checks, incl. parameter variety
+python3 goldbar/validate.py            # gold bar schema + composition
+python3 verification/verify_all.py     # 9 gates across all 6 record types
+```
 
-   The taxonomy was written and then largely ignored. **Closing this gap is the single highest-value thing this corpus does.**
-
-3. **Every supervised target was a terse formulaic trace** — `ASSUMPTIONS:` / `Step 1.` / `FINAL ANSWER:`, 150–400 tokens. The base model is a long chain-of-thought reasoner; training on this compressed mean response length from **~750 tokens to 120** and taught the model that *being Cosimo means answering in four steps*. Asked afterwards to walk through hedging a convexity mismatch, the served checkpoint produced an exam trace and invented a term — "**Durbin-Watson duration**" — that does not exist.
-
-4. **Preference pairs were unusable for preference learning.** The corpus `reasoning_trace` *is* the `chosen` side, and SFT trained on those same rows: **22 048 of 22 048 pairs overlapped**, a 100 % collision. By the time DPO started the reward margin was hundreds of nats, the sigmoid saturated, and the loss was exactly `0.0` from step 10. Five GPU-hours moved the adapter 0.16 % and changed no metric.
-
-5. **The pairs differ by one arithmetic slip.** `chosen` and `rejected` share a skeleton and diverge on a wrong-formula branch. That teaches "do not flip this sign". It does not teach judgement.
-
-6. **Nothing in the corpus teaches abstention.** Every target is a confident computation. The persona claims to be "brutally honest about what you don't know" while 100 % of the training signal says *always answer*.
-
-7. **Tool data was one round-trip, always.** No chains, no parallel calls, no recovery from a failed call.
-
-8. **The persona advertises capabilities with zero training data**: deriving Black-Scholes from Itô, game theory (Nash, Bayesian games, mechanism design, Shapley), reading a paper and producing idiomatic Python. None of it is in the corpus and none of it is measured.
-
----
-
-## Goal
-
-A new corpus, generated under `dataset/` in this repository, that mixes with the existing 71k to produce an SFT/preference set with roughly this composition. These are targets to design against, not a formula to satisfy exactly:
-
-| Component | Share of the mixed SFT set | Why |
-| --- | ---: | --- |
-| Exam items — **existing 71k, capped** | ≤ 30 % | Verified arithmetic is real value. It stops being useful the moment it dominates. |
-| Exam items — **new subtopics** | ~15 % | Closes the 159-subtopic taxonomy gap. New stems, not new numbers in old stems. |
-| Open-ended analysis | ~25 % | The actual job. Long-form, prose, no single number. |
-| Abstention and calibration | ~10 % | Underspecified, unanswerable, false-premise. Correct answer is to ask or refuse. |
-| Agentic multi-step tools | ~12 % | Chains of 2–4 calls, parallel calls, failed-call recovery, and no-call-appropriate. |
-| Paper → implementation | ~8 % | Extract a model from a described paper, produce clean Python, state what breaks in production. |
-
-**Scale target is stems and subtopics, not rows.** A corpus of 30 000 rows from 400 distinct generators across 150 subtopics is worth far more than 200 000 rows from 71. If you must choose, choose breadth.
-
-### Response-length distribution is a first-class property
-
-Record the token-length distribution of the supervised targets and treat it as a design constraint, not an outcome. The mixed corpus must contain a **substantial fraction of long-form targets (800+ tokens)**, because the base model can already reason at length and the first corpus trained that out of it. A corpus whose p95 target length is under 400 tokens has already failed, whatever else it scores.
+**The gates are the spec.** Do not weaken a threshold, loosen a required-field list, or
+special-case a record to make one pass. If you believe a threshold is wrong, say so and
+stop. A previous iteration reported success against a validator that was too permissive;
+that is the specific failure this rule prevents.
 
 ---
 
-## Record types and schema
+## Do the work in this order
 
-Extend `FORMAT.md` rather than inventing a parallel format. Every record keeps `id`, `program`, `topic`, `subtopic`, `difficulty`, `question_type`, `verified`, `verification`, `metadata`, and adds a **`record_type`** discriminator so the fine-tuning harness can mix and weight them:
+### 0. REPAIR THE GOLD BAR — 148 structural failures
 
-- `exam` — as today: question, distractors, computed answer, reasoning trace.
-- `analysis` — open-ended question, long-form answer. No `FINAL ANSWER:` line, no mandatory step enumeration.
-- `abstention` — a defective prompt plus the response that identifies what is missing. `metadata.defect` is one of `underspecified` / `unanswerable` / `false_premise`.
-- `agentic` — a full multi-turn conversation with tool schemas, calls, results and a final answer.
-- `implementation` — a described model or paper, plus an idiomatic object-oriented Python implementation and an honest note on what fails with real data.
+The bar is 200 transcripts with the right composition, but **118 of them are shells**.
+`goldbar/validate.py` now checks per-type structure and fails:
 
-Format constraints that follow directly from the measured failures:
+| Missing field | Count |
+|---|---|
+| `agentic.conversation` | 30 of 30 |
+| `agentic.tool_schemas` | 30 of 30 |
+| `implementation.code` | 25 of 25 |
+| `exam.reasoning_trace` | 33 of 45 |
+| `abstention.metadata.defect` | 30 of 30 |
 
-- **`FINAL ANSWER:` appears only on `exam` records.** It is a grading contract, not a house style. Putting it everywhere is what taught the model to answer every question as an exam item.
-- **`ASSUMPTIONS:` and `Step N.` must not be universal.** Vary the shape of exam traces deliberately: some prose, some enumerated, some tabular, some working backwards from the answer. A model cannot learn that structure is a *choice* if it only ever sees one structure.
-- **No record type may be produced by a single template.** Each needs many independent generators.
+Fix these in place — keep the questions and answers already written, add the missing
+structure:
 
-### Preference pairs — rebuilt
+- **agentic** needs a real `conversation` (list of turns) and `tool_schemas`. Roles are
+  `user` / `assistant` / `tool` — **never `tool_result`**, which the chat template does
+  not recognise. Assistant tool calls use
+  `{"type":"function","function":{"name":..., "arguments":{...}}}`. Cover single-call,
+  multi-call, parallel-call, failed-call recovery, and no-call-appropriate.
+- **implementation** needs `code`: idiomatic Python that parses and executes, plus an
+  honest note on what breaks with real data.
+- **exam** needs a `reasoning_trace`. Deliberately vary the shape across the 45 — some
+  prose, some enumerated, some tabular, some working backwards from the answer.
+- **abstention** needs `metadata.defect` ∈ `underspecified` / `unanswerable` /
+  `false_premise`.
 
-- Pairs must live in a **disjoint id space from the SFT rows**, or carry an explicit flag the preparation step can split on. The harness now enforces zero overlap (`data.preference_holdout_frac`, and a validation gate that fails on collision), but a corpus that ships colliding pairs is still a corpus half of which cannot be used.
-- **`rejected` must be plausible and wrong for an interesting reason.** Target: right method with a wrong assumption; a confident answer to an underspecified question; a correct calculation that answers a different question than the one asked; a fluent answer with an invented term. Retire "same skeleton, one flipped sign" as the dominant mode.
-- Cover every `record_type`, not just `exam`. The most valuable pairs are `abstention` ones: *asked for the missing input* versus *answered anyway*.
+This is first because the bar is the reference the blind A/B scores against. Hollow
+agentic transcripts would make generated agentic records win by default.
+
+Verify: `python3 goldbar/validate.py` → PASS.
+
+### 1. PARAMETER VARIETY
+
+`abstention`, `agentic` and `implementation` each produce **one unique question per
+generator regardless of seed** (20%). Parameterise the question *text* — a different
+instrument, a different defect, a different tool set — not just the numbers.
+
+Bulk generation is pointless until this is fixed: the idempotency skip would collapse
+28,600 intended abstention rows to 62.
+
+Verify: smoke check 8 reads >90% for every type.
+
+### 2. ANALYSIS LENGTH
+
+The length gate fails. The 43 generators in `pipelines/templates/v2_analysis.py` produce
+answers averaging **117 approx tokens** against FORMAT.md's 800–2000 spec; mixed-set p95
+is 178 against an 800 floor.
+
+Rewrite them to produce genuinely long-form answers that show reasoning — mechanism,
+trade-offs, what would change the conclusion — not just more numbers. The 70 analysis
+gold transcripts are the quality reference for what this should look like.
+
+Verify: `python3 verification/length_gate.py` → PASS.
+
+### 3. TAXONOMY COVERAGE
+
+**55 of 207 subtopics have a generator (26.6%).** The brief calls closing this the single
+highest-value thing the corpus does.
+
+| Program | Gap |
+|---|---:|
+| CFA Level I | 43 |
+| CFA Level II | 46 |
+| CFA Level III | 28 |
+| FRM Part 1 | 15 |
+| FRM Part 2 | 20 |
+
+Write **new generators** for uncovered subtopics. Do not add variants to existing stems —
+that is the memorisation failure, not coverage.
+
+### 4. TRACE VARIETY
+
+`core.render_trace` exists and **zero** templates use it. All 103 exam generators still
+hand-build `ASSUMPTIONS:` / `Step N.` strings, which is exactly what taught the model that
+being Cosimo means answering in four steps.
+
+Migrate them to return structured `{assumptions, steps, conclusion}` and render through
+`render_trace`. The style is drawn from the variant's seeded RNG, so recomputation stays
+byte-identical and the numeric gate keeps working. Ids are unaffected — the trace is not
+in the id payload.
+
+### 5. PREFERENCE PAIRS
+
+`pipelines/templates/v2_preference.py` has 8 generators proving all four failure modes
+(`false_confidence`, `wrong_assumption`, `answers_different_question`, `invented_term`).
+Expand for coverage across record types, weighted toward `false_confidence` — abstention
+pairs are the highest-value type and the 62 abstention generators already supply the
+`chosen` side.
+
+Pairs live in the `cosimopref_` id namespace and shard to `shards/preference/`. Keep it
+that way: the disjoint namespace is what makes SFT/DPO overlap structurally impossible.
+
+### 6. ONLY THEN, BULK GENERATE
+
+```
+PER_TEMPLATE=250 python3 -m pipelines.generate
+```
+
+Row count is an **outcome of generator count**, not a dial. Hold variants per generator at
+≤250. The v1 corpus was 71 stems × 1000 variants and produced a 45-point generalisation
+gap (62.9% in-domain vs 18.0% held-out). Reaching 200K means ~800 generators, not more
+variants. Generation is resumable and idempotent; re-running skips what already exists.
 
 ---
 
-## Concrete quality bar (non-negotiable)
+## Hard constraints
 
-The gold bar is **no longer a set of exam questions**. That was the mistake baked into `001`: the bar defined the target, the target was exam items, and the model became an exam solver.
+- **Never edit `jobs/fine-tune/suites/*.jsonl`.** They are held-out measurement
+  instruments. The `suite_overlap` gate already caught one real contamination.
+- **`FINAL ANSWER:` only on exam records.** It is a grading contract, not a house style.
+- **Every number computed by code, never written.** Verification re-executes from the
+  stored seed.
+- **Bump `round` in `config/seed.json`** before a new generation round.
+- **Do not touch `jobs/fine-tune/`.** The training-harness work is separate and is not
+  part of this goal.
 
-Build a gold bar of **~200 assistant transcripts** — what an excellent quant assistant actually says to a Head of Quantitative Asset Management. It must contain long-form analysis, honest uncertainty, tool use, and code, alongside exam items. Sources: public CFA/FRM Learning Outcome Statements, high-quality open financial education material, published papers and their reference implementations, and rigorously verified synthetic exemplars.
+## Housekeeping
 
-Every batch must win a **blind A/B against that bar** on:
+Delete the scratch files a previous iteration left in `dataset/goldbar/`: `a1.py`–`al.py`,
+`write_*.py`, `gold_bar.jsonl.bak3`, `.bak4`, `gold_bar_clean.jsonl`, `gold_bar_new.jsonl`.
+The `.bak3`/`.bak4` files are identical copies of the current 200-line bar; `_clean` (82)
+and `_new` (62) are superseded partial drafts. Work in the real file, not in copies.
 
-1. **Correctness** — numerical and conceptual.
-2. **Reasoning depth** — does it explain *why*, or only *what*.
-3. **Calibration** — does it state its assumptions and flag what it cannot know.
-4. **Format appropriateness** — does the shape of the answer fit the question asked.
-5. **Terminology validity** — every technical term is real and used correctly.
-6. **Absence of hallucination.**
+## Report honestly
 
-The finished corpus must additionally win on **subtopic coverage**, **generator diversity**, and **response-length distribution**. A batch that wins on correctness and loses on format appropriateness has failed; that combination is exactly what shipped last time.
-
----
-
-## Verification — three gates, all mandatory
-
-1. **Code execution for every numeric.** Recompute from the stored seed, compare to the persisted answer, drop on mismatch. This is the one thing the first pipeline got unambiguously right.
-2. **Terminology gate.** Check every technical term against a curated finance vocabulary. Invented collocations — a real eponym welded to the wrong concept, as in "Durbin-Watson duration" — must **block** the record. Note that the eponym and the concept are individually valid; it is the pairing that is fabricated, so a token-level check is insufficient.
-3. **Frontier-model critic with an explicit rubric.** Judgement-bearing content has no computable ground truth. The critic scores against the six axes above and performs the blind A/B. It must inspect real files and real samples, never summaries.
-
-Verification must be **re-runnable over the whole corpus** as a regression gate, like the existing `verification/verify_all.py`, and must exit non-zero on any failure.
-
----
-
-## Anti-patterns — do not do these
-
-- **Do not scale by re-randomising existing stems.** Row count is not the goal; the 45-point generalisation gap is what that buys.
-- **Do not attach `FINAL ANSWER:` to non-exam records.**
-- **Do not generate preference pairs whose `chosen` is also an SFT target.**
-- **Do not let one response shape dominate.** Uniform formatting is the failure mode, not the quality signal.
-- **Do not overlap the assistant-eval suites.** `jobs/fine-tune/suites/{open_ended,calibration,agentic}.jsonl` are held-out measurement instruments. Generating near-duplicates of those prompts contaminates the only evaluation that measures the objective. Check for overlap explicitly and record the check.
-- **Do not target `microsoft/Phi-4-mini-flash-reasoning`.** `001` named it; it is a `Phi4FlashForCausalLM` SambaY hybrid, not trainable with Unsloth/PEFT. The training target is **`unsloth/Phi-4-mini-reasoning`**.
-
----
-
-## Deliverables
-
-Everything reproducible lives under `dataset/` relative to the repository root, following the existing layout and its contracts (`FORMAT.md`, `ARCHITECTURE.md`, `AGENTS.md`):
-
-- `dataset/taxonomy/` — extended coverage map, with the covered/uncovered status of every subtopic tracked as data, not prose.
-- `dataset/pipelines/templates/` — the new generators, registered per program, following the existing `fn(rng, seq) -> dict` contract.
-- `dataset/goldbar/` — the assistant-transcript gold bar.
-- `dataset/verification/` — all three gates, plus a full-scan regression runner.
-- `dataset/shards/` — output JSONL, sharded, atomic, resumable (gitignored).
-- `dataset/publish/` — Hub publishing script and dataset card. The card must state the composition table, the coverage numbers, and the known limitations honestly.
-- A live progress page showing: rows by `record_type`, **subtopic coverage heat-map**, distinct generator count, response-length distribution, gold-bar A/B win rate per axis, current bottlenecks, and shard status.
-
----
-
-## Instructions for the lead agent
-
-- Divide the goal into the smallest pieces that can be independently built and judged: taxonomy gap analysis, per-record-type generation pipelines, each verification gate, gold-bar construction, preference-pair construction, coverage and diversity trackers, storage format, publishing.
-- For every important piece, fan out a builder subagent and a **completely separate** critic subagent in fresh contexts.
-- Each critic inspects real output — files, numbers, samples — performs the blind A/B against the gold bar, identifies the single largest remaining gap, and sends the work back. Loop until it wins or improvements become negligible.
-- Build the **gold bar first**, then the **taxonomy gap analysis**, then generation. The bar defines the target; last time the target was wrong and everything downstream faithfully hit it.
-- Prefer incremental, resumable generation. Write all artifacts to disk. Do not run training.
-- Do not prescribe architecture, exact decomposition, or a fixed number of rounds. Decide the best technical approach yourself.
-
-**Measure before you declare done.** The corpus is finished when it wins the bar on all six axes at scale, covers a large majority of the taxonomy, draws from hundreds of distinct generators, and carries a response-length distribution that does not collapse the base model's ability to think at length using chain-of-thought.
-
-Start now.
+State what passed, what failed, and what you did not get to. Do not report a step complete
+because a gate went green — check that the gate actually measures the thing. If you run out
+of scope, stop at a clean boundary and say exactly where you stopped.
