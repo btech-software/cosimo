@@ -52,6 +52,19 @@ TARGET_TOTAL = sum(TARGET_COMPOSITION.values())
 
 REQUIRED = ("id", "record_type", "program", "topic", "subtopic", "question")
 
+# The gold bar is the reference the corpus is judged against, so it must meet at
+# least the standard the corpus does. Checking only the fields above let 30
+# "agentic" transcripts through with no conversation and no tool schemas, 30
+# abstention transcripts with no metadata.defect, and 33 exam transcripts with no
+# reasoning trace -- structurally hollow, but passing.
+PER_TYPE_REQUIRED = {
+    "exam": ("answer", "reasoning_trace"),
+    "analysis": ("answer",),
+    "abstention": ("answer",),
+    "agentic": ("tool_schemas", "conversation"),
+    "implementation": ("code",),
+}
+
 # Minimum supervised-answer length per type, in approximate tokens. An exemplary
 # open-ended answer that is shorter than this is not exemplary.
 MIN_TOKENS = {"analysis": 400, "abstention": 60, "implementation": 100,
@@ -153,6 +166,12 @@ def run(path=GOLD_PATH):
         for field in REQUIRED:
             if not rec.get(field):
                 result.fail(rid, f"missing required field {field!r}")
+        for field in PER_TYPE_REQUIRED.get(rtype, ()):
+            if not rec.get(field):
+                result.fail(rid, f"{rtype} transcript is missing {field!r}")
+        if rtype == "abstention" and not (rec.get("metadata") or {}).get("defect"):
+            result.fail(rid, "abstention transcript has no metadata.defect "
+                             "(underspecified / unanswerable / false_premise)")
         if rid in seen:
             result.fail(rid, "duplicate id")
         seen.add(rid)
