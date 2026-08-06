@@ -193,7 +193,8 @@ python3 eval/diversity.py
 
 - Add a new question stem by adding a template function to the relevant
   `pipelines/templates/<program>.py` module and registering it in that module's
-  `TEMPLATES` dict. See [`AGENTS.md`](AGENTS.md) for the exact contract.
+  `TEMPLATES` dict. See [`ARCHITECTURE.md`](../ARCHITECTURE.md) for the exact
+  contract and the step-by-step checklist.
 - Generation is deterministic per `(program, template, variant)`, so extending
   the corpus is safe and idempotent.
 - **Always** re-run `verification/verify_all.py` after any generator change — it
@@ -212,6 +213,8 @@ Honest current limitations (mirrored in `progress/progress.md`):
 
 ## Further reading
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — component map and data flow.
-- [`AGENTS.md`](AGENTS.md) — conventions, run commands, and gotchas for agents/humans working in this repo.
+- [`ARCHITECTURE.md`](../ARCHITECTURE.md) — component map, data flow, conventions,
+  run commands, and gotchas.
+- [`AGENTS.md`](../AGENTS.md) — behavioural guidelines for agents/humans working in
+  this repo, including parallel agent loops.
 - [`FORMAT.md`](FORMAT.md) — authoritative record schema.
