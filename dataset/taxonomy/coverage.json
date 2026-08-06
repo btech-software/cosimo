@@ -17,60 +17,274 @@
       "uncovered_count": 30,
       "total_count": 58,
       "coverage_pct": 48.3,
-      "templates": ["tvm_annuity_fv","tvm_pv_lump","tvm_eay","tvm_npv_irr","stats_var_sd","stats_bayes","stats_ci","stats_tstat","econ_elasticity","econ_fisher","econ_cross_rate","fsa_dupont","fsa_inventory_turnover","fsa_current_quick","eq_gordon","eq_pe_earnings","fi_current_yield","fi_ytm_approx","fi_modified_duration","fi_zero_duration","deriv_call_payoff","deriv_binomial_call","deriv_forward_payoff","alt_hedge_fee","alt_cap_rate","port_capm","port_sharpe_treynor","port_variance","port_alpha","corp_wacc","wrap_vignette","wrap_cr","wrap_mcq"],
+      "templates": [
+        "tvm_annuity_fv",
+        "tvm_pv_lump",
+        "tvm_eay",
+        "tvm_npv_irr",
+        "stats_var_sd",
+        "stats_bayes",
+        "stats_ci",
+        "stats_tstat",
+        "econ_elasticity",
+        "econ_fisher",
+        "econ_cross_rate",
+        "fsa_dupont",
+        "fsa_inventory_turnover",
+        "fsa_current_quick",
+        "eq_gordon",
+        "eq_pe_earnings",
+        "fi_current_yield",
+        "fi_ytm_approx",
+        "fi_modified_duration",
+        "fi_zero_duration",
+        "deriv_call_payoff",
+        "deriv_binomial_call",
+        "deriv_forward_payoff",
+        "alt_hedge_fee",
+        "alt_cap_rate",
+        "port_capm",
+        "port_sharpe_treynor",
+        "port_variance",
+        "port_alpha",
+        "corp_wacc",
+        "wrap_vignette",
+        "wrap_cr",
+        "wrap_mcq"
+      ],
       "subtopics": {
-        "Time Value of Money": {"has_template": true,  "templates": ["tvm_annuity_fv","tvm_pv_lump","tvm_eay","tvm_npv_irr"]},
-        "Statistical Concepts": {"has_template": true,  "templates": ["stats_var_sd","stats_tstat","stats_bayes","stats_ci"]},
-        "Probability": {"has_template": true,  "templates": ["stats_bayes"]},
-        "Hypothesis Testing": {"has_template": true,  "templates": ["stats_tstat"]},
-        "Correlation and Regression": {"has_template": false},
-        "Time-Series Analysis": {"has_template": false},
-        "Demand and Supply": {"has_template": true,  "templates": ["econ_elasticity"]},
-        "Currency Exchange Rates": {"has_template": true,  "templates": ["econ_cross_rate"]},
-        "Consumer Theory": {"has_template": false},
-        "Firm and Market Structure": {"has_template": false},
-        "Aggregate Output and GDP": {"has_template": false},
-        "Business Cycles": {"has_template": false},
-        "Monetary and Fiscal Policy": {"has_template": false},
-        "Financial Reporting Standards": {"has_template": false},
-        "Income Statement": {"has_template": true,  "templates": ["fsa_dupont"]},
-        "Inventories": {"has_template": true,  "templates": ["fsa_inventory_turnover"]},
-        "Cash Flow Statement": {"has_template": false},
-        "Balance Sheet": {"has_template": false},
-        "Income Taxes": {"has_template": false},
-        "Long-Lived Assets": {"has_template": false},
-        "Financial Statement Quality": {"has_template": false},
-        "Capital Budgeting": {"has_template": true,  "templates": ["tvm_npv_irr"]},
-        "Cost of Capital": {"has_template": true,  "templates": ["corp_wacc"]},
-        "Working Capital": {"has_template": false},
-        "Measures of Leverage": {"has_template": false},
-        "Corporate Governance": {"has_template": false},
-        "Equity Valuation": {"has_template": true,  "templates": ["eq_gordon"]},
-        "Equity Multiples": {"has_template": true,  "templates": ["eq_pe_earnings"]},
-        "Security Market Indices": {"has_template": false},
-        "Company Valuation Fundamentals": {"has_template": false},
-        "Market Organization": {"has_template": false},
-        "Bond Valuation": {"has_template": false},
-        "Fixed Income Markets": {"has_template": false},
-        "Yield Measures": {"has_template": true,  "templates": ["fi_current_yield","fi_ytm_approx"]},
-        "Duration and Convexity": {"has_template": true,  "templates": ["fi_modified_duration","fi_zero_duration"]},
-        "Yield Curve": {"has_template": false},
-        "Credit Risk": {"has_template": false},
-        "Derivatives Markets": {"has_template": false},
-        "Forward Commitments": {"has_template": true,  "templates": ["deriv_forward_payoff"]},
-        "Options Markets": {"has_template": true,  "templates": ["deriv_call_payoff","deriv_binomial_call"]},
-        "Option Valuation": {"has_template": true,  "templates": ["deriv_call_payoff","deriv_binomial_call"]},
-        "Alternative Investment Categories": {"has_template": false},
-        "Hedge Funds": {"has_template": true,  "templates": ["alt_hedge_fee"]},
-        "Private Equity": {"has_template": false},
-        "Real Estate": {"has_template": true,  "templates": ["alt_cap_rate"]},
-        "Commodities": {"has_template": false},
-        "Portfolio Planning": {"has_template": false},
-        "Portfolio Construction": {"has_template": false},
-        "Portfolio Monitoring": {"has_template": false},
-        "Portfolio Risk and Return": {"has_template": true,  "templates": ["port_capm","port_sharpe_treynor","port_variance","port_alpha"]},
-        "Risk Management": {"has_template": true,  "templates": ["port_capm"]},
-        "Ethics": {"has_template": false}
+        "Time Value of Money": {
+          "has_template": true,
+          "templates": [
+            "tvm_annuity_fv",
+            "tvm_pv_lump",
+            "tvm_eay",
+            "tvm_npv_irr"
+          ]
+        },
+        "Statistical Concepts": {
+          "has_template": true,
+          "templates": [
+            "stats_var_sd",
+            "stats_tstat",
+            "stats_bayes",
+            "stats_ci"
+          ]
+        },
+        "Probability": {
+          "has_template": true,
+          "templates": [
+            "stats_bayes"
+          ]
+        },
+        "Hypothesis Testing": {
+          "has_template": true,
+          "templates": [
+            "stats_tstat"
+          ]
+        },
+        "Correlation and Regression": {
+          "has_template": false
+        },
+        "Time-Series Analysis": {
+          "has_template": false
+        },
+        "Demand and Supply": {
+          "has_template": true,
+          "templates": [
+            "econ_elasticity"
+          ]
+        },
+        "Currency Exchange Rates": {
+          "has_template": true,
+          "templates": [
+            "econ_cross_rate"
+          ]
+        },
+        "Consumer Theory": {
+          "has_template": false
+        },
+        "Firm and Market Structure": {
+          "has_template": false
+        },
+        "Aggregate Output and GDP": {
+          "has_template": false
+        },
+        "Business Cycles": {
+          "has_template": false
+        },
+        "Monetary and Fiscal Policy": {
+          "has_template": false
+        },
+        "Financial Reporting Standards": {
+          "has_template": false
+        },
+        "Income Statement": {
+          "has_template": true,
+          "templates": [
+            "fsa_dupont"
+          ]
+        },
+        "Inventories": {
+          "has_template": true,
+          "templates": [
+            "fsa_inventory_turnover"
+          ]
+        },
+        "Cash Flow Statement": {
+          "has_template": false
+        },
+        "Balance Sheet": {
+          "has_template": false
+        },
+        "Income Taxes": {
+          "has_template": false
+        },
+        "Long-Lived Assets": {
+          "has_template": false
+        },
+        "Financial Statement Quality": {
+          "has_template": false
+        },
+        "Capital Budgeting": {
+          "has_template": true,
+          "templates": [
+            "tvm_npv_irr"
+          ]
+        },
+        "Cost of Capital": {
+          "has_template": true,
+          "templates": [
+            "corp_wacc"
+          ]
+        },
+        "Working Capital": {
+          "has_template": false
+        },
+        "Measures of Leverage": {
+          "has_template": false
+        },
+        "Corporate Governance": {
+          "has_template": false
+        },
+        "Equity Valuation": {
+          "has_template": true,
+          "templates": [
+            "eq_gordon"
+          ]
+        },
+        "Equity Multiples": {
+          "has_template": true,
+          "templates": [
+            "eq_pe_earnings"
+          ]
+        },
+        "Security Market Indices": {
+          "has_template": false
+        },
+        "Company Valuation Fundamentals": {
+          "has_template": false
+        },
+        "Market Organization": {
+          "has_template": false
+        },
+        "Bond Valuation": {
+          "has_template": false
+        },
+        "Fixed Income Markets": {
+          "has_template": false
+        },
+        "Yield Measures": {
+          "has_template": true,
+          "templates": [
+            "fi_current_yield",
+            "fi_ytm_approx"
+          ]
+        },
+        "Duration and Convexity": {
+          "has_template": true,
+          "templates": [
+            "fi_modified_duration",
+            "fi_zero_duration"
+          ]
+        },
+        "Yield Curve": {
+          "has_template": false
+        },
+        "Credit Risk": {
+          "has_template": false
+        },
+        "Derivatives Markets": {
+          "has_template": false
+        },
+        "Forward Commitments": {
+          "has_template": true,
+          "templates": [
+            "deriv_forward_payoff"
+          ]
+        },
+        "Options Markets": {
+          "has_template": true,
+          "templates": [
+            "deriv_call_payoff",
+            "deriv_binomial_call"
+          ]
+        },
+        "Option Valuation": {
+          "has_template": true,
+          "templates": [
+            "deriv_call_payoff",
+            "deriv_binomial_call"
+          ]
+        },
+        "Alternative Investment Categories": {
+          "has_template": false
+        },
+        "Hedge Funds": {
+          "has_template": true,
+          "templates": [
+            "alt_hedge_fee"
+          ]
+        },
+        "Private Equity": {
+          "has_template": false
+        },
+        "Real Estate": {
+          "has_template": true,
+          "templates": [
+            "alt_cap_rate"
+          ]
+        },
+        "Commodities": {
+          "has_template": false
+        },
+        "Portfolio Planning": {
+          "has_template": false
+        },
+        "Portfolio Construction": {
+          "has_template": false
+        },
+        "Portfolio Monitoring": {
+          "has_template": false
+        },
+        "Portfolio Risk and Return": {
+          "has_template": true,
+          "templates": [
+            "port_capm",
+            "port_sharpe_treynor",
+            "port_variance",
+            "port_alpha"
+          ]
+        },
+        "Risk Management": {
+          "has_template": true,
+          "templates": [
+            "port_capm"
+          ]
+        },
+        "Ethics": {
+          "has_template": false
+        }
       }
     },
     "CFA_Level_II": {
@@ -78,43 +292,166 @@
       "uncovered_count": 41,
       "total_count": 52,
       "coverage_pct": 21.2,
-      "templates": ["eq_fcff_dcf","eq_fcfe","eq_residual_income","fi_spot_forward","fi_bond_price","deriv_bsm_call","deriv_delta_gamma","deriv_swap_value","fsa_diluted_eps","quant_multi_reg","port_apt","wrap_mcq"],
+      "templates": [
+        "eq_fcff_dcf",
+        "eq_fcfe",
+        "eq_residual_income",
+        "fi_spot_forward",
+        "fi_bond_price",
+        "deriv_bsm_call",
+        "deriv_delta_gamma",
+        "deriv_swap_value",
+        "fsa_diluted_eps",
+        "quant_multi_reg",
+        "port_apt",
+        "wrap_mcq"
+      ],
       "subtopics": {
-        "Multiple Regression": {"has_template": true,  "templates": ["quant_multi_reg"]},
-        "Linear Regression": {"has_template": false},
-        "Time-Series Forecasting": {"has_template": false},
-        "Machine Learning": {"has_template": false},
-        "Big Data": {"has_template": false},
-        "Discounted Cash Flow": {"has_template": true,  "templates": ["eq_fcff_dcf"]},
-        "Free Cash Flow": {"has_template": true,  "templates": ["eq_fcfe","eq_residual_income"]},
-        "Multiplier Models": {"has_template": false},
-        "Residual Income": {"has_template": true,  "templates": ["eq_residual_income"]},
-        "Forward Rates": {"has_template": true,  "templates": ["fi_spot_forward"]},
-        "Yield Curve": {"has_template": true,  "templates": ["fi_bond_price"]},
-        "Duration and Convexity": {"has_template": true,  "templates": ["fi_bond_price"]},
-        "Black-Scholes-Merton": {"has_template": true,  "templates": ["deriv_bsm_call"]},
-        "Greeks": {"has_template": true,  "templates": ["deriv_delta_gamma"]},
-        "Swaps": {"has_template": true,  "templates": ["deriv_swap_value"]},
-        "Portfolio Concepts": {"has_template": true,  "templates": ["port_apt"]},
-        "Diluted EPS": {"has_template": true,  "templates": ["fsa_diluted_eps"]},
-        "Bond Pricing": {"has_template": true,  "templates": ["fi_bond_price"]},
-        "Active vs Passive": {"has_template": false},
-        "Market Efficiency": {"has_template": false},
-        "Investment Policy": {"has_template": false},
-        "Multi-Asset Allocation": {"has_template": false},
-        "Accounting Shenanigans": {"has_template": false},
-        "Post-employment Benefits": {"has_template": false},
-        "Intercompany Investments": {"has_template": false},
-        "Multinational Operations": {"has_template": false},
-        "Financial Reporting Quality": {"has_template": false},
-        "Equity and Earnings": {"has_template": false},
-        "Private Company Valuation": {"has_template": false},
-        "Credit Analysis": {"has_template": false},
-        "ABS and MBS": {"has_template": false},
-        "Credit Derivatives": {"has_template": false},
-        "Binomial Model": {"has_template": false},
-        "Options Markets": {"has_template": false},
-        "Forward Market": {"has_template": false}
+        "Multiple Regression": {
+          "has_template": true,
+          "templates": [
+            "quant_multi_reg"
+          ]
+        },
+        "Linear Regression": {
+          "has_template": false
+        },
+        "Time-Series Forecasting": {
+          "has_template": false
+        },
+        "Machine Learning": {
+          "has_template": false
+        },
+        "Big Data": {
+          "has_template": false
+        },
+        "Discounted Cash Flow": {
+          "has_template": true,
+          "templates": [
+            "eq_fcff_dcf"
+          ]
+        },
+        "Free Cash Flow": {
+          "has_template": true,
+          "templates": [
+            "eq_fcfe",
+            "eq_residual_income"
+          ]
+        },
+        "Multiplier Models": {
+          "has_template": false
+        },
+        "Residual Income": {
+          "has_template": true,
+          "templates": [
+            "eq_residual_income"
+          ]
+        },
+        "Forward Rates": {
+          "has_template": true,
+          "templates": [
+            "fi_spot_forward"
+          ]
+        },
+        "Yield Curve": {
+          "has_template": true,
+          "templates": [
+            "fi_bond_price"
+          ]
+        },
+        "Duration and Convexity": {
+          "has_template": true,
+          "templates": [
+            "fi_bond_price"
+          ]
+        },
+        "Black-Scholes-Merton": {
+          "has_template": true,
+          "templates": [
+            "deriv_bsm_call"
+          ]
+        },
+        "Greeks": {
+          "has_template": true,
+          "templates": [
+            "deriv_delta_gamma"
+          ]
+        },
+        "Swaps": {
+          "has_template": true,
+          "templates": [
+            "deriv_swap_value"
+          ]
+        },
+        "Portfolio Concepts": {
+          "has_template": true,
+          "templates": [
+            "port_apt"
+          ]
+        },
+        "Diluted EPS": {
+          "has_template": true,
+          "templates": [
+            "fsa_diluted_eps"
+          ]
+        },
+        "Bond Pricing": {
+          "has_template": true,
+          "templates": [
+            "fi_bond_price"
+          ]
+        },
+        "Active vs Passive": {
+          "has_template": false
+        },
+        "Market Efficiency": {
+          "has_template": false
+        },
+        "Investment Policy": {
+          "has_template": false
+        },
+        "Multi-Asset Allocation": {
+          "has_template": false
+        },
+        "Accounting Shenanigans": {
+          "has_template": false
+        },
+        "Post-employment Benefits": {
+          "has_template": false
+        },
+        "Intercompany Investments": {
+          "has_template": false
+        },
+        "Multinational Operations": {
+          "has_template": false
+        },
+        "Financial Reporting Quality": {
+          "has_template": false
+        },
+        "Equity and Earnings": {
+          "has_template": false
+        },
+        "Private Company Valuation": {
+          "has_template": false
+        },
+        "Credit Analysis": {
+          "has_template": false
+        },
+        "ABS and MBS": {
+          "has_template": false
+        },
+        "Credit Derivatives": {
+          "has_template": false
+        },
+        "Binomial Model": {
+          "has_template": false
+        },
+        "Options Markets": {
+          "has_template": false
+        },
+        "Forward Market": {
+          "has_template": false
+        }
       }
     },
     "CFA_Level_III": {
@@ -122,49 +459,168 @@
       "uncovered_count": 36,
       "total_count": 45,
       "coverage_pct": 20.0,
-      "templates": ["perf_twrr","perf_mwrr","imm_duration_gap","risk_var","attr_carino","tax_taxable_equiv","spend_rule","alloc_rebalancing","deriv_covered_call"],
+      "templates": [
+        "perf_twrr",
+        "perf_mwrr",
+        "imm_duration_gap",
+        "risk_var",
+        "attr_carino",
+        "tax_taxable_equiv",
+        "spend_rule",
+        "alloc_rebalancing",
+        "deriv_covered_call"
+      ],
       "subtopics": {
-        "TWRR": {"has_template": true,  "templates": ["perf_twrr"]},
-        "MWRR": {"has_template": true,  "templates": ["perf_mwrr"]},
-        "Attribution": {"has_template": true,  "templates": ["attr_carino"]},
-        "Immunization": {"has_template": true,  "templates": ["imm_duration_gap"]},
-        "VaR": {"has_template": true,  "templates": ["risk_var"]},
-        "Tax-Aware Investing": {"has_template": true,  "templates": ["tax_taxable_equiv"]},
-        "Spending Rule": {"has_template": true,  "templates": ["spend_rule"]},
-        "Rebalancing": {"has_template": true,  "templates": ["alloc_rebalancing"]},
-        "Covered Call": {"has_template": true,  "templates": ["deriv_covered_call"]},
-        "Black-Litterman": {"has_template": false},
-        "Monte Carlo": {"has_template": false},
-        "Factor Models": {"has_template": false},
-        "Mean-Variance Optimization": {"has_template": false},
-        "Liability-Driven Investing": {"has_template": false},
-        "Interest Rate Risk": {"has_template": false},
-        "Yield Curve Strategies": {"has_template": false},
-        "Bond Indexing": {"has_template": false},
-        "Extreme Value": {"has_template": false},
-        "Risk Budgeting": {"has_template": false},
-        "Wealth Transfer": {"has_template": false},
-        "Estate Planning": {"has_template": false},
-        "Insurance Planning": {"has_template": false},
-        "DB Pension Plans": {"has_template": false},
-        "Endowments": {"has_template": false},
-        "Foundations": {"has_template": false},
-        "Insurance Companies": {"has_template": false},
-        "Derivatives Strategies": {"has_template": false},
-        "Hedging": {"has_template": false},
-        "Dynamic Hedging": {"has_template": false},
-        "GIPS": {"has_template": false},
-        "Benchmarking": {"has_template": false},
-        "Private Wealth Constraints": {"has_template": false},
-        "Institutional Investment": {"has_template": false},
-        "Equity Portfolio": {"has_template": false},
-        "Fixed Income Portfolio": {"has_template": false},
-        "Operational Risk": {"has_template": false},
-        "Performance Evaluation": {"has_template": false},
-        "Tax Planning": {"has_template": false},
-        "Behavioral Finance": {"has_template": false},
-        "Wealth Planning": {"has_template": false},
-        "Asset Allocation Frameworks": {"has_template": false}
+        "TWRR": {
+          "has_template": true,
+          "templates": [
+            "perf_twrr"
+          ]
+        },
+        "MWRR": {
+          "has_template": true,
+          "templates": [
+            "perf_mwrr"
+          ]
+        },
+        "Attribution": {
+          "has_template": true,
+          "templates": [
+            "attr_carino"
+          ]
+        },
+        "Immunization": {
+          "has_template": true,
+          "templates": [
+            "imm_duration_gap"
+          ]
+        },
+        "VaR": {
+          "has_template": true,
+          "templates": [
+            "risk_var"
+          ]
+        },
+        "Tax-Aware Investing": {
+          "has_template": true,
+          "templates": [
+            "tax_taxable_equiv"
+          ]
+        },
+        "Spending Rule": {
+          "has_template": true,
+          "templates": [
+            "spend_rule"
+          ]
+        },
+        "Rebalancing": {
+          "has_template": true,
+          "templates": [
+            "alloc_rebalancing"
+          ]
+        },
+        "Covered Call": {
+          "has_template": true,
+          "templates": [
+            "deriv_covered_call"
+          ]
+        },
+        "Black-Litterman": {
+          "has_template": false
+        },
+        "Monte Carlo": {
+          "has_template": false
+        },
+        "Factor Models": {
+          "has_template": false
+        },
+        "Mean-Variance Optimization": {
+          "has_template": false
+        },
+        "Liability-Driven Investing": {
+          "has_template": false
+        },
+        "Interest Rate Risk": {
+          "has_template": false
+        },
+        "Yield Curve Strategies": {
+          "has_template": false
+        },
+        "Bond Indexing": {
+          "has_template": false
+        },
+        "Extreme Value": {
+          "has_template": false
+        },
+        "Risk Budgeting": {
+          "has_template": false
+        },
+        "Wealth Transfer": {
+          "has_template": false
+        },
+        "Estate Planning": {
+          "has_template": false
+        },
+        "Insurance Planning": {
+          "has_template": false
+        },
+        "DB Pension Plans": {
+          "has_template": false
+        },
+        "Endowments": {
+          "has_template": false
+        },
+        "Foundations": {
+          "has_template": false
+        },
+        "Insurance Companies": {
+          "has_template": false
+        },
+        "Derivatives Strategies": {
+          "has_template": false
+        },
+        "Hedging": {
+          "has_template": false
+        },
+        "Dynamic Hedging": {
+          "has_template": false
+        },
+        "GIPS": {
+          "has_template": false
+        },
+        "Benchmarking": {
+          "has_template": false
+        },
+        "Private Wealth Constraints": {
+          "has_template": false
+        },
+        "Institutional Investment": {
+          "has_template": false
+        },
+        "Equity Portfolio": {
+          "has_template": false
+        },
+        "Fixed Income Portfolio": {
+          "has_template": false
+        },
+        "Operational Risk": {
+          "has_template": false
+        },
+        "Performance Evaluation": {
+          "has_template": false
+        },
+        "Tax Planning": {
+          "has_template": false
+        },
+        "Behavioral Finance": {
+          "has_template": false
+        },
+        "Wealth Planning": {
+          "has_template": false
+        },
+        "Asset Allocation Frameworks": {
+          "has_template": false
+        }
       }
     },
     "FRM_Part_1": {
@@ -172,32 +628,115 @@
       "uncovered_count": 16,
       "total_count": 24,
       "coverage_pct": 33.3,
-      "templates": ["mkt_param_var","mkt_historical_var","mkt_cvar","greek_delta_hedge","bond_var_duration","reg_beta_corr","bsm_put_parity","fut_forward_price","mkt_historical_var","fut_forward_price"],
+      "templates": [
+        "mkt_param_var",
+        "mkt_historical_var",
+        "mkt_cvar",
+        "greek_delta_hedge",
+        "bond_var_duration",
+        "reg_beta_corr",
+        "bsm_put_parity",
+        "fut_forward_price",
+        "mkt_historical_var",
+        "fut_forward_price"
+      ],
       "subtopics": {
-        "Parametric VaR": {"has_template": true,  "templates": ["mkt_param_var"]},
-        "Historical VaR": {"has_template": true,  "templates": ["mkt_historical_var"]},
-        "CVaR / Expected Shortfall": {"has_template": true,  "templates": ["mkt_cvar"]},
-        "Delta Hedging": {"has_template": true,  "templates": ["greek_delta_hedge"]},
-        "Bond VaR / Fixed Income Risk": {"has_template": true,  "templates": ["bond_var_duration"]},
-        "Beta / Regression": {"has_template": true,  "templates": ["reg_beta_corr"]},
-        "Put-Call Parity": {"has_template": true,  "templates": ["bsm_put_parity"]},
-        "Forward Price": {"has_template": true,  "templates": ["fut_forward_price"]},
-        "Backtesting": {"has_template": false},
-        "Stress Testing": {"has_template": false},
-        "Option Risk": {"has_template": false},
-        "Time Series": {"has_template": false},
-        "Simulation": {"has_template": false},
-        "VaR Basics": {"has_template": false},
-        "Probability / Statistics": {"has_template": false},
-        "Linear Regression": {"has_template": false},
-        "Corporate Bonds": {"has_template": false},
-        "Mortgages": {"has_template": false},
-        "Swaps": {"has_template": false},
-        "Greeks": {"has_template": false},
-        "Option Valuation": {"has_template": false},
-        "Risk Types": {"has_template": false},
-        "Financial Crises": {"has_template": false},
-        "Basel / Regulation": {"has_template": false}
+        "Parametric VaR": {
+          "has_template": true,
+          "templates": [
+            "mkt_param_var"
+          ]
+        },
+        "Historical VaR": {
+          "has_template": true,
+          "templates": [
+            "mkt_historical_var"
+          ]
+        },
+        "CVaR / Expected Shortfall": {
+          "has_template": true,
+          "templates": [
+            "mkt_cvar"
+          ]
+        },
+        "Delta Hedging": {
+          "has_template": true,
+          "templates": [
+            "greek_delta_hedge"
+          ]
+        },
+        "Bond VaR / Fixed Income Risk": {
+          "has_template": true,
+          "templates": [
+            "bond_var_duration"
+          ]
+        },
+        "Beta / Regression": {
+          "has_template": true,
+          "templates": [
+            "reg_beta_corr"
+          ]
+        },
+        "Put-Call Parity": {
+          "has_template": true,
+          "templates": [
+            "bsm_put_parity"
+          ]
+        },
+        "Forward Price": {
+          "has_template": true,
+          "templates": [
+            "fut_forward_price"
+          ]
+        },
+        "Backtesting": {
+          "has_template": false
+        },
+        "Stress Testing": {
+          "has_template": false
+        },
+        "Option Risk": {
+          "has_template": false
+        },
+        "Time Series": {
+          "has_template": false
+        },
+        "Simulation": {
+          "has_template": false
+        },
+        "VaR Basics": {
+          "has_template": false
+        },
+        "Probability / Statistics": {
+          "has_template": false
+        },
+        "Linear Regression": {
+          "has_template": false
+        },
+        "Corporate Bonds": {
+          "has_template": false
+        },
+        "Mortgages": {
+          "has_template": false
+        },
+        "Swaps": {
+          "has_template": false
+        },
+        "Greeks": {
+          "has_template": false
+        },
+        "Option Valuation": {
+          "has_template": false
+        },
+        "Risk Types": {
+          "has_template": false
+        },
+        "Financial Crises": {
+          "has_template": false
+        },
+        "Basel / Regulation": {
+          "has_template": false
+        }
       }
     },
     "FRM_Part_2": {
@@ -205,32 +744,105 @@
       "uncovered_count": 18,
       "total_count": 24,
       "coverage_pct": 25.0,
-      "templates": ["credit_el","credit_var","credit_var_vasicek","op_risk_basel","liq_lcr","liq_ws_avg"],
+      "templates": [
+        "credit_el",
+        "credit_var",
+        "credit_var_vasicek",
+        "op_risk_basel",
+        "liq_lcr",
+        "liq_ws_avg"
+      ],
       "subtopics": {
-        "Expected Loss": {"has_template": true,  "templates": ["credit_el"]},
-        "Credit VaR": {"has_template": true,  "templates": ["credit_var"]},
-        "Vasicek Model": {"has_template": true,  "templates": ["credit_var_vasicek"]},
-        "Basel Approaches (Op Risk)": {"has_template": true,  "templates": ["op_risk_basel"]},
-        "Liquidity Coverage Ratio": {"has_template": true,  "templates": ["liq_lcr"]},
-        "Funding Cost": {"has_template": true,  "templates": ["liq_ws_avg"]},
-        "Credit Ratings": {"has_template": false},
-        "Default Probability": {"has_template": false},
-        "Counterparty Risk": {"has_template": false},
-        "Securitization": {"has_template": false},
-        "Loss Distribution": {"has_template": false},
-        "Cyber Risk": {"has_template": false},
-        "ModelRisk": {"has_template": false},
-        "Liquidity Risk": {"has_template": false},
-        "Cash Flow at Risk": {"has_template": false},
-        "Basel III": {"has_template": false},
-        "Net Stable Funding Ratio": {"has_template": false},
-        "Risk Budgeting": {"has_template": false},
-        "Risk Parity": {"has_template": false},
-        "Hedge Fund Risk": {"has_template": false},
-        "Climate Risk": {"has_template": false},
-        "Fintech / Innovation": {"has_template": false},
-        "Systemic Risk": {"has_template": false},
-        "Operational Risk Measurement": {"has_template": false}
+        "Expected Loss": {
+          "has_template": true,
+          "templates": [
+            "credit_el"
+          ]
+        },
+        "Credit VaR": {
+          "has_template": true,
+          "templates": [
+            "credit_var"
+          ]
+        },
+        "Vasicek Model": {
+          "has_template": true,
+          "templates": [
+            "credit_var_vasicek"
+          ]
+        },
+        "Basel Approaches (Op Risk)": {
+          "has_template": true,
+          "templates": [
+            "op_risk_basel"
+          ]
+        },
+        "Liquidity Coverage Ratio": {
+          "has_template": true,
+          "templates": [
+            "liq_lcr"
+          ]
+        },
+        "Funding Cost": {
+          "has_template": true,
+          "templates": [
+            "liq_ws_avg"
+          ]
+        },
+        "Credit Ratings": {
+          "has_template": false
+        },
+        "Default Probability": {
+          "has_template": false
+        },
+        "Counterparty Risk": {
+          "has_template": false
+        },
+        "Securitization": {
+          "has_template": false
+        },
+        "Loss Distribution": {
+          "has_template": false
+        },
+        "Cyber Risk": {
+          "has_template": false
+        },
+        "ModelRisk": {
+          "has_template": false
+        },
+        "Liquidity Risk": {
+          "has_template": false
+        },
+        "Cash Flow at Risk": {
+          "has_template": false
+        },
+        "Basel III": {
+          "has_template": false
+        },
+        "Net Stable Funding Ratio": {
+          "has_template": false
+        },
+        "Risk Budgeting": {
+          "has_template": false
+        },
+        "Risk Parity": {
+          "has_template": false
+        },
+        "Hedge Fund Risk": {
+          "has_template": false
+        },
+        "Climate Risk": {
+          "has_template": false
+        },
+        "Fintech / Innovation": {
+          "has_template": false
+        },
+        "Systemic Risk": {
+          "has_template": false
+        },
+        "Operational Risk Measurement": {
+          "has_template": false
+        }
       }
     }
   }
