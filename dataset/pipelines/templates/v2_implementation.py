@@ -1,37 +1,10 @@
 from pipelines.core import fmt, pct
 import json, math, textwrap
 
-_CURRENT = None
 
-
-def _rnd(lo, hi):
-    """Draw a parameter from the generator's seeded RNG.
-
-    This used to return `lo + (hi - lo) * 0.37` -- a constant -- so every variant
-    of every implementation generator produced a byte-identical record and the
-    whole record type was capped at one row per generator however long it ran.
-    """
-    if _CURRENT is None:
-        return round(lo + (hi - lo) * 0.37, 4)
-    return round(_CURRENT.uniform(lo, hi), 4)
-
-
-def _bind(fn):
-    """Bind the per-variant RNG that `_rnd` draws from.
-
-    The generators take `rng` but reach parameters through the module-level
-    `_rnd`, so the seed has to be published somewhere `_rnd` can see it. Bound
-    per call and cleared afterwards, so a generator can never read another's RNG.
-    """
-    def t(rng, seq):
-        global _CURRENT
-        _CURRENT = rng.r
-        try:
-            return fn(rng, seq)
-        finally:
-            _CURRENT = None
-    t.__name__ = fn.__name__
-    return t
+def _rnd(rng, lo, hi):
+    """Draw a parameter from the generator's seeded RNG."""
+    return round(rng.uniform(lo, hi), 4)
 
 def _impl(code, docstring, test_code, answer):
     """Create an implementation record."""
@@ -51,9 +24,9 @@ def _impl(code, docstring, test_code, answer):
 
 
 def _impl_equity_dcf(rng, seq):
-    fcff = _rnd(100, 500) * 1e6
-    wacc = _rnd(0.08, 0.12)
-    g = _rnd(0.01, 0.03)
+    fcff = _rnd(rng, 100, 500) * 1e6
+    wacc = _rnd(rng, 0.08, 0.12)
+    g = _rnd(rng, 0.01, 0.03)
     nper = 5
     pv = sum(fcff * (1 + g)**t / (1+wacc)**t for t in range(1, nper+1))
     tv = fcff * (1 + g)**(nper+1) / (wacc - g)
@@ -64,7 +37,7 @@ def dcf_value(fcff, wacc, g, nper):
     tv = fcff * (1 + g) ** (nper + 1) / (wacc - g)
     return pv + tv / (1 + wacc) ** nper
 """.strip()
-    docstring = "DCF valuation with terminal value."
+    docstring = f'DCF wacc={wacc:.2%} g={g:.2%}'
     test_code = """
     assert dcf_value(100e6, 0.10, 0.02, 5) > 0
 """.strip()
@@ -73,15 +46,15 @@ def dcf_value(fcff, wacc, g, nper):
 
 
 def _impl_equity_multiples(rng, seq):
-    p_e, e_p_s = _rnd(12, 25), _rnd(4, 8)
-    p_b, b_p_s = _rnd(1.2, 3.0), _rnd(20, 50)
-    p_s, s_p_v = _rnd(0.8, 2.5), _rnd(500, 2000)
+    p_e, e_p_s = _rnd(rng, 12, 25), _rnd(rng, 4, 8)
+    p_b, b_p_s = _rnd(rng, 1.2, 3.0), _rnd(rng, 20, 50)
+    p_s, s_p_v = _rnd(rng, 0.8, 2.5), _rnd(rng, 500, 2000)
     code = """
 def valuation_multiples(price, eps, bps, salesps):
     # P/E, P/B and P/S from per-share fundamentals
     return {"pe": price / eps, "pb": price / bps, "ps": price / salesps}
 """.strip()
-    docstring = "Compute valuation multiples from per-share data."
+    docstring = f'pe={p_e:.1f}x pb={p_b:.1f}x'
     test_code = """
     mults = valuation_multiples({}, {}, {}, {})
     assert 0 < mults['pe'] < 100
@@ -91,7 +64,7 @@ def valuation_multiples(price, eps, bps, salesps):
 
 
 def _impl_equity_black_scholes(rng, seq):
-    s, x, t, r, vol = _rnd(80, 150), _rnd(100, 130), _rnd(0.25, 1.5), _rnd(0.02, 0.06), _rnd(0.15, 0.40)
+    s, x, t, r, vol = _rnd(rng, 80, 150), _rnd(rng, 100, 130), _rnd(rng, 0.25, 1.5), _rnd(rng, 0.02, 0.06), _rnd(rng, 0.15, 0.40)
     d1 = (math.log(s / x) + (r + vol**2 / 2) * t) / (vol * math.sqrt(t))
     d2 = d1 - vol * math.sqrt(t)
     nd1 = 0.5 * (1 + math.erf(d1 / math.sqrt(2)))
@@ -105,7 +78,7 @@ def black_scholes_call(s, x, t, r, vol):
     nd2 = 0.5 * (1 + math.erf(d2 / math.sqrt(2)))
     return s * nd1 - x * math.exp(-r * t) * nd2
 """.strip()
-    docstring = "Black-Scholes call option pricing."
+    docstring = f'S={s:.0f} K={x:.0f} vol={vol:.2%}'
     test_code = """
     assert black_scholes_call({}, {}, {}, {}, {}) > 0
 """.format(round(s, 2), round(x, 2), round(t, 2), round(r, 4), round(vol, 4))
@@ -114,14 +87,14 @@ def black_scholes_call(s, x, t, r, vol):
 
 
 def _impl_equity_capm(rng, seq):
-    rf, rm, beta = _rnd(0.02, 0.05), _rnd(0.08, 0.14), _rnd(0.6, 1.5)
+    rf, rm, beta = _rnd(rng, 0.02, 0.05), _rnd(rng, 0.08, 0.14), _rnd(rng, 0.6, 1.5)
     er = rf + beta * (rm - rf)
     code = """
 def capm_expected_return(rf, rm, beta):
     # Expected return = rf + beta * (rm - rf)
     return rf + beta * (rm - rf)
 """.strip()
-    docstring = "CAPM expected return calculation."
+    docstring = f'CAPM rf={rf:.2%} beta={beta:.2f}'
     test_code = """
     assert 0 < capm_expected_return(0.03, 0.10, 1.2) < 0.20
 """.strip()
@@ -130,7 +103,7 @@ def capm_expected_return(rf, rm, beta):
 
 
 def _impl_equity_black_scholes_put(rng, seq):
-    s, x, t, r, vol = _rnd(80, 150), _rnd(100, 130), _rnd(0.25, 1.5), _rnd(0.02, 0.06), _rnd(0.15, 0.40)
+    s, x, t, r, vol = _rnd(rng, 80, 150), _rnd(rng, 100, 130), _rnd(rng, 0.25, 1.5), _rnd(rng, 0.02, 0.06), _rnd(rng, 0.15, 0.40)
     d1 = (math.log(s / x) + (r + vol**2 / 2) * t) / (vol * math.sqrt(t))
     d2 = d1 - vol * math.sqrt(t)
     nd1 = 0.5 * (1 + math.erf(d1 / math.sqrt(2)))
@@ -148,7 +121,7 @@ def black_scholes_put(s, x, t, r, vol):
     call = s * nd1 - x * math.exp(-r * t) * nd2
     return call - s + x * math.exp(-r * t)
 """.strip()
-    docstring = "Black-Scholes put option via put-call parity."
+    docstring = f'Put S={s:.0f} K={x:.0f} vol={vol:.2%}'
     test_code = """
     assert black_scholes_put({}, {}, {}, {}, {}) > 0
 """.format(round(s, 2), round(x, 2), round(t, 2), round(r, 4), round(vol, 4))
@@ -157,9 +130,9 @@ def black_scholes_put(s, x, t, r, vol):
 
 
 def _impl_equity_fcf_growth(rng, seq):
-    fcf = _rnd(50, 200) * 1e6
-    g_short, g_long = _rnd(0.05, 0.12), _rnd(0.01, 0.03)
-    wacc = _rnd(0.09, 0.13)
+    fcf = _rnd(rng, 50, 200) * 1e6
+    g_short, g_long = _rnd(rng, 0.05, 0.12), _rnd(rng, 0.01, 0.03)
+    wacc = _rnd(rng, 0.09, 0.13)
     nshort = 5
     code = """
 def two_stage_fcf_fval(fcf, g_short, g_long, wacc, nshort):
@@ -170,7 +143,7 @@ def two_stage_fcf_fval(fcf, g_short, g_long, wacc, nshort):
     pv_long = fcf_terminal / (1 + wacc) ** nshort
     return pv_short + pv_long
 """.strip()
-    docstring = "Two-stage FCFF valuation model."
+    docstring = f'fcff={fcf:.0f}M g={g_short:.1%}'
     test_code = """
     assert two_stage_fcf_fval(100e6, 0.10, 0.02, 0.10, 5) > 0
 """.strip()
@@ -179,7 +152,7 @@ def two_stage_fcf_fval(fcf, g_short, g_long, wacc, nshort):
 
 
 def _impl_fi_bond_pricing(rng, seq):
-    coupon, ytm, nper, par = _rnd(3, 6), _rnd(2, 7), int(_rnd(5, 30)), 1000
+    coupon, ytm, nper, par = _rnd(rng, 3, 6), _rnd(rng, 2, 7), int(_rnd(rng, 5, 30)), 1000
     price = sum(coupon/100 * par / (1 + ytm/100)**t for t in range(1, nper+1))
     price += par / (1 + ytm/100)**nper
     code = """
@@ -189,7 +162,7 @@ def bond_price(coupon_pct, ytm_pct, nper, par=1000):
     price += par / (1 + ytm_pct / 100) ** nper
     return price
 """.strip()
-    docstring = "Price a coupon-bearing fixed-rate bond."
+    docstring = f'Bond coupon={coupon}% ytm={ytm:.2%} n={nper}'
     test_code = """
     assert 0 < bond_price(5, 4, 10) < 2000
 """.strip()
@@ -198,7 +171,7 @@ def bond_price(coupon_pct, ytm_pct, nper, par=1000):
 
 
 def _impl_fi_duration_convexity(rng, seq):
-    coupon, ytm, nper = _rnd(4, 7), _rnd(3, 6), int(_rnd(5, 20))
+    coupon, ytm, nper = _rnd(rng, 4, 7), _rnd(rng, 3, 6), int(_rnd(rng, 5, 20))
     dur_numerator = sum(t * coupon/100 * 100 / (1+ytm/100)**t for t in range(1, nper+1))
     dur_numerator += nper * 100 / (1+ytm/100)**nper
     price = sum(coupon/100 * 100 / (1+ytm/100)**t for t in range(1, nper+1)) + 100 / (1+ytm/100)**nper
@@ -213,7 +186,7 @@ def bond_duration_mod(coupon_pct, ytm_pct, nper, par=100):
     mod_dur += nper * par / (price * (1 + ytm_pct / 100) ** (nper + 1))
     return mod_dur
 """.strip()
-    docstring = "Modified duration for coupon bonds."
+    docstring = f'duration c={coupon:.0f}% ytm={ytm:.2%} n={nper}'
     test_code = """
     assert 0 < bond_duration_mod(5, 4, 10) < 20
 """.strip()
@@ -222,7 +195,7 @@ def bond_duration_mod(coupon_pct, ytm_pct, nper, par=100):
 
 
 def _impl_fi_yield_curve(rng, seq):
-    zero_rates = [_rnd(0.02, 0.03), _rnd(0.03, 0.05), _rnd(0.04, 0.06)]
+    zero_rates = [_rnd(rng, 0.02, 0.03), _rnd(rng, 0.03, 0.05), _rnd(rng, 0.04, 0.06)]
     code = """
 def bootstrapped_yield(zero_rates):
     # Bootstrap implied forward rates from zero curve
@@ -237,7 +210,7 @@ def bootstrapped_yield(zero_rates):
         forwards.append(fwd)
     return zero_rates + forwards
 """.strip()
-    docstring = "Bootstrap forward rates from zero coupon rates."
+    docstring = f'curve=[{zero_rates[0]:.2%},{zero_rates[1]:.2%},{zero_rates[2]:.2%}]'
     test_code = """
     forwards = bootstrapped_yield([0.02, 0.03, 0.04])
     assert len(forwards) == 4
@@ -247,7 +220,7 @@ def bootstrapped_yield(zero_rates):
 
 
 def _impl_fi_convertible_bonds(rng, seq):
-    stock_price, conv_ratio, par, price = _rnd(50, 100), _rnd(5, 20), 1000, _rnd(900, 1200)
+    stock_price, conv_ratio, par, price = _rnd(rng, 50, 100), _rnd(rng, 5, 20), 1000, _rnd(rng, 900, 1200)
     conv_value = stock_price * conv_ratio
     conv_premium = (price - conv_value) / conv_value
     code = """
@@ -259,7 +232,7 @@ def convertible_bond_metrics(stock_price, conv_ratio, par, market_price):
     floor_value = par  # Simplified: assume par floor
     return {"conversion_value": conversion_value, "conv_premium_pct": conv_premium, "floor_value": floor_value}
 """.strip()
-    docstring = "Convertible bond conversion metrics."
+    docstring = f'conv {conv_ratio:.0f}x at ${stock_price:.0f}'
     test_code = """
     metrics = convertible_bond_metrics(75, 10, 1000, 1050)
     assert 0 < metrics['conversion_value'] < 20000
@@ -269,7 +242,7 @@ def convertible_bond_metrics(stock_price, conv_ratio, par, market_price):
 
 
 def _impl_fi_mbs_pricing(rng, seq):
-    coupon, pric, ytm, mba = _rnd(4, 7), 100, _rnd(4, 7), int(_rnd(300, 700))
+    coupon, pric, ytm, mba = _rnd(rng, 4, 7), 100, _rnd(rng, 4, 7), int(_rnd(rng, 300, 700))
     price = sum(coupon/100 * pric / (1 + ytm/100)**t for t in range(1, mba))
     price += pric / (1 + ytm/100)**mba
     code = """
@@ -279,7 +252,7 @@ def mbs_price(coupon_pct, floor_price, ytm_pct, mba):
     price += floor_price / (1 + ytm_pct / 100) ** mba
     return price
 """.strip()
-    docstring = "Price a Mortgage-Backed Security (no prepayment)."
+    docstring = f'mbs c={coupon:.0f}ytm={ytm:.2%} n={mba}'
     test_code = """
     assert 0 < mbs_price(5, 100, 5, 30) < 200
 """.strip()
@@ -288,7 +261,7 @@ def mbs_price(coupon_pct, floor_price, ytm_pct, mba):
 
 
 def _impl_fi_zspread(rng, seq):
-    bond_price, coupon, par, nper = _rnd(95, 105), _rnd(4, 7), 100, _rnd(5, 20)
+    bond_price, coupon, par, nper = _rnd(rng, 95, 105), _rnd(rng, 4, 7), 100, _rnd(rng, 5, 20)
     code = """
 def z_spread_approx(bond_price, coupon_pct, par, nper, riskfree_rates):
     # Compute Z-spread by bootstrapping: find spread s such that
@@ -304,7 +277,7 @@ def z_spread_approx(bond_price, coupon_pct, par, nper, riskfree_rates):
             break
     return spread * 10000  # Convert to basis points
 """.strip()
-    docstring = "Approximate Z-spread for fixed-rate bond."
+    docstring = f'zbond {bond_price:.2f} c={coupon:.2f}'
     test_code = """
     rfs = [0.02, 0.03, 0.04]
     zs = z_spread_approx(100, 5, 100, 5, rfs)
@@ -315,7 +288,7 @@ def z_spread_approx(bond_price, coupon_pct, par, nper, riskfree_rates):
 
 
 def _impl_risk_par_var(rng, seq):
-    mu, vol, conf = _rnd(0.10, 0.20), _rnd(0.10, 0.30), _rnd(0.95, 0.99)
+    mu, vol, conf = _rnd(rng, 0.10, 0.20), _rnd(rng, 0.10, 0.30), _rnd(rng, 0.95, 0.99)
     import math
     z_scores = {0.95: 1.645, 0.99: 2.326}
     z = 1.645 if conf < 0.98 else 2.326
@@ -329,7 +302,7 @@ def parametric_var(mu, vol, conf, horizon_days=1):
     # VaR = mu - z * sigma * sqrt(horizon)
     return mu - z * vol * sqrt(horizon_days / 252)
 """.strip()
-    docstring = "Parametric VaR using normal distribution quantiles."
+    docstring = f'VaR mu={mu:.2%} vol={vol:.2%} conf={conf:.0%}'
     test_code = """
     assert 0 < parametric_var(0.10, 0.20, 0.975, 1) < 1.0
 """.strip()
@@ -338,7 +311,7 @@ def parametric_var(mu, vol, conf, horizon_days=1):
 
 
 def _impl_risk_historical_var(rng, seq):
-    returns = sorted([_rnd(-0.10, 0.10) for _ in range(252)])
+    returns = sorted([_rnd(rng, -0.10, 0.10) for _ in range(252)])
     conf = 0.95
     idx = int(0.05 * 252)  # 5th percentile
     var = abs(returns[idx])
@@ -351,7 +324,7 @@ def historical_var(returns_1d, conf=0.95):
     var_abs = abs(returns_sorted[idx])
     return {"var_pct": var_abs, "var_conf": conf, "n_obs": n}
 """.strip()
-    docstring = "Historical simulation VaR from daily returns."
+    docstring = f'hVaR {var:.2%} conf={conf:.0%}'
     test_code = """
     import random
     returns_hists = [-0.02, -0.01, 0.005, 0.01, 0.02]
@@ -363,7 +336,7 @@ def historical_var(returns_1d, conf=0.95):
 
 
 def _impl_risk_cvar(rng, seq):
-    short_returns = sorted([_rnd(-0.15, 0) for _ in range(100)])
+    short_returns = sorted([_rnd(rng, -0.15, 0) for _ in range(100)])
     conf_level = 0.95
     nsamples = int(252 * (1 - conf_level))
     cvar = abs(sum(short_returns[:nsamples]) / nsamples) if nsamples > 0 else 0
@@ -378,7 +351,7 @@ def conditional_var(returns_1d, conf=0.95):
         return -sorted_returns[0] if sorted_returns else 0
     return -sum(tail_returns) / len(tail_returns)
 """.strip()
-    docstring = "Conditional VaR (Expected Shortfall) from simulated returns."
+    docstring = f'CVaR {cvar:.2%} conf={conf_level:.0%}'
     test_code = """
     tails = [-0.05, -0.03, -0.02]
     assert 0 < conditional_var(tails, 0.95) < 1.0
@@ -388,7 +361,7 @@ def conditional_var(returns_1d, conf=0.95):
 
 
 def _impl_risk_greeks_delta_gamma(rng, seq):
-    s, x, t, r, vol = _rnd(80, 150), _rnd(100, 140), _rnd(0.25, 2.0), _rnd(0.02, 0.06), _rnd(0.15, 0.40)
+    s, x, t, r, vol = _rnd(rng, 80, 150), _rnd(rng, 100, 140), _rnd(rng, 0.25, 2.0), _rnd(rng, 0.02, 0.06), _rnd(rng, 0.15, 0.40)
     d1 = (math.log(s / x) + (r + vol**2 / 2) * t) / (vol * math.sqrt(t))
     nd1 = 0.5 * (1 + math.erf(d1 / math.sqrt(2)))
     delta = nd1
@@ -401,7 +374,7 @@ def bs_call_delta(s, x, t, r, vol):
     nd1 = 0.5 * (1 + erf(d1 / sqrt(2)))
     return nd1
 """.strip()
-    docstring = "Option Delta (sensitivity to stock price)."
+    docstring = f'delta={delta:.4f} S={s:.0f}'
     test_code = """
     assert 0 < bs_call_delta(100, 100, 1, 0.05, 0.20) < 1.0
 """.strip()
@@ -410,7 +383,7 @@ def bs_call_delta(s, x, t, r, vol):
 
 
 def _impl_risk_sharpe_sortino(rng, seq):
-    mu, vol, rf, down_vol = _rnd(0.10, 0.25), _rnd(0.15, 0.35), _rnd(0.01, 0.04), _rnd(0.08, 0.20)
+    mu, vol, rf, down_vol = _rnd(rng, 0.10, 0.25), _rnd(rng, 0.15, 0.35), _rnd(rng, 0.01, 0.04), _rnd(rng, 0.08, 0.20)
     sharpe = (mu - rf) / vol
     sortino = (mu - rf) / down_vol
     code = """
@@ -420,7 +393,7 @@ def risk_adjusted_returns(mu, rf, vol, downside_vol):
     sortino = (mu - rf) / downside_vol if downside_vol > 0 else 0
     return {"sharpe": sharpe, "sortino": sortino}
 """.strip()
-    docstring = "Sharpe and Sortino ratio calculation."
+    docstring = f'sharpe={sharpe:.2f} sortino={sortino:.2f}'
     test_code = """
     result = risk_adjusted_returns(0.15, 0.03, 0.20, 0.10)
     assert 0 < result['sharpe'] < 10
@@ -453,7 +426,7 @@ def monte_carlo_call(s0, x, t, r, vol, n_sims=1000):
     std = math.sqrt(sum((p - sum(payoffs)/n_sims)**2 for p in payoffs) / n_sims) / math.sqrt(n_sims) * math.exp(-r * t)
     return {"price": price, "ci_95": 1.96 * std}
 """.strip()
-    docstring = "Monte Carlo simulation for option pricing."
+    docstring = f'MC {price:.2f} sim={n_sim}'
     test_code = """
     result = monte_carlo_call(100, 100, 1, 0.05, 0.20)
     assert 0 < result['price'] < 50
@@ -463,7 +436,7 @@ def monte_carlo_call(s0, x, t, r, vol, n_sims=1000):
 
 
 def _impl_port_risk_parity(rng, seq):
-    vols = [_rnd(0.10, 0.30), _rnd(0.10, 0.30), _rnd(0.10, 0.30)]
+    vols = [_rnd(rng, 0.10, 0.30), _rnd(rng, 0.10, 0.30), _rnd(rng, 0.10, 0.30)]
     inv_vol = [1 / v for v in vols]
     weights = [w / sum(inv_vol) for w in inv_vol]
     code = """
@@ -475,7 +448,7 @@ def risk_parity_weights(cov_matrix, n_assets):
     weights = inv_vols / sum(inv_vols)
     return weights
 """.strip()
-    docstring = "Risk parity portfolio allocation."
+    docstring = f'parity [{weights[0]:.0%},{weights[1]:.0%},{weights[2]:.0%}]'
     test_code = """
     import numpy as np
     covs = np.array([[0.04, 0.005], [0.005, 0.09]])
@@ -487,9 +460,9 @@ def risk_parity_weights(cov_matrix, n_assets):
 
 
 def _impl_port_efficient_frontier(rng, seq):
-    mu1, mu2 = _rnd(0.08, 0.15), _rnd(0.05, 0.12)
-    vol1, vol2 = _rnd(0.10, 0.30), _rnd(0.10, 0.30)
-    rho = _rnd(-0.5, 0.5)
+    mu1, mu2 = _rnd(rng, 0.08, 0.15), _rnd(rng, 0.05, 0.12)
+    vol1, vol2 = _rnd(rng, 0.10, 0.30), _rnd(rng, 0.10, 0.30)
+    rho = _rnd(rng, -0.5, 0.5)
     n_points = 50  # matches the code's default and the test's length assertion
     code = """
 def efficient_frontier_2(mus, vols, rho, n_points=50):
@@ -502,7 +475,7 @@ def efficient_frontier_2(mus, vols, rho, n_points=50):
         results.append((port_mu, port_vol))
     return results
 """.strip()
-    docstring = "Efficient frontier for two-asset portfolio."
+    docstring = f'frontier {mu1:.2%}-{mu2:.2%}'
     test_code = """
     front = efficient_frontier_2([0.10, 0.06], [0.20, 0.15], 0.2)
     assert len(front) == 50
@@ -513,9 +486,9 @@ def efficient_frontier_2(mus, vols, rho, n_points=50):
 
 
 def _impl_port_track_error(rng, seq):
-    act_return, benchmark = _rnd(0.08, -0.02), _rnd(0.07, -0.03)
-    act_ret_series = [act_return + _rnd(-0.02, 0.02) for _ in range(12)]
-    bench_ret_series = [benchmark + _rnd(-0.02, 0.02) for _ in range(12)]
+    act_return, benchmark = _rnd(rng, 0.08, -0.02), _rnd(rng, 0.07, -0.03)
+    act_ret_series = [act_return + _rnd(rng, -0.02, 0.02) for _ in range(12)]
+    bench_ret_series = [benchmark + _rnd(rng, -0.02, 0.02) for _ in range(12)]
     diffs = [a - b for a, b in zip(act_ret_series, bench_ret_series)]
     te = (sum((d - sum(diffs)/len(diffs))**2 for d in diffs) / (len(diffs) - 1))**0.5 * (252**0.5)
     code = """
@@ -528,7 +501,7 @@ def tracking_error(act_returns, bench_returns):
     annual_te = monthly_te * (12 ** 0.5)
     return {"monthly_te": monthly_te * 100, "annual_te": annual_te * 100, "active_returns": active}
 """.strip()
-    docstring = "Tracking error between active and benchmark return series."
+    docstring = f'tracking_error te={te:.2f}'
     test_code = """
     act_rets = [0.02, 0.01, 0.03]
     bench_rets = [0.015, 0.02, 0.025]
@@ -540,8 +513,8 @@ def tracking_error(act_returns, bench_returns):
 
 
 def _impl_port_blume(rng, seq):
-    mu_p, vol_p = _rnd(0.10, 0.20), _rnd(0.12, 0.28)
-    mu_b, vol_b = _rnd(0.08, 0.15), _rnd(0.10, 0.22)
+    mu_p, vol_p = _rnd(rng, 0.10, 0.20), _rnd(rng, 0.12, 0.28)
+    mu_b, vol_b = _rnd(rng, 0.08, 0.15), _rnd(rng, 0.10, 0.22)
     rf = 0.03
     blume_alpha = (mu_p - rf) * (vol_b / vol_p) - (mu_b - rf)
     blume_alpha = blume_alpha / 2  # Normalize
@@ -552,7 +525,7 @@ def blume_alpha(mu_p, vol_p, mu_b, vol_b, rf):
     beta_adj = vol_p / vol_b
     return beta_adj * (mu_p - rf) * (vol_b / vol_p)
 """.strip()
-    docstring = "Blume-adjusted alpha for skill measurement."
+    docstring = f'Blume {blume_alpha:.2%} rf={rf:.2%}'
     test_code = """
     bl = blume_alpha(0.15, 0.20, 0.10, 0.15, 0.03)
     assert isinstance(bl, float)
@@ -562,7 +535,7 @@ def blume_alpha(mu_p, vol_p, mu_b, vol_b, rf):
 
 
 def _impl_frm_cvar_calc(rng, seq):
-    portfolio_value, pd, lgd = _rnd(100, 1000) * 1e6, _rnd(0.01, 0.08), _rnd(0.4, 0.7)
+    portfolio_value, pd, lgd = _rnd(rng, 100, 1000) * 1e6, _rnd(rng, 0.01, 0.08), _rnd(rng, 0.4, 0.7)
     expected_loss = portfolio_value * pd * lgd
     unexpected = expected_loss * 2  # Simplified: 2x EL as unexpected
     economic_capital = unexpected
@@ -574,7 +547,7 @@ def regulatory_capital(el, unexpected_loss_pct=2.0):
     economic_capital = el_dollars + unexpected
     return {"el": el_dollars, "unexpected": unexpected, "total_capital": economic_capital}
 """.strip()
-    docstring = "Compute regulatory capital from credit risk metrics."
+    docstring = f'el=${expected_loss/1e6:.0f}M pd={pd:.2%}'
     test_code = """
     result = regulatory_capital(1e6)
     assert result['total_capital'] > result['el']
@@ -584,14 +557,14 @@ def regulatory_capital(el, unexpected_loss_pct=2.0):
 
 
 def _impl_frm_ivr(rng, seq):
-    vol_mkt, vol_hist = _rnd(0.20, 0.40), _rnd(0.15, 0.35)
+    vol_mkt, vol_hist = _rnd(rng, 0.20, 0.40), _rnd(rng, 0.15, 0.35)
     ivr = (vol_mkt - vol_hist) / vol_mkt * 100
     code = """
 def implied_variance_risk_premium(vol_mkt, vol_hist):
     # IVRP = (implied vol - historical vol) / implied vol * 100%
     return (vol_mkt - vol_hist) / vol_mkt * 100
 """.strip()
-    docstring = "Implied variance risk premium calculation."
+    docstring = f'IVRP={ivr:.1f}% (mkt={vol_mkt:.0%})'
     test_code = """
     ivrp = implied_variance_risk_premium(0.30, 0.20)
     assert 0 < ivrp < 100
@@ -601,7 +574,7 @@ def implied_variance_risk_premium(vol_mkt, vol_hist):
 
 
 def _impl_frm_fraud_detection(rng, seq):
-    threshold, anomaly_scores = _rnd(0.7, 0.9), [_rnd(0, 1) for _ in range(100)]
+    threshold, anomaly_scores = _rnd(rng, 0.7, 0.9), [_rnd(rng, 0, 1) for _ in range(100)]
     flagged = [i for i, s in enumerate(anomaly_scores) if s > threshold]
     code = """
 def fraud_detect(scores, threshold=0.8):
@@ -609,7 +582,7 @@ def fraud_detect(scores, threshold=0.8):
     flagged = [i for i, s in enumerate(scores) if s >= threshold]
     return {"flagged_indices": flagged, "flagged_count": len(flagged), "threshold": threshold}
 """.strip()
-    docstring = "Rule-based anomaly/fraud detection from scores."
+    docstring = f'anom: {len(flagged)} flagged at {threshold:.2f}'
     test_code = """
     scores_test = [0.1, 0.3, 0.9, 0.2, 0.95]
     result = fraud_detect(scores_test, 0.8)
@@ -620,8 +593,8 @@ def fraud_detect(scores, threshold=0.8):
 
 
 def _impl_frm_loss_distribution(rng, seq):
-    freq_mean, freq_sd = _rnd(1, 8), _rnd(0.3, 1.5)
-    sev_mean, sev_sd = _rnd(10, 100), _rnd(2, 30)
+    freq_mean, freq_sd = _rnd(rng, 1, 8), _rnd(rng, 0.3, 1.5)
+    sev_mean, sev_sd = _rnd(rng, 10, 100), _rnd(rng, 2, 30)
     var_95 = sev_mean * (1 + 1.645 * sev_sd / sev_mean) * freq_mean * (1 + 1.645 * freq_sd / freq_mean)
     code = """
 def loss_distribution_params(freq_mu, freq_sd, sev_mu, sev_sd):
@@ -632,7 +605,7 @@ def loss_distribution_params(freq_mu, freq_sd, sev_mu, sev_sd):
     std_loss = var_loss ** 0.5
     return {"expected_loss": expected_loss, "std_loss": std_loss, "var_loss": var_loss}
 """.strip()
-    docstring = "Aggregate loss distribution parameters (compound Poisson)."
+    docstring = f'loss dist freq={freq_mean:.0f}±{freq_sd:.1f} sev={sev_mean:.0f}±{sev_sd:.0f}'
     test_code = """
     rd = loss_distribution_params(4, 1, 25, 5)
     assert rd['std_loss'] > 0
@@ -640,40 +613,39 @@ def loss_distribution_params(freq_mu, freq_sd, sev_mu, sev_sd):
     answer = "E[L]={:.0f}, std(L)={:.0f}".format(freq_mean * sev_mean, (freq_mean * sev_sd**2 + freq_sd**2 * sev_mean**2)**0.5)
     return _impl(code, docstring, test_code, answer)
 
-TEMPLATES = {
-    # Equity (6)
-    "equity_dcf": _bind(_impl_equity_dcf),
-    "equity_multiples": _bind(_impl_equity_multiples),
-    "equity_black_scholes": _bind(_impl_equity_black_scholes),
-    "equity_capm": _bind(_impl_equity_capm),
-    "equity_black_scholes_put": _bind(_impl_equity_black_scholes_put),
-    "equity_fcf_growth": _bind(_impl_equity_fcf_growth),
+TEMPLATES = {    # Equity (6)
+    "equity_dcf": _impl_equity_dcf,
+    "equity_multiples": _impl_equity_multiples,
+    "equity_black_scholes": _impl_equity_black_scholes,
+    "equity_capm": _impl_equity_capm,
+    "equity_black_scholes_put": _impl_equity_black_scholes_put,
+    "equity_fcf_growth": _impl_equity_fcf_growth,
 
     # Fixed Income (6)
-    "fi_bond_pricing": _bind(_impl_fi_bond_pricing),
-    "fi_duration_convexity": _bind(_impl_fi_duration_convexity),
-    "fi_yield_curve": _bind(_impl_fi_yield_curve),
-    "fi_convertible_bonds": _bind(_impl_fi_convertible_bonds),
-    "fi_mbs_pricing": _bind(_impl_fi_mbs_pricing),
-    "fi_zspread": _bind(_impl_fi_zspread),
+    "fi_bond_pricing": _impl_fi_bond_pricing,
+    "fi_duration_convexity": _impl_fi_duration_convexity,
+    "fi_yield_curve": _impl_fi_yield_curve,
+    "fi_convertible_bonds": _impl_fi_convertible_bonds,
+    "fi_mbs_pricing": _impl_fi_mbs_pricing,
+    "fi_zspread": _impl_fi_zspread,
 
     # Risk Management (6)
-    "risk_par_var": _bind(_impl_risk_par_var),
-    "risk_historical_var": _bind(_impl_risk_historical_var),
-    "risk_cvar": _bind(_impl_risk_cvar),
-    "risk_greeks_delta_gamma": _bind(_impl_risk_greeks_delta_gamma),
-    "risk_sharpe_sortino": _bind(_impl_risk_sharpe_sortino),
-    "risk_monte_carlo_opa": _bind(_impl_risk_monte_carlo_opa),
+    "risk_par_var": _impl_risk_par_var,
+    "risk_historical_var": _impl_risk_historical_var,
+    "risk_cvar": _impl_risk_cvar,
+    "risk_greeks_delta_gamma": _impl_risk_greeks_delta_gamma,
+    "risk_sharpe_sortino": _impl_risk_sharpe_sortino,
+    "risk_monte_carlo_opa": _impl_risk_monte_carlo_opa,
 
     # Portfolio Management (4)
-    "port_risk_parity": _bind(_impl_port_risk_parity),
-    "port_efficient_frontier": _bind(_impl_port_efficient_frontier),
-    "port_track_error": _bind(_impl_port_track_error),
-    "port_blume": _bind(_impl_port_blume),
+    "port_risk_parity": _impl_port_risk_parity,
+    "port_efficient_frontier": _impl_port_efficient_frontier,
+    "port_track_error": _impl_port_track_error,
+    "port_blume": _impl_port_blume,
 
     # FRM (4)
-    "frm_cvar_calc": _bind(_impl_frm_cvar_calc),
-    "frm_ivr": _bind(_impl_frm_ivr),
-    "frm_fraud_detection": _bind(_impl_frm_fraud_detection),
-    "frm_loss_distribution": _bind(_impl_frm_loss_distribution),
+    "frm_cvar_calc": _impl_frm_cvar_calc,
+    "frm_ivr": _impl_frm_ivr,
+    "frm_fraud_detection": _impl_frm_fraud_detection,
+    "frm_loss_distribution": _impl_frm_loss_distribution,
 }

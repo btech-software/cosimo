@@ -555,6 +555,377 @@ def v2_port_fundamental_risky(rng, seq):
                       "prob_under_rf":prob_under_rf,"z":z}}
 
 
+
+
+def quant_linear_reg(rng, seq):
+    b0 = rng.uniform(-2.0, 5.0, 3)
+    b1 = rng.uniform(0.5, 4.0, 3)
+    x = rng.randint(2, 10)
+    yhat = b0 + b1 * x
+    t_stat = rng.uniform(2.0, 5.0, 3)
+    r2_val = rng.uniform(0.4, 0.92, 3)
+    q = (f"Estimated model: y = {b0:.3f} + {b1:.3f}\u00b7x. At x = {x}, what is the predicted y? "
+         f"t-statistic for b1 = {t_stat:.2f}, R-squared = {r2_val:.3f}.")
+    tr = (_assume([f"yhat = intercept + slope\u00b7x"]) +
+          f"Step 1. yhat = {b0:.3f} + {b1:.3f} \u00d7 {x} = {b0:.3f} + {b1*x:.3f} = {yhat:.3f}.\n"
+          f"Step 2. t-statistic {t_stat:.2f} > 2.0 \u2192 b1 statistically significant at 5%.\n"
+          f"Step 3. R-squared = {r2_val:.3f} means {r2_val*100:.1f}% of variation in y explained by x.\n"
+          f"Step 4. Trap: ignoring the intercept and computing b1\u00d7x = {b1*x:.3f} is wrong.")
+    flaw = {"answer": f"{b1*x:.3f}", "pitfall": "intercept omitted",
+            "reasoning_trace": (_assume([f"dropped intercept"]) +
+            f"Step 1. Using only slope\u00d7x: {b1:.3f}\u00d7{x} = {b1*x:.3f}. "
+            f"Full model: yhat = {b0:.3f} + {b1:.3f}\u00d7{x} = {yhat:.3f}.")}
+    return {"meta":{"topic":"Quantitative Methods","subtopic":"Linear Regression (Simple)","difficulty":"L2_Easy",
+                    "question_type":"Calculation","pitfalls":["intercept omitted","R-squared interpretation"]},
+            "question":q, "answer":f"yhat = {yhat:.3f}",
+            "distractors":[f"{b1*x:.3f}", f"{yhat + b0:.3f}", f"{(b1*x) * 1.3:.3f}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"b0":b0,"b1":b1,"x":x,"yhat":yhat,"t_stat":t_stat,"r2":r2_val}}
+
+
+
+def quant_timeseries_ar1(rng, seq):
+    phi = rng.uniform(0.6, 0.95, 3)
+    eps_val = rng.uniform(-2.0, 2.0, 2)
+    yprev = rng.uniform(-1.0, 1.0, 2)
+    ynow = phi * yprev + eps_val
+    adf_approx = rng.uniform(-3.5, -1.8, 3)
+    q = (f"AR(1) process: yt = phi\u00b7yt-1 + eps, where phi = {phi:.3f}. "
+         f"Yesterday y = {yprev:.3f}, epsilon = {eps_val:.3f}. "
+         f"Forecast y now, given yt = phi\u00b7yt-1 + et.")
+    tr = (_assume([f"AR(1): yt = intercept + phi\u00b7yt-1 + et, intercept = 0"]) +
+          f"Step 1. y_now = {phi:.3f} \u00d7 {yprev:.3f} + {eps_val:.3f} = {phi*yprev:.3f} + {eps_val:.3f} = {ynow:.3f}.\n"
+          f"Step 2. phi = {phi:.3f} +\u2208 (0, 1) \u2192 process is stationary (mean-reverting).\n"
+          f"Step 3. ADF approx {adf_approx:.2f}; if |ADF| > 2.86 critical value \u2192 series is stationary.\n"
+          f"Step 4. Trap: treating a unit-root process as stationary leads to spurious regression.")
+    flaw = {"answer": f"{eps_val:.3f}", "pitfall": "ignoring autoregressive component",
+            "reasoning_trace": (_assume([f"set phi * yprev = 0"]) +
+            f"Step 1. Only using eps = {eps_val:.3f} ignores the persistent effect of phi = {phi:.3f} \u00d7 y_prev = {eps_val:.3f}. "
+            f"The AR(1) coefficient makes yesterday's value persist today.")}
+    return {"meta":{"topic":"Quantitative Methods","subtopic":"Time-Series Forecasting","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["stationarity check","spurious regression"]},
+            "question":q, "answer":f"y = {ynow:.3f}",
+            "distractors":[f"{eps_val:.3f}", f"{yprev:.3f}", f"{ynow*2:.3f}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"phi":phi,"yprev":yprev,"eps":eps_val,"ynow":ynow}}
+
+
+def quant_ml(rng, seq):
+    sensitivity = rng.uniform(0.75, 0.95, 2)
+    specificity = rng.uniform(0.80, 0.95, 2)
+    prev = rng.uniform(0.05, 0.30, 2)
+    tp = sensitivity * prev
+    fp = (1 - specificity) * (1 - prev)
+    ppv = tp / (tp + fp)
+    q = (f"A model achieves sensitivity={sensitivity:.2f}, specificity={specificity:.2f}. "
+         f"Prevalence={pct(prev)}. Compute PPV.")
+    tr = (_assume(["PPV = sensitivity*prev / (sensitivity*prev + (1-specificity)*(1-prev))"]) +
+          f"Step 1. TP_rate = {sensitivity:.2f} x {prev:.3f} = {tp:.4f}.\n"
+          f"Step 2. FP_rate = (1 - {specificity:.2f}) x (1 - {prev:.3f}) = {(1-specificity):.2f} x {(1-prev):.3f} = {fp:.4f}.\n"
+          f"Step 3. PPV = {tp:.4f} / ({tp:.4f} + {fp:.4f}) = {ppv:.4f}.\n"
+          f"Step 4. Trap: PPV != sensitivity ({sensitivity:.2f}).")
+    flaw = {"answer": f"{sensitivity:.2f}", "pitfall": "PPV vs sensitivity",
+            "reasoning_trace": (_assume(["confused PPV with sensitivity"]) +
+            f"Step 1. PPV = {ppv:.4f}, not {sensitivity:.2f}. PPV depends on prevalence {prev:.3f}.")}
+    return {"meta":{"topic":"Quantitative Methods","subtopic":"Machine Learning","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["PPV vs sensitivity","prevalence effect"]},
+            "question":q, "answer":f"PPV = {ppv:.4f}",
+            "distractors":[f"{sensitivity:.2f}", f"{prev:.4f}", f"{tp:.4f}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"sensitivity":sensitivity,"specificity":specificity,"prev":prev,"ppv":ppv}}
+
+
+def quant_multinational(rng, seq):
+    beg = rng.randint(50, 200) * 1000000
+    end = rng.randint(60, 250) * 1000000
+    r_beg = rng.uniform(1.05, 1.35, 3)
+    r_end = rng.uniform(1.10, 1.45, 3)
+    adj_beg = beg * r_beg / 1e6
+    adj_end = end * r_end / 1e6
+    change = adj_end - adj_beg
+    q = (f"Net assets beg = ${fmt(beg)}, end = ${fmt(end)}. "
+         f"Year-end FX rates: prev year-end = {r_beg:.3f}, current = {r_end:.3f}. "
+         f"Compute the cumulative translation adjustment (CTA).")
+    tr = (_assume(["CTA = translate net assets at year-end rates"]) +
+          f"Step 1. Adj beg = ${fmt(beg)} x {r_beg:.3f} = ${fmt(adj_beg):.1f}M.\n"
+          f"Step 2. Adj end = ${fmt(end)} x {r_end:.3f} = ${fmt(adj_end):.1f}M.\n"
+          f"Step 3. CTA = ${fmt(adj_end):.1f}M - ${fmt(adj_beg):.1f}M = ${fmt(change)}.\n"
+          f"Step 4. Trap: using average rate mis-measures CTA.")
+    flaw = {"answer": f"{fmt(beg * (r_end - r_beg) / 1e6)}", "pitfall": "average vs year-end rate",
+            "reasoning_trace": (_assume(["used only rate change on beginning"]) +
+            f"Step 1. Must translate both beg and end values, not just rate diff.")}
+    return {"meta":{"topic":"Multinational Operations","subtopic":"Translation Adjustment","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["year-end vs average rate","CTA formula"]},
+            "question":q, "answer":f"${fmt(change)}",
+            "distractors":[f"${fmt(beg * (r_end - r_beg) / 1e6)}",
+                          f"${fmt(end * (r_end - r_beg) / 1e6)}",
+                          f"${fmt(change * 1.3)}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"beg_book":beg,"end_book":end,"rate_beg":r_beg,"rate_end":r_end,"change":change}}
+
+
+def eq_private_company(rng, seq):
+    v_base = rng.randint(500, 2000) * 1000000
+    disc = rng.uniform(0.15, 0.30, 3)
+    v_disc = v_base * (1 - disc)
+    q = (f"Comparable suggests value = ${fmt(v_base)}. "
+         f"Apply DLOM of {pct(disc,0)}%. Compute discounted value.")
+    tr = (_assume(["V_disc = V_base x (1 - DLOM)"]) +
+          f"Step 1. DLOM = {disc:.3f} = {pct(disc,0)}.\n"
+          f"Step 2. V_disc = ${fmt(v_base)} x (1 - {disc:.3f}) = ${fmt(v_disc)}.\n"
+          f"Step 3. Trap: applying DLOM only to equity misapplies adjustment.")
+    flaw = {"answer": f"{fmt(v_base - v_base * disc * 0.5)}", "pitfall": "partial DLOM",
+            "reasoning_trace": (_assume(["half discount applied"]) +
+            f"Step 1. Half DLOM: ${fmt(v_base)} x (1 - {disc/2:.3f}) = {fmt(v_base - v_base * disc / 2)}. "
+            f"Full DLOM required: {fmt(v_disc)}.")}
+    return {"meta":{"topic":"Equity Valuation","subtopic":"Private Company Valuation","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["DLOM application","multiplicative discount"]},
+            "question":q, "answer":f"${fmt(v_disc)}",
+            "distractors":[f"${fmt(v_base * (1 - disc * 0.5))}",
+                          f"${fmt(v_base * 1.05)}",
+                          f"${fmt(v_base * (1 - disc) ** 2)}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"v_base":v_base,"discount":disc,"v_discounted":v_disc}}
+
+
+def deriv_abs_mbs(rng, seq):
+    principal = rng.randint(100, 500) * 1000000
+    n_mort = rng.randint(20, 100)
+    avg_cpn = rng.uniform(0.035, 0.065, 3)
+    m_rate = avg_cpn / 12
+    m_pmt = principal * m_rate / (1 - (1 + m_rate) ** (-360))
+    exp_prin = principal * rng.uniform(0.02, 0.05, 2)
+    q = (f"ABS pool: principal=${fmt(principal)}, {n_mort} mortgages, "
+         f"WAC={pct(avg_cpn,2)}. Monthly payment (360-month amort).")
+    tr = (_assume(["ABS: single-class"]) +
+          f"Step 1. Monthly rate = {avg_cpn:.4f}/12 = {m_rate:.6f}.\n"
+          f"Step 2. Monthly pmt = P*r/(1-(1+r)^-360) = ${fmt(m_pmt):.0f}.\n"
+          f"Step 3. Expected scheduled principal = ${fmt(exp_prin):.0f}/yr.\n"
+          f"Step 4. Trap: total interest allocation wrong; tranche matters.")
+    flaw = {"answer": f"{fmt(principal * 0.01)}", "pitfall": "misallocating payments",
+            "reasoning_trace": (_assume(["wrong allocation"]) +
+            f"Step 1. Fixed 1% = ${fmt(principal*0.01):.0f} ignores actual amortization schedule.")}
+    return {"meta":{"topic":"Fixed Income","subtopic":"ABS and MBS","difficulty":"L2_Hard",
+                    "question_type":"Calculation","pitfalls":["cash flow allocation","prepayment risk"]},
+            "question":q, "answer":f"monthly_pmt=${fmt(m_pmt):.0f}; exp_principal=${fmt(exp_prin):.0f}",
+            "distractors":[f"{fmt(principal*0.01)}", f"{fmt(m_pmt*2)}", f"{fmt(principal*avg_cpn)}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"principal":principal,"n_mortgages":n_mort,"avg_coupon":avg_cpn,
+                      "monthly_payment":m_pmt,"expected_principal":exp_prin}}
+
+
+def deriv_credit_default_swap(rng, seq):
+    pd_val = rng.uniform(0.01, 0.08, 2)
+    lgd_val = rng.uniform(0.40, 0.70, 2)
+    notional = rng.randint(10, 50) * 1000000
+    par_spread = pd_val * lgd_val
+    pv_prot = pd_val * lgd_val * notional
+    q = (f"CDS: default prob={pct(pd_val)}, LGD={pct(lgd_val)}, "
+         f"notional=${fmt(notional)}. Compute par CDS spread (annual premiums).")
+    tr = (_assume(["par spread = pd * LGD"]) +
+          f"Step 1. Exp prot loss = PD x LGD x Notional = {pct(pd_val)} x {pct(lgd_val)} x {fmt(notional)} = ${fmt(pv_prot):.0f}.\n"
+          f"Step 2. Annual prem = Notional x spread = ${fmt(notional)} x spread.\n"
+          f"Step 3. Par spread = ${fmt(pv_prot):.0f} / ${fmt(notional)} = {par_spread:.6f} = {pct(par_spread)}.\n"
+          f"Step 4. Trap: dividing PD*LGD over multiple years incorrectly.")
+    flaw = {"answer": f"{pct(par_spread * 2)}", "pitfall": "double-counting LGD",
+            "reasoning_trace": (_assume(["applied LGD twice"]) +
+            f"Step 1. PD x LGD^2 = {pct(pd_val*lgd_val**2)} gives spread {pct(par_spread*2)} "
+            f"instead of {pct(par_spread)}. Use LGD once only: pd*lgd.")}
+    return {"meta":{"topic":"Fixed Income","subtopic":"Credit Derivatives","difficulty":"L2_Hard",
+                    "question_type":"Calculation","pitfalls":["par spread = PD*LGD","double counting LGD"]},
+            "question":q, "answer":f"CDS spread = {pct(par_spread)}",
+            "distractors":[f"{pct(par_spread * 2)}", f"{pct(pd_val * 0.5)}", f"{pct(lgd_val * 0.5)}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"pd":pd_val,"lgd":lgd_val,"notional":notional,"par_spread":par_spread,"pv_prot":pv_prot}}
+
+
+def deriv_binomial(rng, seq):
+    s0 = rng.randint(30, 80)
+    u = round(rng.uniform(1.12, 1.25, 3), 3)
+    d = round(1.0 / u, 3)
+    r = rng.choice([0.04, 0.05, 0.06])
+    n = rng.choice([2, 3])
+    k = rng.randint(max(20, int(s0 * 0.85)), int(s0 * 1.1))
+    pu = (1 + r - d) / (u - d)
+    pu = max(0.01, min(0.99, pu))
+    def _payoff(step_up, step_dn):
+        su = s0 * (u ** step_up) * (d ** step_dn)
+        return max(su - k, 0)
+    if n == 2:
+        p2 = pu**2; pm = 2*pu*(1-pu); pd2 = (1-pu)**2
+        call_val = (p2*_payoff(2,0) + pm*_payoff(1,1) + pd2*_payoff(0,2)) / (1+r)**2
+    else:
+        p3 = pu**3; p21 = 3*pu**2*(1-pu); p12 = 3*pu*(1-pu)**2; p03 = (1-pu)**3
+        call_val = (p3*_payoff(3,0)+p21*_payoff(2,1)+p12*_payoff(1,2)+p03*_payoff(0,3)) / (1+r)**3
+    wrong_val = _payoff(n, 0) / (1+r)**n
+    q = (f"C European call: S0={s0}, K={k}, {n}-step tree, u={u:.3f}, d={d:.3f}, "
+         f"r={pct(r,1)}. Compute price via risk-neutral prob.")
+    tr = (_assume(["risk-neutral pu = (1+r-d)/(u-d)"]) +
+          f"Step 1. pu = (1+{r:.2f} - {d:.3f}) / ({u:.3f} - {d:.3f}) = {pu:.4f}.\n"
+          f"Step 2. Tree: S_uu={s0*u**2:.1f}.\n"
+          f"Step 3. Payoffs: C_uu={_payoff(n,0):.2f}.\n"
+          f"Step 4. Price = discount(expected payoff) = {fmt(call_val)}.\n"
+          f"Step 5. Trap: physical 50/50 gives {fmt(wrong_val)}, wrong.")
+    flaw = {"answer": f"{fmt(_payoff(n, 0))}", "pitfall": "intrinsic value only",
+            "reasoning_trace": (_assume(["intrinsic only"]) +
+            f"Step 1. Intrinsic = {_payoff(n,0):.2f} ignores {n}-step time value. Correct: {fmt(call_val)}.")
+    }
+    return {"meta":{"topic":"Derivatives","subtopic":"Binomial Model","difficulty":"L2_Hard",
+                    "question_type":"Calculation","pitfalls":["risk-neutral probability","tree construction"]},
+            "question":q, "answer":f"Call value = {fmt(call_val)}",
+            "distractors":[f"{fmt(wrong_val)}", f"{fmt(_payoff(n, 0))}", f"{fmt(call_val*2)}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"s0":s0,"u":u,"d":d,"r":r,"n":n,"k":k,"pu":pu,"call_val":call_val}}
+
+
+def fx_forward_parity(rng, seq):
+    spot = rng.uniform(1.10, 1.45, 3)
+    r_dom = rng.uniform(0.03, 0.06, 3)
+    r_for = rng.uniform(0.01, 0.04, 3)
+    t_m = rng.choice([0.25, 0.5, 1.0])
+    fwd = spot * (1 + r_dom)**t_m / (1 + r_for)**t_m
+    q = (f"CIRP: spot={spot:.4f}, dom rate={pct(r_dom,2)}, "
+         f"for rate={pct(r_for,2)}, T={t_m:.2f}y. Compute forward rate.")
+    tr = (_assume(["F/S = (1+r_dom)^T / (1+r_for)^T"]) +
+          f"Step 1. (1+r_dom)^T = (1+{r_dom:.4f})^{t_m:.2f} = {(1+r_dom)**t_m:.6f}.\n"
+          f"Step 2. (1+r_for)^T = (1+{r_for:.4f})^{t_m:.2f} = {(1+r_for)**t_m:.6f}.\n"
+          f"Step 3. F = {spot:.4f} x {(1+r_dom)**t_m:.6f}/{(1+r_for)**t_m:.6f} = {fwd:.4f}.\n"
+          f"Step 4. Trap: simple interest (1+r*T) gives {spot*(1+r_dom*t_m)/(1+r_for*t_m):.4f}.")
+    flaw = {"answer": f"{spot*(1+r_dom*t_m)/(1+r_for*t_m):.4f}", "pitfall": "simple vs compound",
+            "reasoning_trace": (_assume(["simple interest"]) +
+            f"Step 1. CIRP requires (1+r)^T, not (1+r*T). Correct = {fwd:.4f}.")}
+    return {"meta":{"topic":"Derivatives","subtopic":"Forward Market","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["compound vs simple interest","CIRP formula"]},
+            "question":q, "answer":f"Forward rate = {fwd:.4f}",
+            "distractors":[f"{spot*(1+r_dom*t_m)/(1+r_for*t_m):.4f}",
+                          f"{spot*(1+r_dom)/(1+r_for):.4f}", f"{spot*2:.4f}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"spot":spot,"r_dom":r_dom,"r_for":r_for,"t_m":t_m,"fwd":fwd}}
+
+
+def port_optimal_2asset(rng, seq):
+    w1 = 0.4; w2 = 0.6
+    mu1 = rng.uniform(0.08, 0.14, 3)
+    mu2 = rng.uniform(0.06, 0.12, 3)
+    s1 = rng.uniform(0.12, 0.22, 3)
+    s2 = rng.uniform(0.10, 0.20, 3)
+    corr = rng.uniform(0.2, 0.7, 2)
+    mu_p = w1*mu1 + w2*mu2
+    var_p = (w1*s1)**2 + (w2*s2)**2 + 2*w1*w2*corr*s1*s2
+    s_p = var_p**0.5
+    sharpe = (mu_p - 0.03) / s_p if s_p > 0 else 0
+    q = (f"Two-asset: w1={w1}, mu1={pct(mu1,1)}, sigma1={pct(s1,1)}; "
+         f"w2={w2}, mu2={pct(mu2,2)}, sigma2={pct(s2,2)}, rho={corr:.3f}. rf=3%. "
+         f"Compute mu, sigma, Sharpe.")
+    tr = (_assume(["mu_port = w1*mu1 + w2*mu2"]) +
+          f"Step 1. mu = {w1}*{mu1:.4f} + {w2}*{mu2:.4f} = {pct(mu_p)}.\n"
+          f"Step 2. var = ({w1*s1:.3f})^2+({w2*s2:.3f})^2+2*{corr}*{s1:.3f}*{s2:.3f}={var_p:.6f}.\n"
+          f"Step 3. sigma = {var_p:.6f}^0.5 = {s_p:.4f} = {pct(s_p)}.\n"
+          f"Step 4. Sharpe = ({pct(mu_p)} - 3%)/{pct(s_p)} = {sharpe:.3f}.\n"
+          f"Step 5. Trap: averaging vols ignores correlation/diversification.")
+    flaw = {"answer": f"{pct((s1+s2)/2):.1f}", "pitfall": "simple average volatility",
+            "reasoning_trace": (_assume(["simple avg vol"]) +
+            f"Step 1. Avg vol = {pct((s1+s2)/2):.1f} ignores {corr:.3f} correlation. Correct sigma = {s_p:.4f}.")}
+    return {"meta":{"topic":"Portfolio Management","subtopic":"Multi-Asset Allocation","difficulty":"L2_Hard",
+                    "question_type":"Calculation","pitfalls":["correlation in variance","diversification benefit"]},
+            "question":q, "answer":f"mu={pct(mu_p)}, sigma={pct(s_p)}, Sharpe={sharpe:.3f}",
+            "distractors":[f"mu={pct(mu_p)}, sigma=avg, Sharpe={sharpe*1.5:.3f}",
+                          f"mu={pct((mu1+mu2)/2)}, sigma={s_p:.4f}",
+                          f"mu={pct(mu1)}, sigma={s1:.4f}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"w1":w1,"w2":w2,"mu1":mu1,"mu2":mu2,"sigma1":s1,"sigma2":s2,
+                      "corr":corr,"mu_port":mu_p,"sigma_port":s_p,"sharpe":sharpe}}
+
+
+def fsa_post_employment(rng, seq):
+    dr = rng.uniform(0.05, 0.08, 3)
+    contrib = rng.randint(2, 8) * 1000000
+    benefit = rng.randint(10, 30) * 1000000
+    svc_cost = benefit * rng.uniform(0.10, 0.25, 3)
+    int_cost = benefit * dr
+    pbo_beg = benefit
+    pbo_end = pbo_beg + svc_cost + int_cost - contrib
+    q = (f"PBO before contrib=${fmt(pbo_beg)}. Service cost=${fmt(svc_cost)}, "
+         f"interest cost=${fmt(int_cost)}, contrib=${fmt(contrib)}. Dr={pct(dr,1)}. "
+         f"Compute ending PBO.")
+    tr = (_assume(["PBO_end = PBO_beg + service + interest - contrib"]) +
+          f"Step 1. Interest = ${fmt(pbo_beg)} x {pct(dr,1)} = ${fmt(int_cost)}.\n"
+          f"Step 2. PBO_end = ${fmt(pbo_beg)} + ${fmt(svc_cost)} + ${fmt(int_cost)} - ${fmt(contrib)} = ${fmt(pbo_end)}.\n"
+          f"Step 3. Trap: omitting int cost understates by ${fmt(int_cost)}.")
+    flaw = {"answer": f"{fmt(pbo_beg + svc_cost - contrib)}", "pitfall": "omitting interest cost",
+            "reasoning_trace": (_assume(["missing interest"]) +
+            f"Step 1. Missing interest ${fmt(int_cost)}. Correct PBO = ${fmt(pbo_end)}.")}
+    return {"meta":{"topic":"Financial Statement Analysis","subtopic":"Post-Employment Benefits","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["interest cost in PBO","contribution reduction"]},
+            "question":q, "answer":f"PBO = ${fmt(pbo_end)}",
+            "distractors":[f"${fmt(pbo_beg + svc_cost - contrib)}", f"${fmt(pbo_beg)}", f"${fmt(pbo_end * 1.3)}"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"disc_rate":dr,"contrib":contrib,"benefit":benefit,
+                      "service_cost":svc_cost,"interest_cost":int_cost,"pbo_after":pbo_end}}
+
+
+def fsa_fin_report_quality(rng, seq):
+    rev = rng.randint(100, 400) * 1000000
+    ar_beg = rng.randint(10, 50) * 1000000
+    ar_end = rng.randint(12, 60) * 1000000
+    delta_ar = ar_end - ar_beg
+    cogs_pct = rng.uniform(0.55, 0.75, 3)
+    acc_ratio = delta_ar / rev if rev > 0 else 0
+    rev_growth = rev / (rev - rng.randint(5, 15) * 1000000) - 1
+    q = (f"Revenue=${fmt(rev)}, beg AR=${fmt(ar_beg)}, end AR=${fmt(ar_end)}. "
+         f"COGS = {pct(cogs_pct)} of revenue. Compute the revenue accrual ratio and assess quality.")
+    tr = (_assume(["accrual = change in AR / revenue"]) +
+          f"Step 1. Delta AR = ${fmt(ar_end)} - ${fmt(ar_beg)} = ${fmt(delta_ar)}.\n"
+          f"Step 2. Accrual ratio = ${fmt(delta_ar)} / ${fmt(rev)} = {acc_ratio:.4f}.\n"
+          f"Step 3. Revenue growth = {(rev_growth):.2%}.\n"
+          f"Step 4. If accrual ratio rises faster than revenue growth, lower quality.\n"
+          f"Step 5. Trap: ignoring AR growth relative to revenue signals.")
+    flaw = {"answer": "No issue", "pitfall": "ignoring accrual signals",
+            "reasoning_trace": (_assume(["no concern"]) + f"Step 1. "
+            f"Accrual ratio of {acc_ratio:.4f} indicates ${fmt(delta_ar)} of revenue from AR. "
+            f"Quality is {('lower' if acc_ratio > 0.05 else 'acceptable')}. "
+            f"Must monitor AR growth vs revenue growth trend.")}
+    return {"meta":{"topic":"Financial Statement Analysis","subtopic":"Financial Reporting Quality","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["accrual ratio interpretation","AR growth"]},
+            "question":q, "answer":f"accrual ratio = {acc_ratio:.4f}; AR growth contribution = {pct(delta_ar/max(rev,1)*100)}%",
+            "distractors":["No concern","Margin expansion","One-time charges","Working capital reduction"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"rev":rev,"ar_beg":ar_beg,"ar_end":ar_end,"delta_ar":delta_ar,
+                      "cogs_pct":cogs_pct,"acc_ratio":acc_ratio}}
+
+
+def m_quant_large_reg(rng, seq):
+    n_obs = rng.randint(50, 200)
+    n_feats = rng.randint(2, 4)
+    r_sq = rng.uniform(0.3, 0.8, 3)
+    f_stat = rng.uniform(3.0, 15.0, 3)
+    df_num = n_feats
+    df_den = n_obs - n_feats - 1
+    f_crit = 3.0
+    f_sig = f_stat > f_crit
+    adj_r2 = 1 - (1-r_sq)*(n_obs-1)/(n_obs-n_feats-1)
+    q = f"Regression: n={n_obs}, k={n_feats}, R-sq={r_sq:.3f}, F-stat={f_stat:.2f}. Is model significant?"
+    tr = (_assume(["F-stat > F-crit implies overall significance"]) +
+          f"Step 1. F-crit (k={n_feats}, n-k-1={n_obs-n_feats-1}) approx {f_crit:.0f}. F-stat={f_stat:.2f} {'>' if f_sig else '<='} {f_crit:.0f}. " + \
+          f"{'Significant' if f_sig else 'Not significant'}.\n"
+          f"Step 2. Adj R-sq = 1 - (1-{r_sq:.3f}) * ({n_obs-1})/{(n_obs-n_feats-1)} = {adj_r2:.3f}.\n"
+          f"Step 3. Trap: R-sq always increases; only adj R-sq tests improvement.\n")
+    flaw = {"answer": "R-sq sufficient", "pitfall": "ignoring adjusted R-squared",
+            "reasoning_trace": (_assume(["used raw R-squared"]) +
+            f"Step 1. R-sq={r_sq:.3f} but adj R-sq={adj_r2:.3f}. "
+            f"Adding noise reduces adj R-sq. F={f_stat:.2f} {'is' if f_sig else 'is not'} significant.")}
+    return {"meta":{"topic":"Quantitative Methods","subtopic":"Regression Diagnostics","difficulty":"L2_Medium",
+                    "question_type":"Calculation","pitfalls":["adjusted R-squared","F-test interpretation"]},
+            "question":q, "answer":f"F-stat={f_stat:.2f} (significant={f_sig}); Adj R-sq={adj_r2:.3f}",
+            "distractors":["R-sq sufficient", f"Adj R-sq={adj_r2*0.5:.3f}", "not significant"],
+            "reasoning_trace":tr, "flawed":flaw,
+            "params":{"n_obs":n_obs,"n_feats":n_feats,"r_sq":r_sq,"f_stat":f_stat,"adj_r2":adj_r2}}
+
+
+m_quant_large_reg = wrap_mcq(m_quant_large_reg)
+
+
+
 TEMPLATES = {
     "eq_fcff_dcf": eq_fcff_dcf, "eq_fcfe": eq_fcfe, "eq_residual_income": eq_residual_income,
     "fi_spot_forward": fi_spot_forward, "fi_bond_price": fi_bond_price,

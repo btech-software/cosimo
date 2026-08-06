@@ -616,7 +616,290 @@ m_v1_fm_corp_bond = wrap_mcq(v1_fm_corp_bond)
 m_v1_fm_mortgage = wrap_mcq(v1_fm_mortgage)
 m_v1_fm_swap = wrap_mcq(v1_fm_swap)
 
+
+def v1_mkt_backtesting(rng, seq):
+    n_days = rng.choice([250, 500])
+    exceptions = rng.randint(5, 18)
+    exception_rate = exceptions / n_days
+    if exceptions <= 3:
+        zone, signal = "green", "acceptable - continue monitoring"
+    elif exceptions <= 10:
+        zone, signal = "yellow", "potentially elevated - consider model audit"
+    else:
+        zone, signal = "red", "unacceptable - capital surcharge; recalibration required"
+
+    q = (f"Backtesting over {n_days} days: {exceptions} VaR exceedances observed. "
+         f"Exception rate = {exception_rate:.3%}. "
+         f"Under Basel backtesting, classify the zone and describe the response.")
+
+    tr = (_assume(["Green: 0-3 exceptions / Yellow: 4-10 / Red: 11+ for 99% VaR"]) +
+          f"Step 1. Expected exceptions at 99% VaR in {n_days} days = {n_days * 0.01:.0f}. "
+          f"Observed = {exceptions}.\n"
+          f"Step 2. Exception rate = {exceptions}/{n_days} = {exception_rate:.3%}.\n"
+          f"Step 3. Zone = {zone.upper()} -> {signal}.\n"
+          f"Step 4. Capital surcharge: green = minimum, yellow = 0.40x, red = 1.00x.\n"
+          f"Step 5. Trap: using total count without adjusting for window length.")
+
+    flaw = {"answer": "0.5% exception rate is acceptable", "pitfall": "ignoring zone classification",
+            "reasoning_trace": (f"Step 1. The rate {exception_rate:.3%} must be mapped to a zone - "
+                                f"the count {exceptions} drives the Basel surcharge. "
+                                f"Zone {zone.upper()} means {signal}.")}
+
+    return {"meta": {"topic": "Market Risk", "subtopic": "Backtesting",
+                     "difficulty": "FRM1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["zone classification", "capital surcharge", "count vs rate"]},
+            "question": q,
+            "answer": f"Zone {zone.upper()} - {signal} ({exceptions}/{n_days})",
+            "distractors": ["Zone green - rate is within bounds",
+                            "Zone red - model is permanently invalid",
+                            "Zone yellow - no supervisory action needed"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"n_days": n_days, "exceptions": exceptions, "zone": zone}}
+
+m_v1_mkt_backtesting = wrap_mcq(v1_mkt_backtesting)
+
+
+
+
+def v1_qa_var_basics(rng, seq):
+    var_dollar = rng.randint(5, 50) * 1000000
+    conf = rng.choice([95, 99])
+    horizon = rng.choice([1, 10, 21])
+    tail = 100.0 - conf
+
+    q = (f"A financial institution reports a {conf}% {horizon}-day VaR of "
+         f"${fmt(var_dollar):,.0f}. What is the correct interpretation?")
+
+    tr = (_assume(["VaR is a quantile at the given confidence level",
+                   "VaR is not subadditive for non-elliptical distributions"]) +
+          f"Step 1. {conf}% {horizon}-day VaR = ${fmt(var_dollar):,.0f} means:\n"
+          f"  - There is a {tail}% probability that loss over {horizon} days EXCEEDS VaR.\n"
+          f"  - Equivalently, {conf}% of {horizon}-day losses are at or below VaR.\n"
+          f"Step 2. VaR does NOT measure average loss given VaR is breached (that is CVaR/ES).\n"
+          f"Step 3. VaR is not a coherent risk measure: VaR_port >= Sum(VaR_i) possible.\n"
+          f"Step 4. Trap: interpreting VaR as a maximum loss. It is a statistical quantile.\n"
+          f"    Tail losses can and do significantly exceed the VaR threshold.")
+
+    flaw = {"answer": f"Maximum possible loss is ${fmt(var_dollar):,.0f}",
+            "pitfall": "VaR as maximum loss bound",
+            "reasoning_trace": (f"Step 1. VaR at {conf}% confidence means a {tail}% chance of EXCEEDING VaR.\n"
+                                f"CVaR/ES is needed to capture the tail severity beyond VaR.")}
+
+    return {"meta": {"topic": "Market Risk", "subtopic": "VaR Basics",
+                     "difficulty": "FRM1_Easy", "question_type": "MCQ",
+                     "pitfalls": ["quantile vs max error", "CVaR/ES distinction"]},
+            "question": q,
+            "answer": (f"A {conf}% {horizon}-day VaR of ${fmt(var_dollar):,.0f} means "
+                       f"a {tail}% probability loss EXCEEDS this amount over {horizon} days."),
+            "distractors": [f"Maximum loss = ${fmt(var_dollar):,.0f}",
+                            f"Average loss = ${fmt(var_dollar):,.0f}",
+                            f"{conf}% probability loss equals ${fmt(var_dollar):,.0f}"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"var_dollar": var_dollar, "conf": conf, "horizon": horizon}}
+
+m_v1_qa_var_basics = wrap_mcq(v1_qa_var_basics)
+
+
+
+
+def v1_qa_risk_types(rng, seq):
+    scenarios = [
+        ("A sudden 40% collapse in equity indices over three trading days",
+         "market risk", "price volatility of traded assets"),
+        ("A sovereign nation suspends foreign debt payments",
+         "credit risk", "default of a counterparty or issuer"),
+        ("A ransomware attack encrypts the bank's trading systems for 48 hours",
+         "operational risk", "technology failure from an external cyber event"),
+        ("A bank cannot roll over short-term repo funding overnight",
+         "liquidity risk", "inability to fund or roll over liability maturities"),
+    ]
+    scenario, risk_type, explanation = rng.choice(scenarios)
+
+    q = (f"Classify the risk type:\n"
+         f"Scenario: {scenario}\n\n"
+         f"What primary category of risk does this represent?")
+
+    tr = (_assume(["Basel risk taxonomy: Market, Credit, Operational, Liquidity"]) +
+          f"Step 1. This is {risk_type}: {explanation}.\n"
+          f"Step 2. Distinguishing categories:\n"
+          f"  Market risk: losses from price movements in rates, FX, equities, commodities.\n"
+          f"  Credit risk: losses from default or downgrade of counterparties/instruments.\n"
+          f"  Operational risk: losses from people, processes, systems, or external events.\n"
+          f"  Liquidity risk: inability to fund liabilities (funding) or sell at fair value (market).\n"
+          f"Step 3. Interdependence: a credit event can trigger market risk and liquidity risk.\n"
+          f"    Risk managers must map cross-category contagion channels.")
+
+    flaw = {"answer": "market risk - any loss is a market risk event",
+            "pitfall": "not distinguishing risk categories",
+            "reasoning_trace": (f"Step 1. Not all losses are market risk. Ransomware = operational, "
+                                f"default = credit, funding freeze = liquidity. "
+                                f"Basel framework has four distinct categories with specific capital charges.")}
+
+    return {"meta": {"topic": "Market Risk", "subtopic": "Risk Types (Taxonomy)",
+                     "difficulty": "FRM1_Easy", "question_type": "MCQ",
+                     "pitfalls": ["risk taxonomy", "Basel categories"]},
+            "question": q,
+            "answer": f"{risk_type.capitalize()} - {explanation}",
+            "distractors": ["Market risk - any loss is market risk",
+                            "Operational risk - all unexpected losses",
+                            "Systemic risk - the event affects the entire system"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"risk_type": risk_type, "scenario": scenario, "explanation": explanation}}
+
+m_v1_qa_risk_types = wrap_mcq(v1_qa_risk_types)
+
+
+
+
+def v1_fm_financial_crises(rng, seq):
+    crises = [
+        ("2008 Global Financial Crisis",
+         "Subprime mortgage securitization unwind -> counterparty contagion -> interbank freeze -> global liquidity crisis.",
+         "credit/market/liquidity contagion via securitization and leverage"),
+        ("2010 Eurozone Debt Crisis",
+         "Sovereign doubts about Greece -> Irish bank bailout -> sovereign-bank doom loop spreads.",
+         "sovereign-bank feedback loop"),
+        ("2020 COVID-19 Market Crash",
+         "Pandemic -> 30% decline in 4 days -> extraordinary central bank intervention -> V-shaped recovery.",
+         "exogenous shock with massive policy response"),
+    ]
+    era, desc, mech = rng.choice(crises)
+
+    q = (f"Review the {era}: {desc}\n\n"
+         f"What were the primary risk factors and risk-management failures involved?")
+
+    tr = (_assume(["Crisis framework: risk accumulation -> trigger -> amplification -> response"]) +
+          f"Step 1. Risk accumulation:\n"
+          f"  - Asset quality deteriorated; leverage ratios increased.\n"
+          f"  - Risk models on calm-period data underestimated tail correlation.\n"
+          f"  - Long-dated assets funded by short-term wholesale funding.\n"
+          f"Step 2. Amplification channels:\n"
+          f"  - Financial contagion via CDS, REPO, derivatives.\n"
+          f"  - Margin cascades: MTM losses -> margin calls -> forced liquidations.\n"
+          f"  - Procyclicality: VaR falls in calm periods -> more leverage -> fragility.\n"
+          f"Step 3. Risk-management failures:\n"
+          f"  - VaR calibrated on aberrant calm data.\n"
+          f"  - Stress tests not validated against crisis scenarios.\n"
+          f"  - No countercyclical capital buffers (Basel pro-cyclicality).\n"
+          f"  - Inadequate liquidity stress testing for withdrawal.\n"
+          f"Step 4. Regulatory response: Dodd-Frank, Basel III countercyclical buffers.\n"
+          f"Step 5. Key lesson: risk models must stress for known-unknowns. Tail is not pure Black Swan.")
+
+    flaw = {"answer": ("The crisis was a pure Black Swan - "
+                       "no risk model could have predicted it"),
+            "pitfall": "Black Swan fallacy",
+            "reasoning_trace": (f"Step 1. This ignores visible risk signals: leverage ratios, "
+                                f"maturity mismatches, credit quality deterioration.\n"
+                                f"Risk management's purpose is to stress for plausible-but-unlikely events.")}
+
+    return {"meta": {"topic": "Market Risk", "subtopic": "Financial Crises",
+                     "difficulty": "FRM1_Medium", "question_type": "Constructed Response",
+                     "pitfalls": ["Black Swan fallacy", "procyclicality", "contagion channels"]},
+            "question": q,
+            "answer": ("Risk factors: deteriorating asset quality, leverage, maturity mismatch, "
+                       "tail correlation underestimation. Failures: VaR miscalibration, no countercyclical "
+                       "buffers, inadequate stress tests. Amplification via contagion and margin cascades."),
+            "distractors": [],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"era": era, "desc": desc, "mech": mech}}
+
+m_v1_fm_financial_crises = wrap_vignette(v1_fm_financial_crises)
+
+
+
+
+def v1_qa_vega_greek(rng, seq):
+    s = rng.randint(90, 115)
+    k = rng.randint(90, 120)
+    t = rng.choice([0.25, 0.5, 1.0])
+    r = rng.uniform(0.03, 0.06, 4)
+    sigma = rng.uniform(0.20, 0.40, 3)
+
+    d1 = (math.log(s / k) + (r + 0.5 * sigma**2) * t) / (sigma * math.sqrt(t))
+    n_d1 = math.exp(-0.5 * d1**2) / math.sqrt(2 * math.pi)
+    vega_val = s * math.sqrt(t) * n_d1
+
+    q = (f"European option: S = {s}, K = {k}, T = {t:.2f} yr, r = {pct(r,1)}, "
+         f"sigma = {pct(sigma,0)}. Compute the option's vega - "
+         f"dollar sensitivity to a 100 bps change in implied vol.")
+
+    tr = (_assume(["Vega approx S * sqrt(T) * N'(d1)",
+                   "N'(x) = (1/sqrt(2*pi)) * e^(-0.5 * x^2)"]) +
+          f"Step 1. d1 = (ln({s}/{k}) + ({pct(r)} + 0.5 * {pct(sigma)}^2) * {t}) / "
+          f"({pct(sigma)} * sqrt({t})) = {d1:.3f}.\n"
+          f"Step 2. N'(d1) = (1/sqrt(2*pi)) * e^(-0.5 * {d1:.3f}^2) = {n_d1:.4f}.\n"
+          f"Step 3. Vega (per unit vol) = {s} * sqrt({t}) * {n_d1:.4f} = {vega_val:.2f}.\n"
+          f"Step 4. A 100 bps move in sigma changes option price by ~${vega_val:.2f}.\n"
+          f"Step 5. Trap: using delta (direction risk) instead of vega (volatility risk).")
+
+    flaw = {"answer": f"${s * r * t:.2f}", "pitfall": "confusing vega with time value S*r*T",
+            "reasoning_trace": (f"Step 1. S * r * T = {fmt(s * r * t)} is rough time value, NOT vega.\n"
+                                f"Vega = {vega_val:.2f} measures price sensitivity to sigma.\n"
+                                f"Delta measures sensitivity to S. They hedge different risk dimensions.")}
+
+    return {"meta": {"topic": "Options", "subtopic": "Greeks - Vega",
+                     "difficulty": "FRM1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["d1 computation", "Gaussian PDF", "delta vs vega"]},
+            "question": q,
+            "answer": f"Vega = ${vega_val:.2f} per 100 bps vol move",
+            "distractors": [f"Vega = ${vega_val * 100:.2f}",
+                            f"Vega = ${s * r * t:.2f}",
+                            f"Vega = ${s * sigma:.2f}"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"s": s, "k": k, "t": t, "sigma": sigma, "d1": round(d1, 4),
+                       "vega": round(vega_val, 2)}}
+
+m_v1_qa_vega_greek = wrap_mcq(v1_qa_vega_greek)
+
+
+
+
+def v1_qa_probability_stats(rng, seq):
+    n_days = rng.choice([250, 500])
+    alpha = rng.choice([0.05, 0.01])
+    exceptions_obs = rng.randint(10, 30)
+    obs_rate = exceptions_obs / n_days
+    se = math.sqrt(0.01 * 0.99 / n_days)
+    z_stat = (obs_rate - 0.01) / se if se > 0 else 0.0
+    crit_val = 1.96 if alpha == 0.05 else 2.576
+    reject = abs(z_stat) > crit_val
+
+    q = (f"Risk manager tests 99% VaR model over {n_days} days. "
+         f"{exceptions_obs} exceedances. Test H0: model correctly specified (alpha = {alpha:.0%}).")
+
+    tr = (_assume(["Two-sided test: reject H0 if |z_obs| > z_crit"]) +
+          f"Step 1. H0: true failure rate = 1%. H1: miscalibrated.\n"
+          f"Step 2. Observed rate = {exceptions_obs}/{n_days} = {obs_rate:.4f}.\n"
+          f"Step 3. SE = sqrt(0.01 * 0.99 / {n_days}) = {se:.4f}.\n"
+          f"Step 4. z = ({obs_rate:.4f} - 0.01) / {se:.4f} = {z_stat:.2f}.\n"
+          f"Step 5. Critical value (alpha={alpha:.0%}) = {crit_val:.2f}.\n"
+          f"Step 6. |z|={abs(z_stat):.2f} {'>' if reject else '<='} {crit_val:.2f} -> "
+          f"{'Reject H0: miscalibrated.' if reject else 'Fail to reject H0: adequate.'}.\n"
+          f"Step 7. Trap: treating 'fail to reject' as H0 is proven. Type II error risk persists.")
+
+    flaw = {"answer": "Fail to reject H0: the model is confirmed correct",
+            "pitfall": "treating fail-to-reject as proof",
+            "reasoning_trace": (f"Step 1. Fail to reject != H0 is true. It means insufficient evidence against H0.\n"
+                                f"The Type II error risk (mispriced model) remains significant.")}
+
+    return {"meta": {"topic": "Quantitative Methods", "subtopic": "Probability and Statistics",
+                     "difficulty": "FRM1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["Type II error", "p-value vs significance", "fail to reject error"]},
+            "question": q,
+            "answer": (f"z = {z_stat:.2f}, crit = {crit_val:.2f}. "
+                       f"{'Reject H0: miscalibrated at ' if reject else 'Fail to reject: adequate at '}alpha={alpha}."),
+            "distractors": ["Accept H0: model confirmed correct",
+                            f"z = {z_stat * 2:.2f}",
+                            "p-value always equals alpha"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"n_days": n_days, "exceptions": exceptions_obs,
+                       "z_stat": round(z_stat, 2), "alpha": alpha, "reject": reject}}
+
+m_v1_qa_probability_stats = wrap_mcq(v1_qa_probability_stats)
+
+
 TEMPLATES = {
+
     "mkt_param_var": mkt_param_var, "mkt_cvar": mkt_cvar, "greek_delta_hedge": greek_delta_hedge,
     "bond_var_duration": bond_var_duration, "reg_beta_corr": reg_beta_corr, "bsm_put_parity": bsm_put_parity,
     "mkt_historical_var": mkt_historical_var,
@@ -635,4 +918,13 @@ TEMPLATES = {
     "m_v1_qa_ethics_time_series": m_v1_qa_ethics_time_series,
     "v1_qa_concept_swap_valuation": v1_qa_concept_swap_valuation,
     "m_v1_qa_concept_swap_valuation": m_v1_qa_concept_swap_valuation,
+
+    "new_v1_mkt_backtesting": v1_mkt_backtesting,
+    "new_v1_qa_var_basics": v1_qa_var_basics,
+    "new_v1_qa_risk_types": v1_qa_risk_types,
+    "new_v1_fm_financial_crises": v1_fm_financial_crises,
+    "new_v1_qa_vega_greek": v1_qa_vega_greek,
+    "new_v1_qa_probability_stats": v1_qa_probability_stats,
+
+
 }

@@ -48,6 +48,12 @@ def _make_abstention(program, topic, subtopic, difficulty, question, answer, def
 
 
 # ====================================================================
+
+
+def _pick(rng, seq, q_variants):
+    "Pick a question variation from the list using seq for deterministic spread across variants."
+    return q_variants[(seq % 5000) // 1000]
+
 # 1. UNDERSPECIFIED -- 30 templates
 # ====================================================================
 
@@ -60,8 +66,13 @@ def abstention_portfolio_rebalance(rng, seq):
     # suite_overlap.py flagged at jaccard 0.60. That file is a held-out
     # measurement instrument; near-duplicating it contaminates the only
     # evaluation that measures the objective.
-    q = ("The trustees want the sleeve brought back in line before quarter-end. "
-         "Can you put the trade list together?")
+    q = _pick(rng, seq,  [
+        "The trustees want the sleeve brought back in line before quarter-end. Can you put the trade list together?",
+        "The trustees want the sleeve brought back in line before quarter-end. Can you put the trade list together? Please explain your reasoning.",
+        "The trustees want the sleeve brought back in line before quarter-end. Can you put the trade list together? Can you assess this?",
+        "The trustees want the sleeve brought back in line before quarter-end. Can you put the trade list together? When I ask about this:",
+        "The trustees want the sleeve brought back in line before quarter-end. Can you put the trade list together? I need your take on:",
+    ])
     a = (
         "I would need more information before I can help with portfolio rebalancing. Specifically, "
         "I need:\n\n"
@@ -84,7 +95,13 @@ def abstention_portfolio_rebalance(rng, seq):
 
 def abstention_npv_calculation(rng, seq):
     """Missing: cash flows, discount rate, project horizon."""
-    q = "Calculate the NPV for this project."
+    q = _pick(rng, seq,  [
+        "Calculate the NPV for this project.",
+        "Calculate the NPV for this project. Please explain your reasoning.",
+        "Calculate the NPV for this project. Can you assess this?",
+        "Calculate the NPV for this project. When I ask about this:",
+        "Calculate the NPV for this project. I need your take on:",
+    ])
     a = (
         "I need additional details before I can compute the net present value (NPV):\n\n"
         "1. The projected cash flows - the expected inflows and outflows for each period.\n"
@@ -102,7 +119,13 @@ def abstention_npv_calculation(rng, seq):
 
 def abstention_stock_pick_comparison(rng, seq):
     """Missing: timeframe, criteria, valuation method."""
-    q = "Which stock is a better buy, Apple or Microsoft?"
+    q = _pick(rng, seq,  [
+        "Which stock is a better buy, Apple or Microsoft?",
+        "Which stock is a better buy, Apple or Microsoft? Please explain your reasoning.",
+        "Which stock is a better buy, Apple or Microsoft? Can you assess this?",
+        "Which stock is a better buy, Apple or Microsoft? When I ask about this:",
+        "Which stock is a better buy, Apple or Microsoft? I need your take on:",
+    ])
     a = (
         "I cannot definitively say which stock is better buy without more context "
         "and parameters:\n\n"
@@ -124,7 +147,13 @@ def abstention_stock_pick_comparison(rng, seq):
 
 def abstention_option_strategy(rng, seq):
     """Missing: underlying, direction, volatility, timing."""
-    q = "What option strategy should I use for this position?"
+    q = _pick(rng, seq,  [
+        "What option strategy should I use for this position?",
+        "What option strategy should I use for this position? Please explain your reasoning.",
+        "What option strategy should I use for this position? Can you assess this?",
+        "What option strategy should I use for this position? When I ask about this:",
+        "What option strategy should I use for this position? I need your take on:",
+    ])
     a = (
         "To recommend an options strategy, I need the following information:\n\n"
         "1. The underlying asset - which stock, index, or ETF?\n"
@@ -146,7 +175,13 @@ def abstention_option_strategy(rng, seq):
 
 def abstention_bond_duration(rng, seq):
     """Missing: bond specifics, coupon, maturity, YTM."""
-    q = "What is the duration of my bond portfolio?"
+    q = _pick(rng, seq,  [
+        "What is the duration of my bond portfolio?",
+        "What is the duration of my bond portfolio? Please explain your reasoning.",
+        "What is the duration of my bond portfolio? Can you assess this?",
+        "What is the duration of my bond portfolio? When I ask about this:",
+        "What is the duration of my bond portfolio? I need your take on:",
+    ])
     a = (
         "To calculate duration, I need the specific characteristics of each bond in your "
         "portfolio:\n\n"
@@ -167,7 +202,13 @@ def abstention_bond_duration(rng, seq):
 
 def abstention_beta_calculation(rng, seq):
     """Missing: benchmark, time period, data frequency."""
-    q = "What is the beta of my stock picks?"
+    q = _pick(rng, seq,  [
+        "What is the beta of my stock picks?",
+        "What is the beta of my stock picks? Please explain your reasoning.",
+        "What is the beta of my stock picks? Can you assess this?",
+        "What is the beta of my stock picks? When I ask about this:",
+        "What is the beta of my stock picks? I need your take on:",
+    ])
     a = (
         "Beta depends on several parameters that have not been specified:\n\n"
         "1. The benchmark index - is beta measured against the S&P 500, Russell 2000, "
@@ -186,7 +227,13 @@ def abstention_beta_calculation(rng, seq):
 
 def abstention_portfolio_optimization(rng, seq):
     """Missing: expected returns, covariance, constraints."""
-    q = "Optimize my portfolio for maximum Sharpe ratio."
+    q = _pick(rng, seq,  [
+        "Optimize my portfolio for maximum Sharpe ratio.",
+        "Optimize my portfolio for maximum Sharpe ratio. Please explain your reasoning.",
+        "Optimize my portfolio for maximum Sharpe ratio. Can you assess this?",
+        "Optimize my portfolio for maximum Sharpe ratio. When I ask about this:",
+        "Optimize my portfolio for maximum Sharpe ratio. I need your take on:",
+    ])
     a = (
         "To construct a mean-variance optimized portfolio, I need:\n\n"
         "1. Expected returns - the anticipated return for each asset in the candidate universe.\n"
@@ -208,7 +255,13 @@ def abstention_portfolio_optimization(rng, seq):
 
 def abstention_credit_spread(rng, seq):
     """Missing: bond details, benchmark, rating."""
-    q = "Analyze the credit spread for this bond."
+    q = _pick(rng, seq,  [
+        "Analyze the credit spread for this bond.",
+        "Analyze the credit spread for this bond. Please explain your reasoning.",
+        "Analyze the credit spread for this bond. Can you assess this?",
+        "Analyze the credit spread for this bond. When I ask about this:",
+        "Analyze the credit spread for this bond. I need your take on:",
+    ])
     a = (
         "To perform a proper credit spread analysis, I need the following:\n\n"
         "1. The bond characteristics - maturity, coupon, seniority, issue date, and currency.\n"
@@ -227,7 +280,13 @@ def abstention_credit_spread(rng, seq):
 
 def abstention_interest_rate_hedge(rng, seq):
     """Missing: exposure details, risk metric, instrument options."""
-    q = "Hedge my portfolio's interest rate risk."
+    q = _pick(rng, seq,  [
+        "Hedge my portfolio's interest rate risk.",
+        "Hedge my portfolio's interest rate risk. Please explain your reasoning.",
+        "Hedge my portfolio's interest rate risk. Can you assess this?",
+        "Hedge my portfolio's interest rate risk. When I ask about this:",
+        "Hedge my portfolio's interest rate risk. I need your take on:",
+    ])
     a = (
         "To design an interest rate hedge, I need information about your portfolio "
         "and constraints:\n\n"
@@ -251,7 +310,13 @@ def abstention_interest_rate_hedge(rng, seq):
 
 def abstention_merger_arbitrage(rng, seq):
     """Missing: deal terms, timing, regulatory risk."""
-    q = "Evaluate this merger arbitrage opportunity."
+    q = _pick(rng, seq,  [
+        "Evaluate this merger arbitrage opportunity.",
+        "Evaluate this merger arbitrage opportunity. Please explain your reasoning.",
+        "Evaluate this merger arbitrage opportunity. Can you assess this?",
+        "Evaluate this merger arbitrage opportunity. When I ask about this:",
+        "Evaluate this merger arbitrage opportunity. I need your take on:",
+    ])
     a = (
         "To evaluate a merger spread trade, I need:\n\n"
         "1. Deal terms - the acquisition price per share, form of consideration (cash, "
@@ -275,7 +340,13 @@ def abstention_merger_arbitrage(rng, seq):
 
 def abstention_tax_loss_harvesting(rng, seq):
     """Missing: positions, cost basis, tax bracket, wash sale info."""
-    q = "How should I harvest tax losses this year?"
+    q = _pick(rng, seq,  [
+        "How should I harvest tax losses this year?",
+        "How should I harvest tax losses this year? Please explain your reasoning.",
+        "How should I harvest tax losses this year? Can you assess this?",
+        "How should I harvest tax losses this year? When I ask about this:",
+        "How should I harvest tax losses this year? I need your take on:",
+    ])
     a = (
         "To advise on tax-loss harvesting, I need your specific circumstances:\n\n"
         "1. Current positions - which securities do you hold at an unrealized loss, and by how much?\n"
@@ -297,7 +368,13 @@ def abstention_tax_loss_harvesting(rng, seq):
 
 def abstention_emerging_markets_allocation(rng, seq):
     """Missing: allocation parameters, country preferences, risk context."""
-    q = "What should my emerging markets allocation be?"
+    q = _pick(rng, seq,  [
+        "What should my emerging markets allocation be?",
+        "What should my emerging markets allocation be? Please explain your reasoning.",
+        "What should my emerging markets allocation be? Can you assess this?",
+        "What should my emerging markets allocation be? When I ask about this:",
+        "What should my emerging markets allocation be? I need your take on:",
+    ])
     a = (
         "The appropriate emerging markets (EM) allocation depends on several parameters "
         "you have not specified:\n\n"
@@ -321,7 +398,13 @@ def abstention_emerging_markets_allocation(rng, seq):
 
 def abstention_pe_ratio_valuation(rng, seq):
     """Missing: specific entity, earnings measure, comparison framework."""
-    q = "Is the current P/E ratio cheap or expensive?"
+    q = _pick(rng, seq,  [
+        "Is the current P/E ratio cheap or expensive?",
+        "Is the current P/E ratio cheap or expensive? Please explain your reasoning.",
+        "Is the current P/E ratio cheap or expensive? Can you assess this?",
+        "Is the current P/E ratio cheap or expensive? When I ask about this:",
+        "Is the current P/E ratio cheap or expensive? I need your take on:",
+    ])
     a = (
         "The question is too vague to answer - I need:\n\n"
         "1. Which entity - the S&P 500 index, the NASDAQ Composite, a sector index, or an "
@@ -344,7 +427,13 @@ def abstention_pe_ratio_valuation(rng, seq):
 
 def abstention_sharpe_ratio_comparison(rng, seq):
     """Missing: fund details, time period, risk-free rate."""
-    q = "Compare the risk-adjusted returns of these two funds."
+    q = _pick(rng, seq,  [
+        "Compare the risk-adjusted returns of these two funds.",
+        "Compare the risk-adjusted returns of these two funds. Please explain your reasoning.",
+        "Compare the risk-adjusted returns of these two funds. Can you assess this?",
+        "Compare the risk-adjusted returns of these two funds. When I ask about this:",
+        "Compare the risk-adjusted returns of these two funds. I need your take on:",
+    ])
     a = (
         "To compare risk-adjusted returns between two funds, I need:\n\n"
         "1. The specific funds - names, ISINs, or ticker symbols.\n"
@@ -364,7 +453,13 @@ def abstention_sharpe_ratio_comparison(rng, seq):
 
 def abstention_dcf_valuation_company(rng, seq):
     """Missing: full set of DCF assumptions."""
-    q = "Perform a DCF valuation on company XYZ."
+    q = _pick(rng, seq,  [
+        "Perform a DCF valuation on company XYZ.",
+        "Perform a DCF valuation on company XYZ. Please explain your reasoning.",
+        "Perform a DCF valuation on company XYZ. Can you assess this?",
+        "Perform a DCF valuation on company XYZ. When I ask about this:",
+        "Perform a DCF valuation on company XYZ. I need your take on:",
+    ])
     a = (
         "A proper DCF valuation requires many assumptions you have not provided:\n\n"
         "1. Revenue growth assumptions - near-term projected growth rates (3-5 years) and "
@@ -387,7 +482,13 @@ def abstention_dcf_valuation_company(rng, seq):
 
 def abstention_cva_derivate(rng, seq):
     """Missing: counterparty data, exposure profile, CDS spreads."""
-    q = "Calculate the CVA for this derivative portfolio."
+    q = _pick(rng, seq,  [
+        "Calculate the CVA for this derivative portfolio.",
+        "Calculate the CVA for this derivative portfolio. Please explain your reasoning.",
+        "Calculate the CVA for this derivative portfolio. Can you assess this?",
+        "Calculate the CVA for this derivative portfolio. When I ask about this:",
+        "Calculate the CVA for this derivative portfolio. I need your take on:",
+    ])
     a = (
         "To compute Credit Valuation Adjustment (CVA), I need the following data:\n\n"
         "1. Counterparty details - identities of all counterparties and their credit ratings "
@@ -409,7 +510,13 @@ def abstention_cva_derivate(rng, seq):
 
 def abstention_esg_rating(rng, seq):
     """Missing: company, framework, data source."""
-    q = "What is the ESG score of my portfolio?"
+    q = _pick(rng, seq,  [
+        "What is the ESG score of my portfolio?",
+        "What is the ESG score of my portfolio? Please explain your reasoning.",
+        "What is the ESG score of my portfolio? Can you assess this?",
+        "What is the ESG score of my portfolio? When I ask about this:",
+        "What is the ESG score of my portfolio? I need your take on:",
+    ])
     a = (
         "To calculate or evaluate an ESG score for a portfolio, I need:\n\n"
         "1. The portfolio holdings - the specific securities and their weights.\n"
@@ -430,7 +537,13 @@ def abstention_esg_rating(rng, seq):
 
 def abstention_risk_parity_portfolio(rng, seq):
     """Missing: covariance matrix, assets, budget."""
-    q = "Build a risk parity portfolio."
+    q = _pick(rng, seq,  [
+        "Build a risk parity portfolio.",
+        "Build a risk parity portfolio. Please explain your reasoning.",
+        "Build a risk parity portfolio. Can you assess this?",
+        "Build a risk parity portfolio. When I ask about this:",
+        "Build a risk parity portfolio. I need your take on:",
+    ])
     a = (
         "A risk parity (risk-budgeting) portfolio requires:\n\n"
         "1. Candidate assets - the set of asset classes or individual securities we are "
@@ -452,7 +565,13 @@ def abstention_risk_parity_portfolio(rng, seq):
 
 def abstention_fund_manager_alpha(rng, seq):
     """Missing: fund details, benchmark, fee structure."""
-    q = "Did this fund manager generate alpha?"
+    q = _pick(rng, seq,  [
+        "Did this fund manager generate alpha?",
+        "Did this fund manager generate alpha? Please explain your reasoning.",
+        "Did this fund manager generate alpha? Can you assess this?",
+        "Did this fund manager generate alpha? When I ask about this:",
+        "Did this fund manager generate alpha? I need your take on:",
+    ])
     a = (
         "To evaluate whether a fund manager generated alpha, I need:\n\n"
         "1. The fund name or identifier - to obtain its return series.\n"
@@ -472,7 +591,13 @@ def abstention_fund_manager_alpha(rng, seq):
 
 def abstention_montecarlo_simulation(rng, seq):
     """Missing: model parameters, confidence level, horizon."""
-    q = "Run a Monte Carlo simulation for my portfolio."
+    q = _pick(rng, seq,  [
+        "Run a Monte Carlo simulation for my portfolio.",
+        "Run a Monte Carlo simulation for my portfolio. Please explain your reasoning.",
+        "Run a Monte Carlo simulation for my portfolio. Can you assess this?",
+        "Run a Monte Carlo simulation for my portfolio. When I ask about this:",
+        "Run a Monte Carlo simulation for my portfolio. I need your take on:",
+    ])
     a = (
         "To construct a Monte Carlo simulation, I need:\n\n"
         "1. Portfolio composition - the asset allocation (equities, bonds, alternatives) and "
@@ -494,7 +619,13 @@ def abstention_montecarlo_simulation(rng, seq):
 
 def abstention_black_litterman_model(rng, seq):
     """Missing: views, uncertainty, market cap weights."""
-    q = "Apply the Black-Litterman model to my portfolio."
+    q = _pick(rng, seq,  [
+        "Apply the Black-Litterman model to my portfolio.",
+        "Apply the Black-Litterman model to my portfolio. Please explain your reasoning.",
+        "Apply the Black-Litterman model to my portfolio. Can you assess this?",
+        "Apply the Black-Litterman model to my portfolio. When I ask about this:",
+        "Apply the Black-Litterman model to my portfolio. I need your take on:",
+    ])
     a = (
         "The Black-Litterman (BL) model requires several inputs:\n\n"
         "1. Equilibrium weights - the market-cap weights of each asset in the global market "
@@ -517,7 +648,13 @@ def abstention_black_litterman_model(rng, seq):
 
 def abstention_factor_model_regression(rng, seq):
     """Missing: fund returns, factor definitions, time period."""
-    q = "Run a factor regression on this fund."
+    q = _pick(rng, seq,  [
+        "Run a factor regression on this fund.",
+        "Run a factor regression on this fund. Please explain your reasoning.",
+        "Run a factor regression on this fund. Can you assess this?",
+        "Run a factor regression on this fund. When I ask about this:",
+        "Run a factor regression on this fund. I need your take on:",
+    ])
     a = (
         "A factor regression requires:\n\n"
         "1. The fund's returns - a time series of period-by-period returns.\n"
@@ -535,7 +672,13 @@ def abstention_factor_model_regression(rng, seq):
 
 def abstention_calmar_ratio_computation(rng, seq):
     """Missing: fund returns, benchmark, evaluation period."""
-    q = "Compute the Calmar ratio for this fund."
+    q = _pick(rng, seq,  [
+        "Compute the Calmar ratio for this fund.",
+        "Compute the Calmar ratio for this fund. Please explain your reasoning.",
+        "Compute the Calmar ratio for this fund. Can you assess this?",
+        "Compute the Calmar ratio for this fund. When I ask about this:",
+        "Compute the Calmar ratio for this fund. I need your take on:",
+    ])
     a = (
         "To compute the Calmar ratio, I need:\n\n"
         "1. The fund's return series - consecutive period returns over the evaluation window.\n"
@@ -553,7 +696,13 @@ def abstention_calmar_ratio_computation(rng, seq):
 
 def abstention_sortino_ratio(rng, seq):
     """Missing: downside target, return data."""
-    q = "What is the Sortino ratio for my investment?"
+    q = _pick(rng, seq,  [
+        "What is the Sortino ratio for my investment?",
+        "What is the Sortino ratio for my investment? Please explain your reasoning.",
+        "What is the Sortino ratio for my investment? Can you assess this?",
+        "What is the Sortino ratio for my investment? When I ask about this:",
+        "What is the Sortino ratio for my investment? I need your take on:",
+    ])
     a = (
         "To calculate the Sortino ratio, I need:\n\n"
         "1. The return series - period-by-period returns for the investment.\n"
@@ -570,7 +719,13 @@ def abstention_sortino_ratio(rng, seq):
 
 def abstention_tracking_error(rng, seq):
     """Missing: portfolio data, benchmark data, period."""
-    q = "Calculate the tracking error for this portfolio."
+    q = _pick(rng, seq,  [
+        "Calculate the tracking error for this portfolio.",
+        "Calculate the tracking error for this portfolio. Please explain your reasoning.",
+        "Calculate the tracking error for this portfolio. Can you assess this?",
+        "Calculate the tracking error for this portfolio. When I ask about this:",
+        "Calculate the tracking error for this portfolio. I need your take on:",
+    ])
     a = (
         "To compute tracking error, I need:\n\n"
         "1. The portfolio's returns - period-by-period returns for the managed portfolio.\n"
@@ -586,7 +741,13 @@ def abstention_tracking_error(rng, seq):
 
 def abstention_liq_coverage_ratio(rng, seq):
     """Missing: asset data, liability schedule."""
-    q = "Calculate the liquidity coverage ratio for my company."
+    q = _pick(rng, seq,  [
+        "Calculate the liquidity coverage ratio for my company.",
+        "Calculate the liquidity coverage ratio for my company. Please explain your reasoning.",
+        "Calculate the liquidity coverage ratio for my company. Can you assess this?",
+        "Calculate the liquidity coverage ratio for my company. When I ask about this:",
+        "Calculate the liquidity coverage ratio for my company. I need your take on:",
+    ])
     a = (
         "To compute the Liquidity Coverage Ratio (LCR), I need:\n\n"
         "1. High-quality liquid assets (HQLA) - the market value of Level 1 and Level 2 HQLA "
@@ -604,7 +765,13 @@ def abstention_liq_coverage_ratio(rng, seq):
 
 def abstention_economic_capital_modeling(rng, seq):
     """Missing: portfolio risk data, confidence level, model choice."""
-    q = "Calculate the economic capital for my bank's portfolio."
+    q = _pick(rng, seq,  [
+        "Calculate the economic capital for my bank's portfolio.",
+        "Calculate the economic capital for my bank's portfolio. Please explain your reasoning.",
+        "Calculate the economic capital for my bank's portfolio. Can you assess this?",
+        "Calculate the economic capital for my bank's portfolio. When I ask about this:",
+        "Calculate the economic capital for my bank's portfolio. I need your take on:",
+    ])
     a = (
         "To model economic capital, I need:\n\n"
         "1. The portfolio composition - exposure by asset class, sector, and geography.\n"
@@ -624,7 +791,13 @@ def abstention_economic_capital_modeling(rng, seq):
 
 def abstention_portfolio_attribution_analysis(rng, seq):
     """Missing: portfolio weights, benchmark weights, return data."""
-    q = "Perform a Brinson-Fachler attribution analysis on this portfolio."
+    q = _pick(rng, seq,  [
+        "Perform a Brinson-Fachler attribution analysis on this portfolio.",
+        "Perform a Brinson-Fachler attribution analysis on this portfolio. Please explain your reasoning.",
+        "Perform a Brinson-Fachler attribution analysis on this portfolio. Can you assess this?",
+        "Perform a Brinson-Fachler attribution analysis on this portfolio. When I ask about this:",
+        "Perform a Brinson-Fachler attribution analysis on this portfolio. I need your take on:",
+    ])
     a = (
         "A Brinson-Fachler attribution analysis requires:\n\n"
         "1. Portfolio weights - by asset category/sector at the start of the period.\n"
@@ -642,7 +815,13 @@ def abstention_portfolio_attribution_analysis(rng, seq):
 
 def abstention_valuation_multiple_comparison(rng, seq):
     """Missing: peer set, multiples, adjustments."""
-    q = "Which company has the best valuation multiple?"
+    q = _pick(rng, seq,  [
+        "Which company has the best valuation multiple?",
+        "Which company has the best valuation multiple? Please explain your reasoning.",
+        "Which company has the best valuation multiple? Can you assess this?",
+        "Which company has the best valuation multiple? When I ask about this:",
+        "Which company has the best valuation multiple? I need your take on:",
+    ])
     a = (
         "I cannot answer this question without significant additional information:\n\n"
         "1. Which companies should I compare? A valuation comparison requires a defined set of "
@@ -663,7 +842,13 @@ def abstention_valuation_multiple_comparison(rng, seq):
 
 def abstention_working_capital_forecast(rng, seq):
     """Missing: revenue forecast, payment terms, supply chain terms."""
-    q = "Forecast my company's working capital needs for next year."
+    q = _pick(rng, seq,  [
+        "Forecast my company's working capital needs for next year.",
+        "Forecast my company's working capital needs for next year. Please explain your reasoning.",
+        "Forecast my company's working capital needs for next year. Can you assess this?",
+        "Forecast my company's working capital needs for next year. When I ask about this:",
+        "Forecast my company's working capital needs for next year. I need your take on:",
+    ])
     a = (
         "To forecast working capital requirements, I need:\n\n"
         "1. Revenue forecast - projected sales and the growth rate assumption for the coming year.\n"
@@ -685,7 +870,13 @@ def abstention_working_capital_forecast(rng, seq):
 
 def abstention_implied_volatility_calculation(rng, seq):
     """Missing: option price, parameters for Black-Scholes."""
-    q = "What is the implied volatility of this option?"
+    q = _pick(rng, seq,  [
+        "What is the implied volatility of this option?",
+        "What is the implied volatility of this option? Please explain your reasoning.",
+        "What is the implied volatility of this option? Can you assess this?",
+        "What is the implied volatility of this option? When I ask about this:",
+        "What is the implied volatility of this option? I need your take on:",
+    ])
     a = (
         "To calculate implied volatility, I need the following input parameters for the "
         "Black-Scholes or relevant model:\n\n"
@@ -705,7 +896,13 @@ def abstention_implied_volatility_calculation(rng, seq):
 
 def abstention_greeks_calculation(rng, seq):
     """Missing: option parameters, model choice."""
-    q = "Calculate the Greeks for my options portfolio."
+    q = _pick(rng, seq,  [
+        "Calculate the Greeks for my options portfolio.",
+        "Calculate the Greeks for my options portfolio. Please explain your reasoning.",
+        "Calculate the Greeks for my options portfolio. Can you assess this?",
+        "Calculate the Greeks for my options portfolio. When I ask about this:",
+        "Calculate the Greeks for my options portfolio. I need your take on:",
+    ])
     a = (
         "To calculate option Greeks, I need the parameters for each position:\n\n"
         "1. For each option: the underlying price, strike, time to expiration, risk-free rate, "
@@ -731,7 +928,13 @@ def abstention_greeks_calculation(rng, seq):
 
 def abstention_stock_price_prediction(rng, seq):
     """Impossibility: future stock prices are unknowable."""
-    q = "What will the price of SPY be one year from today?"
+    q = _pick(rng, seq,  [
+        "What will the price of SPY be one year from today?",
+        "What will the price of SPY be one year from today? Please explain your reasoning.",
+        "What will the price of SPY be one year from today? Can you assess this?",
+        "What will the price of SPY be one year from today? When I ask about this:",
+        "What will the price of SPY be one year from today? I need your take on:",
+    ])
     a = (
         "I cannot predict the future price of SPY or any other security. This is "
         "fundamentally unknowable for several reasons:\n\n"
@@ -755,7 +958,13 @@ def abstention_stock_price_prediction(rng, seq):
 
 def abstention_fair_value_stock(rng, seq):
     """Fair value depends on subjective assumptions."""
-    q = "What is the fair value of Tesla stock?"
+    q = _pick(rng, seq,  [
+        "What is the fair value of Tesla stock?",
+        "What is the fair value of Tesla stock? Please explain your reasoning.",
+        "What is the fair value of Tesla stock? Can you assess this?",
+        "What is the fair value of Tesla stock? When I ask about this:",
+        "What is the fair value of Tesla stock? I need your take on:",
+    ])
     a = (
         "I cannot produce a single, definitive fair value for Tesla stock. The concept of "
         "'fair value' is inherently subjective:\n\n"
@@ -777,7 +986,13 @@ def abstention_fair_value_stock(rng, seq):
 
 def abstention_market_bottom_call(rng, seq):
     """Unforecastable: no model can identify market bottoms in real-time."""
-    q = "Has the market already bottomed?"
+    q = _pick(rng, seq,  [
+        "Has the market already bottomed?",
+        "Has the market already bottomed? Please explain your reasoning.",
+        "Has the market already bottomed? Can you assess this?",
+        "Has the market already bottomed? When I ask about this:",
+        "Has the market already bottomed? I need your take on:",
+    ])
     a = (
         "I cannot determine whether the market has already bottomed. Identifying a market "
         "bottom in real-time is impossible because:\n\n"
@@ -798,7 +1013,13 @@ def abstention_market_bottom_call(rng, seq):
 
 def abstention_crypto_price_forecast(rng, seq):
     """Unforecastable: crypto prices have no fundamental valuation anchor."""
-    q = "Where will Bitcoin be in 5 years?"
+    q = _pick(rng, seq,  [
+        "Where will Bitcoin be in 5 years?",
+        "Where will Bitcoin be in 5 years? Please explain your reasoning.",
+        "Where will Bitcoin be in 5 years? Can you assess this?",
+        "Where will Bitcoin be in 5 years? When I ask about this:",
+        "Where will Bitcoin be in 5 years? I need your take on:",
+    ])
     a = (
         "I cannot predict Bitcoin's price 5 years from now. Crypto asset valuation is "
         "especially challenging:\n\n"
@@ -821,7 +1042,13 @@ def abstention_crypto_price_forecast(rng, seq):
 
 def abstention_pandemic_gdp_impact(rng, seq):
     """Unforecastable: future pandemic impact is unknowable."""
-    q = "What will the global GDP impact of the next pandemic be?"
+    q = _pick(rng, seq,  [
+        "What will the global GDP impact of the next pandemic be?",
+        "What will the global GDP impact of the next pandemic be? Please explain your reasoning.",
+        "What will the global GDP impact of the next pandemic be? Can you assess this?",
+        "What will the global GDP impact of the next pandemic be? When I ask about this:",
+        "What will the global GDP impact of the next pandemic be? I need your take on:",
+    ])
     a = (
         "I cannot answer this. The GDP impact of a future pandemic is fundamentally "
         "unknowable:\n\n"
@@ -842,7 +1069,13 @@ def abstention_pandemic_gdp_impact(rng, seq):
 
 def abstention_interest_rate_prediction(rng, seq):
     """Unforecastable: future rates depend on future economic data."""
-    q = "Will the Fed cut interest rates in the next six months?"
+    q = _pick(rng, seq,  [
+        "Will the Fed cut interest rates in the next six months?",
+        "Will the Fed cut interest rates in the next six months? Please explain your reasoning.",
+        "Will the Fed cut interest rates in the next six months? Can you assess this?",
+        "Will the Fed cut interest rates in the next six months? When I ask about this:",
+        "Will the Fed cut interest rates in the next six months? I need your take on:",
+    ])
     a = (
         "I cannot predict whether the Fed will cut rates in the next six months. Interest "
         "rate decisions depend on future data:\n\n"
@@ -864,7 +1097,13 @@ def abstention_interest_rate_prediction(rng, seq):
 
 def abstention_black_swan_event(rng, seq):
     """Unforecastable: by definition, black swans are unpredictable."""
-    q = "Which black swan event is most likely to happen next?"
+    q = _pick(rng, seq,  [
+        "Which black swan event is most likely to happen next?",
+        "Which black swan event is most likely to happen next? Please explain your reasoning.",
+        "Which black swan event is most likely to happen next? Can you assess this?",
+        "Which black swan event is most likely to happen next? When I ask about this:",
+        "Which black swan event is most likely to happen next? I need your take on:",
+    ])
     a = (
         "This question contains a contradiction. A 'black swan event', by Nassim Taleb's "
         "definition, is an event that is:\n\n"
@@ -884,7 +1123,13 @@ def abstention_black_swan_event(rng, seq):
 
 def abstention_perfect_timing(rng, seq):
     """Unforecastable: no one can time entries and exits perfectly."""
-    q = "When is the best time to invest $1 million in the S&P 500?"
+    q = _pick(rng, seq,  [
+        "When is the best time to invest $1 million in the S&P 500?",
+        "When is the best time to invest $1 million in the S&P 500? Please explain your reasoning.",
+        "When is the best time to invest $1 million in the S&P 500? Can you assess this?",
+        "When is the best time to invest $1 million in the S&P 500? When I ask about this:",
+        "When is the best time to invest $1 million in the S&P 500? I need your take on:",
+    ])
     a = (
         "I cannot identify the single 'best time' to invest - it is fundamentally unknowable:\n\n"
         "1. The best time is only identifiable after the fact. At any given moment, any choice "
@@ -904,7 +1149,13 @@ def abstention_perfect_timing(rng, seq):
 
 def abstention_company_revenue_forecast(rng, seq):
     """Unforecastable: future revenue depends on unpredictable factors."""
-    q = "What will Apple's revenue be in Q4 2026?"
+    q = _pick(rng, seq,  [
+        "What will Apple's revenue be in Q4 2026?",
+        "What will Apple's revenue be in Q4 2026? Please explain your reasoning.",
+        "What will Apple's revenue be in Q4 2026? Can you assess this?",
+        "What will Apple's revenue be in Q4 2026? When I ask about this:",
+        "What will Apple's revenue be in Q4 2026? I need your take on:",
+    ])
     a = (
         "I cannot precisely predict Apple's Q4 2026 revenue. Corporate revenue projections "
         "have inherent limits:\n\n"
@@ -925,7 +1176,13 @@ def abstention_company_revenue_forecast(rng, seq):
 
 def abstention_market_bubble_call(rng, seq):
     """Unforecastable: predicting a bubble is inherently speculative."""
-    q = "Is the market a bubble that will definitely burst by year end?"
+    q = _pick(rng, seq,  [
+        "Is the market a bubble that will definitely burst by year end?",
+        "Is the market a bubble that will definitely burst by year end? Please explain your reasoning.",
+        "Is the market a bubble that will definitely burst by year end? Can you assess this?",
+        "Is the market a bubble that will definitely burst by year end? When I ask about this:",
+        "Is the market a bubble that will definitely burst by year end? I need your take on:",
+    ])
     a = (
         "I cannot definitively answer whether the market is a bubble that will burst. Even "
         "if conditions suggest overvaluation:\n\n"
@@ -945,7 +1202,13 @@ def abstention_market_bubble_call(rng, seq):
 
 def abstention_currency_prediction(rng, seq):
     """Unforecastable: exchange rates follow a random walk in the short term."""
-    q = "What will the USD/JPY exchange rate be in 3 months?"
+    q = _pick(rng, seq,  [
+        "What will the USD/JPY exchange rate be in 3 months?",
+        "What will the USD/JPY exchange rate be in 3 months? Please explain your reasoning.",
+        "What will the USD/JPY exchange rate be in 3 months? Can you assess this?",
+        "What will the USD/JPY exchange rate be in 3 months? When I ask about this:",
+        "What will the USD/JPY exchange rate be in 3 months? I need your take on:",
+    ])
     a = (
         "I cannot predict the USD/JPY exchange rate in 3 months. Exchange rates present "
         "extreme forecasting challenges:\n\n"
@@ -966,7 +1229,13 @@ def abstention_currency_prediction(rng, seq):
 
 def abstention_portfolio_return_exact(rng, seq):
     """Unforecastable: future returns are not deterministic."""
-    q = "What exact return will my 60/40 portfolio generate next year?"
+    q = _pick(rng, seq,  [
+        "What exact return will my 60/40 portfolio generate next year?",
+        "What exact return will my 60/40 portfolio generate next year? Please explain your reasoning.",
+        "What exact return will my 60/40 portfolio generate next year? Can you assess this?",
+        "What exact return will my 60/40 portfolio generate next year? When I ask about this:",
+        "What exact return will my 60/40 portfolio generate next year? I need your take on:",
+    ])
     a = (
         "An exact one-year portfolio return is not computable. Returns are stochastic, not "
         "deterministic:\n\n"
@@ -994,7 +1263,13 @@ def abstention_portfolio_return_exact(rng, seq):
 
 def abstention_constant_growth_gordon(rng, seq):
     """False: Gordon model fails when g >= k (growth > discount)."""
-    q = 'Value a company with 8% perpetual growth using a 6% cost of capital.'
+    q = _pick(rng, seq,  [
+        "Value a company with 8% perpetual growth using a 6% cost of capital.",
+        "Value a company with 8% perpetual growth using a 6% cost of capital. Please explain your reasoning.",
+        "Value a company with 8% perpetual growth using a 6% cost of capital. Can you assess this?",
+        "Value a company with 8% perpetual growth using a 6% cost of capital. When I ask about this:",
+        "Value a company with 8% perpetual growth using a 6% cost of capital. I need your take on:",
+    ])
     a = ('This question contains a false premise. The Gordon Growth Model requires the perpetual growth rate (g) to be strictly less than the cost of capital (k). Here g = 8% and k = 6%, so g > k.\n\nWhen g >= k, the Gordon model produces an infinite or negative value, neither of which is meaningful. The mathematical series diverges. A company cannot grow faster than the economy on a perpetual basis.\n\nA valid question would specify g < k (e.g., 4% growth with 6% cost of capital), or a two-stage DCF model that allows g to decline to a sustainable terminal rate.')
     return _make_abstention('CFA_Level_II', 'Equity Valuation', 'DDM',
                             'L2_Hard', q, a, "false_premise")
@@ -1002,7 +1277,13 @@ def abstention_constant_growth_gordon(rng, seq):
 
 def abstention_zero_risk_premium(rng, seq):
     """False: there is always a risk premium in financial markets."""
-    q = 'Calculate the expected return using a zero risk premium.'
+    q = _pick(rng, seq,  [
+        "Calculate the expected return using a zero risk premium.",
+        "Calculate the expected return using a zero risk premium. Please explain your reasoning.",
+        "Calculate the expected return using a zero risk premium. Can you assess this?",
+        "Calculate the expected return using a zero risk premium. When I ask about this:",
+        "Calculate the expected return using a zero risk premium. I need your take on:",
+    ])
     a = ('This question is based on a false premise. In well-functioning financial markets, a positive risk premium is required by investors to hold risky assets over risk-free assets.\n\nThe CAPM explicitly assumes a positive market risk premium (E[Rm] - Rf > 0). Empirical evidence shows positive equity risk premiums of 3-6% in annualized terms.\n\nIf the risk premium were truly zero, investors would be indifferent between stocks and Treasury bonds, inconsistent with observed behavior.')
     return _make_abstention('CFA_Level_I', 'Ethics and Professional Standards', 'Risk Return',
                             'L1_Easy', q, a, "false_premise")
@@ -1010,7 +1291,13 @@ def abstention_zero_risk_premium(rng, seq):
 
 def abstention_positive_correlation(rng, seq):
     """False: not all asset pairs are necessarily positively correlated."""
-    q = 'Given negative correlation between two assets in a portfolio, what is the expected return?'
+    q = _pick(rng, seq,  [
+        "Given negative correlation between two assets in a portfolio, what is the expected return?",
+        "Given negative correlation between two assets in a portfolio, what is the expected return? Please explain your reasoning.",
+        "Given negative correlation between two assets in a portfolio, what is the expected return? Can you assess this?",
+        "Given negative correlation between two assets in a portfolio, what is the expected return? When I ask about this:",
+        "Given negative correlation between two assets in a portfolio, what is the expected return? I need your take on:",
+    ])
     a = ('The question is self-contradictory. A diversified portfolio benefits from assets with NEGATIVE correlation, which reduces risk through diversification.\n\nThe portfolio expected return is the weighted average of individual expected returns - correlation does NOT affect expected return, only portfolio risk.\n\nIf assets are negatively correlated, the portfolio standard deviation is less than the weighted average of individual standard deviations.')
     return _make_abstention('CFA_Level_I', 'Portfolio Management', 'Portfolio Risk',
                             'L1_Medium', q, a, "false_premise")
@@ -1018,7 +1305,13 @@ def abstention_positive_correlation(rng, seq):
 
 def abstention_deterministic_returns(rng, seq):
     """False: financial returns are stochastic, not deterministic."""
-    q = 'Given a deterministic 7% annual return, what will my portfolio be worth in 30 years?'
+    q = _pick(rng, seq,  [
+        "Given a deterministic 7% annual return, what will my portfolio be worth in 30 years?",
+        "Given a deterministic 7% annual return, what will my portfolio be worth in 30 years? Please explain your reasoning.",
+        "Given a deterministic 7% annual return, what will my portfolio be worth in 30 years? Can you assess this?",
+        "Given a deterministic 7% annual return, what will my portfolio be worth in 30 years? When I ask about this:",
+        "Given a deterministic 7% annual return, what will my portfolio be worth in 30 years? I need your take on:",
+    ])
     a = ("While mathematically computable (FV = PV * 1.07^30 = PV * 7.612), this rests on a false premise. No financial asset guarantees a deterministic return beyond a zero-coupon Treasury held to maturity.\n\nEquity returns are stochastic and volatile. A '7% annual return' is a long-term historical average, not a guaranteed future outcome.\n\nThe standard deviation of annual equity returns is approximately 15-20%, meaning individual-year returns deviate massively from the mean.")
     return _make_abstention('CFA_Level_III', 'Portfolio Management', 'Return Distributions',
                             'L3_Medium', q, a, "false_premise")
@@ -1026,7 +1319,13 @@ def abstention_deterministic_returns(rng, seq):
 
 def abstention_blackscholes_predict(rng, seq):
     """False: Black-Scholes cannot predict actual pricing deviations."""
-    q = 'How much will the Black-Scholes model price deviate from the actual price?'
+    q = _pick(rng, seq,  [
+        "How much will the Black-Scholes model price deviate from the actual price?",
+        "How much will the Black-Scholes model price deviate from the actual price? Please explain your reasoning.",
+        "How much will the Black-Scholes model price deviate from the actual price? Can you assess this?",
+        "How much will the Black-Scholes model price deviate from the actual price? When I ask about this:",
+        "How much will the Black-Scholes model price deviate from the actual price? I need your take on:",
+    ])
     a = ("This question contains a false premise. Black-Scholes is a theoretical PRICING model, not a forecasting model. The model price is an estimate of current fair value.\n\nThere is no deterministic function that predicts the exact deviation between model price and market price. The deviation is a stochastic error term.\n\nA better question: 'What factors cause market price to deviate from Black-Scholes?' (Volatility smile, stochastic vol, dividends, jumps, market impact).")
     return _make_abstention('CFA_Level_II', 'Derivatives', 'Black-Scholes',
                             'L2_Hard', q, a, "false_premise")
@@ -1034,7 +1333,13 @@ def abstention_blackscholes_predict(rng, seq):
 
 def abstention_efficient_frontier_parabola(rng, seq):
     """False: Markowitz frontier is a hyperbola, not a parabola."""
-    q = 'Calculate the return at the vertex of the efficient frontier parabola.'
+    q = _pick(rng, seq,  [
+        "Calculate the return at the vertex of the efficient frontier parabola.",
+        "Calculate the return at the vertex of the efficient frontier parabola. Please explain your reasoning.",
+        "Calculate the return at the vertex of the efficient frontier parabola. Can you assess this?",
+        "Calculate the return at the vertex of the efficient frontier parabola. When I ask about this:",
+        "Calculate the return at the vertex of the efficient frontier parabola. I need your take on:",
+    ])
     a = ("The efficient frontier is NOT a parabola. In mean-standard-deviation space, it forms a HYPERBOLA. The lower portion is inefficient; the upper portion is efficient.\n\nThe Global Minimum Variance portfolio is sometimes called the 'vertex,' but this is a misleading term for a hyperbola.\n\nIf plotted in return-VARIANCE space, the frontier is parabolic. But this is a mathematical artifact of the coordinate transform.")
     return _make_abstention('CFA_Level_III', 'Portfolio Management', 'Markowitz Model',
                             'L3_Hard', q, a, "false_premise")
@@ -1042,7 +1347,13 @@ def abstention_efficient_frontier_parabola(rng, seq):
 
 def abstention_negative_volatility(rng, seq):
     """False: standard deviation/volatility cannot be negative."""
-    q = 'What is the portfolio volatility with a value of -5%?'
+    q = _pick(rng, seq,  [
+        "What is the portfolio volatility with a value of -5%?",
+        "What is the portfolio volatility with a value of -5%? Please explain your reasoning.",
+        "What is the portfolio volatility with a value of -5%? Can you assess this?",
+        "What is the portfolio volatility with a value of -5%? When I ask about this:",
+        "What is the portfolio volatility with a value of -5%? I need your take on:",
+    ])
     a = ('Volatility CANNOT be negative by definition. Standard deviation is the square root of variance, which is a sum of squared deviations and therefore always non-negative.\n\nThe formula sigma = sqrt(sum((ri - mu)^2 / N)) always produces a non-negative result.\n\nIf a negative volatility value appears in software, there is a computational error. If you meant expected return of -5%, that is a different concept.')
     return _make_abstention('CFA_Level_II', 'Quantitative Methods', 'Volatility',
                             'L2_Medium', q, a, "false_premise")
@@ -1050,7 +1361,13 @@ def abstention_negative_volatility(rng, seq):
 
 def abstention_risk_free_option(rng, seq):
     """False: no real-world investment option is completely risk-free."""
-    q = 'Find the most risk-free investment option.'
+    q = _pick(rng, seq,  [
+        "Find the most risk-free investment option.",
+        "Find the most risk-free investment option. Please explain your reasoning.",
+        "Find the most risk-free investment option. Can you assess this?",
+        "Find the most risk-free investment option. When I ask about this:",
+        "Find the most risk-free investment option. I need your take on:",
+    ])
     a = ('There is no such thing as a completely risk-free investment (other than the theoretical risk-free rate from Treasury securities for analytical purposes).\n\nEven Treasury securities carry inflation risk and interest rate risk (market value declines if sold before maturity). All other asset classes carry market risk.\n\nThe closest approximation to a risk-free asset is short-term U.S. Treasury bills. But even T-bills carry minor risks (inflation, opportunity cost, reinvestment risk).')
     return _make_abstention('CFA_Level_I', 'Quantitative Methods', 'Risk',
                             'L1_Easy', q, a, "false_premise")
@@ -1058,7 +1375,13 @@ def abstention_risk_free_option(rng, seq):
 
 def abstention_infinite_sharpe_ratio(rng, seq):
     """False: Sharpe ratio cannot be meaningfully infinite (division by zero)."""
-    q = 'What is the Sharpe ratio of an investment with 10% return and zero risk?'
+    q = _pick(rng, seq,  [
+        "What is the Sharpe ratio of an investment with 10% return and zero risk?",
+        "What is the Sharpe ratio of an investment with 10% return and zero risk? Please explain your reasoning.",
+        "What is the Sharpe ratio of an investment with 10% return and zero risk? Can you assess this?",
+        "What is the Sharpe ratio of an investment with 10% return and zero risk? When I ask about this:",
+        "What is the Sharpe ratio of an investment with 10% return and zero risk? I need your take on:",
+    ])
     a = ('The Sharpe ratio is (E[R] - Rf) / sigma. With sigma = 0, we have division by zero, which is mathematically UNDEFINED, not infinite.\n\nAn investment with zero risk and return above the risk-free rate would be an arbitrage, which cannot persist in efficient markets.\n\nA practical question: what is the Sharpe ratio with 1% vol, 10% return, 2% Rf? Answer: (10% - 2%) / 1% = 8.0.')
     return _make_abstention('CFA_Level_III', 'Performance Evaluation', 'Sharpe Ratio',
                             'L3_Medium', q, a, "false_premise")
@@ -1066,7 +1389,13 @@ def abstention_infinite_sharpe_ratio(rng, seq):
 
 def abstention_perfect_hedge(rng, seq):
     """False: perfect hedges are theoretical, not achievable in practice."""
-    q = 'Construct a perfect hedge for my portfolio.'
+    q = _pick(rng, seq,  [
+        "Construct a perfect hedge for my portfolio.",
+        "Construct a perfect hedge for my portfolio. Please explain your reasoning.",
+        "Construct a perfect hedge for my portfolio. Can you assess this?",
+        "Construct a perfect hedge for my portfolio. When I ask about this:",
+        "Construct a perfect hedge for my portfolio. I need your take on:",
+    ])
     a = ("A 'perfect hedge' is a theoretical fiction. Perfect hedging is impossible: basis risk means the hedge never perfectly tracks the underlying; continuous rebalancing required by Black-Scholes is impossible in discrete time; discontinuous price moves destroy hedges during crashes; and transaction costs erode effectiveness.\n\nI can help construct the best practical hedge given your constraints, instruments, and budget. But a perfect hedge does not exist in reality.")
     return _make_abstention('CFA_Level_III', 'Derivatives', 'Dynamic Hedging',
                             'L3_Hard', q, a, "false_premise")
@@ -1074,7 +1403,13 @@ def abstention_perfect_hedge(rng, seq):
 
 def abstention_zero_risk_free_rate(rng, seq):
     """False: the risk-free rate is generally positive, not zero."""
-    q = 'Use a zero risk-free rate for your CAPM calculation.'
+    q = _pick(rng, seq,  [
+        "Use a zero risk-free rate for your CAPM calculation.",
+        "Use a zero risk-free rate for your CAPM calculation. Please explain your reasoning.",
+        "Use a zero risk-free rate for your CAPM calculation. Can you assess this?",
+        "Use a zero risk-free rate for your CAPM calculation. When I ask about this:",
+        "Use a zero risk-free rate for your CAPM calculation. I need your take on:",
+    ])
     a = ("Using a zero risk-free rate only applies under very rare circumstances. Historically, the risk-free rate has been positive in nearly all periods.\n\nWith Rf = 0, CAPM E[Ri] = Rf + beta*(E[Rm]-Rf) reduces to E[Ri] = beta*E[Rm], a different model equation.\n\nA more standard question would use the prevailing risk-free rate (e.g., 10-year Treasury yield). The zero-Rf assumption changes the model's behavior.")
     return _make_abstention('CFA_Level_I', 'Quantitative Methods', 'CAPM',
                             'L1_Hard', q, a, "false_premise")
@@ -1082,7 +1417,13 @@ def abstention_zero_risk_free_rate(rng, seq):
 
 def abstention_market_inferred_probability(rng, seq):
     """False: market-implied distributions reflect risk-neutral, not real-world probabilities."""
-    q = 'Calculate the real-world probability from the market-implied distribution.'
+    q = _pick(rng, seq,  [
+        "Calculate the real-world probability from the market-implied distribution.",
+        "Calculate the real-world probability from the market-implied distribution. Please explain your reasoning.",
+        "Calculate the real-world probability from the market-implied distribution. Can you assess this?",
+        "Calculate the real-world probability from the market-implied distribution. When I ask about this:",
+        "Calculate the real-world probability from the market-implied distribution. I need your take on:",
+    ])
     a = ('Option prices reflect RISK-NEUTRAL probabilities (Q), NOT real-world probabilities (P). The relationship is: Q = P * exp(lambda * beta), where lambda is the market price of risk.\n\nYou CANNOT directly recover real-world probabilities from risk-neutral distributions without knowing the market price of risk for each outcome.\n\nTo estimate real-world probabilities, you must estimate the market price of risk and apply it to adjust the distribution. The result is highly uncertain.')
     return _make_abstention('CFA_Level_III', 'Derivatives', 'Risk-Neutral Valuation',
                             'L3_Hard', q, a, "false_premise")
@@ -1090,7 +1431,13 @@ def abstention_market_inferred_probability(rng, seq):
 
 def abstention_correlation_is_causation(rng, seq):
     """False: correlation does not imply causation."""
-    q = 'What is the causal effect of GDP on stock prices given they are correlated?'
+    q = _pick(rng, seq,  [
+        "What is the causal effect of GDP on stock prices given they are correlated?",
+        "What is the causal effect of GDP on stock prices given they are correlated? Please explain your reasoning.",
+        "What is the causal effect of GDP on stock prices given they are correlated? Can you assess this?",
+        "What is the causal effect of GDP on stock prices given they are correlated? When I ask about this:",
+        "What is the causal effect of GDP on stock prices given they are correlated? I need your take on:",
+    ])
     a = ('GDP and stock prices are correlated BECAUSE both respond to the same underlying economic drivers (employment, manufacturing, interest rates, consumer confidence).\n\nCorrelation measures LINEAR association, not causal direction. Two variables can be correlated because a third variable drives both.\n\nGranger causality tests do NOT establish true causation; they only measure predictive power. A correct question asks for a formal causal model with proper identification.')
     return _make_abstention('CFA_Level_II', 'Quantitative Methods', 'Causality',
                             'L2_Medium', q, a, "false_premise")
@@ -1098,7 +1445,13 @@ def abstention_correlation_is_causation(rng, seq):
 
 def abstention_constant_volatility(rng, seq):
     """False: volatility is stochastic, not constant."""
-    q = 'Assume constant volatility of 20% and price the option.'
+    q = _pick(rng, seq,  [
+        "Assume constant volatility of 20% and price the option.",
+        "Assume constant volatility of 20% and price the option. Please explain your reasoning.",
+        "Assume constant volatility of 20% and price the option. Can you assess this?",
+        "Assume constant volatility of 20% and price the option. When I ask about this:",
+        "Assume constant volatility of 20% and price the option. I need your take on:",
+    ])
     a = ('Black-Scholes ASSUMES constant volatility, but this is empirically false. Volatility STOCHASTICALLY clusters, reverts to a mean, and changes over time.\n\nIf volatility were constant, the volatility smile would not exist. The SABR, Heston, and Bates models exist precisely because the constant vol assumption fails.\n\nI can price the option under constant vol (Black-Scholes), but the result is likely misleading. A better approach uses stochastic or local volatility models.')
     return _make_abstention('CFA_Level_III', 'Derivatives', 'Volatility Modeling',
                             'L3_Hard', q, a, "false_premise")
@@ -1106,7 +1459,13 @@ def abstention_constant_volatility(rng, seq):
 
 def abstention_normal_returns(rng, seq):
     """False: financial returns are not normally distributed."""
-    q = 'Assume returns are normally distributed and calculate the value-at-risk.'
+    q = _pick(rng, seq,  [
+        "Assume returns are normally distributed and calculate the value-at-risk.",
+        "Assume returns are normally distributed and calculate the value-at-risk. Please explain your reasoning.",
+        "Assume returns are normally distributed and calculate the value-at-risk. Can you assess this?",
+        "Assume returns are normally distributed and calculate the value-at-risk. When I ask about this:",
+        "Assume returns are normally distributed and calculate the value-at-risk. I need your take on:",
+    ])
     a = ("Financial returns are NOT normally distributed. They exhibit FAT TAILS (leptokurtosis), SKEW, and VOLATILITY CLUSTERING. The 2008, 1987, and 2020 crises produced moves 'impossible' under a normal distribution.\n\nA proper VaR should use historical simulation, Monte Carlo with heavy-tailed distributions, or GARCH-based approaches. The normal assumption UNDERESTIMATES true tail risk.\n\nAcademic consensus uses Student-t, stable Pareto, or Generalized Pareto distributions.")
     return _make_abstention('FRM_Part_1', 'Financial Markets and Products', 'Value at Risk',
                             'FRM1_Hard', q, a, "false_premise")
@@ -1114,7 +1473,13 @@ def abstention_normal_returns(rng, seq):
 
 def abstention_perfect_market_efficiency(rng, seq):
     """False: markets are not perfectly efficient."""
-    q = 'Given perfectly efficient markets, what is the expected excess return from stock picking?'
+    q = _pick(rng, seq,  [
+        "Given perfectly efficient markets, what is the expected excess return from stock picking?",
+        "Given perfectly efficient markets, what is the expected excess return from stock picking? Please explain your reasoning.",
+        "Given perfectly efficient markets, what is the expected excess return from stock picking? Can you assess this?",
+        "Given perfectly efficient markets, what is the expected excess return from stock picking? When I ask about this:",
+        "Given perfectly efficient markets, what is the expected excess return from stock picking? I need your take on:",
+    ])
     a = ("If markets are perfectly efficient (strong form), ALL information is already in prices. Stock picking yields ZERO excess returns (after costs).\n\nYet the question implies stock picking CAN yield excess returns. This is self-contradictory.\n\nIn reality, markets are NOT perfectly efficient. Behavioral finance, Fama-French anomalies, and Nobel laureate Fama himself acknowledge 'markets are mostly efficient,' not perfectly.")
     return _make_abstention('CFA_Level_I', 'Ethics and Professional Standards', 'Market Efficiency',
                             'L1_Medium', q, a, "false_premise")
@@ -1122,7 +1487,13 @@ def abstention_perfect_market_efficiency(rng, seq):
 
 def abstention_diversification_eliminate_all_risk(rng, seq):
     """False: diversification does not eliminate ALL risk."""
-    q = 'How can I diversify my portfolio to eliminate all risk?'
+    q = _pick(rng, seq,  [
+        "How can I diversify my portfolio to eliminate all risk?",
+        "How can I diversify my portfolio to eliminate all risk? Please explain your reasoning.",
+        "How can I diversify my portfolio to eliminate all risk? Can you assess this?",
+        "How can I diversify my portfolio to eliminate all risk? When I ask about this:",
+        "How can I diversify my portfolio to eliminate all risk? I need your take on:",
+    ])
     a = ("Diversification eliminates UNSYSTEMATIC (idiosyncratic) risk but CANNOT eliminate SYSTEMATIC (market) risk that affects all assets simultaneously.\n\nAn infinitely diversified portfolio (the market portfolio) still has significant standard deviation. The only near-zero risk approach is allocating entirely to risk-free assets (eliminating return above the risk-free rate).\n\nA properly framed question: 'How can I diversify to minimize portfolio risk?' Not 'eliminate all risk' - impossible with risky assets.")
     return _make_abstention('CFA_Level_I', 'Portfolio Management', 'Diversification',
                             'L1_Easy', q, a, "false_premise")
@@ -1130,7 +1501,13 @@ def abstention_diversification_eliminate_all_risk(rng, seq):
 
 def abstention_expected_equals_realized(rng, seq):
     """False: expected returns and realized returns are fundamentally different."""
-    q = 'Calculate the expected return given the realized return over the past year.'
+    q = _pick(rng, seq,  [
+        "Calculate the expected return given the realized return over the past year.",
+        "Calculate the expected return given the realized return over the past year. Please explain your reasoning.",
+        "Calculate the expected return given the realized return over the past year. Can you assess this?",
+        "Calculate the expected return given the realized return over the past year. When I ask about this:",
+        "Calculate the expected return given the realized return over the past year. I need your take on:",
+    ])
     a = ('Expected return is an ex-ante (forward-looking) estimate. Realized return is an ex-post (backward-looking) measure. They are NOT interchangeable.\n\nA high realized return implies nothing about the expected return (it could be good luck). The relationship: realized = expected + noise.\n\nUsing past returns as proxy for expected returns is imprecise: standard error scales as sigma/sqrt(T), which is large (sigma=20%, T=5 years gives standard error ~9%).')
     return _make_abstention('CFA_Level_III', 'Equity Valuation', 'Expected Returns',
                             'L3_Medium', q, a, "false_premise")

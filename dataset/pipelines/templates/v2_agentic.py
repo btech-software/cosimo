@@ -8,32 +8,9 @@ import random
 from pipelines.core import fmt, pct
 
 
-_CURRENT = None
-
-
-def _rnd(lo, hi, dp=4, seed=None):
-    """Draw a parameter from the generator's seeded RNG.
-
-    The default used to be `seed=42`, rebuilt on every call, so every variant of
-    every agentic generator saw identical parameters and the record type was
-    capped at one unique question per generator however long generation ran.
-    """
-    if _CURRENT is not None and seed is None:
-        return round(_CURRENT.uniform(lo, hi), dp)
-    return round(random.Random(42 if seed is None else seed).uniform(lo, hi), dp)
-
-
-def _bind(fn):
-    """Bind the per-variant RNG that `_rnd` draws from."""
-    def t(rng, seq):
-        global _CURRENT
-        _CURRENT = rng.r
-        try:
-            return fn(rng, seq)
-        finally:
-            _CURRENT = None
-    t.__name__ = fn.__name__
-    return t
+def _rnd(rng, lo, hi, dp=4):
+    """Draw a parameter from the generator's seeded RNG."""
+    return round(rng.uniform(lo, hi), dp)
 
 
 def _tool(name, description, params):
@@ -76,10 +53,10 @@ def _rec(prog, topic, sub, diff, q, tools, conv, answer, seq):
     }
 
 def agentic_eq_multipler_compare(rng, seq):
-    pe1 = _rnd(20, 35)
-    pe2 = _rnd(25, 40)
-    roe1 = _rnd(1.2, 1.8)
-    roe2 = _rnd(0.2, 0.5)
+    pe1 = _rnd(rng, 20, 35)
+    pe2 = _rnd(rng, 25, 40)
+    roe1 = _rnd(rng, 1.2, 1.8)
+    roe2 = _rnd(rng, 0.2, 0.5)
     tools = [_tool("get_fundamentals", "Get fundamental metrics for a stock symbol", {"type": "object", "properties": {"symbol": {"type": "string"}, "metrics": {"type": "array", "items": {"type": "string"}}}})]
     conv = [
         {"role": "user", "content": "Compare valuation multiples between AAPL and MSFT. Pull P/E and ROE."},
@@ -89,16 +66,16 @@ def agentic_eq_multipler_compare(rng, seq):
         {"role": "tool_result", "name": "get_fundamentals", "content": json.dumps({"MSFT": {"p_e_ratio": pe2, "roe": roe2}})},
         {"role": "assistant", "content": "AAPL P/E={:.1f}x ROE={:.1%} vs MSFT P/E={:.1f}x ROE={:.1%}. AAPL cheaper P/E and higher ROE.".format(pe1, roe1, pe2, roe2)}
     ]
-    return _rec("CFA_Level", "Equity Valuation", "Multiplier Models", "L2_Medium", "Compare valuation multiples.", tools, conv, "P/E: {:.1f}x vs {:.1f}x, ROE: {:.1%} vs {:.1%}".format(pe1, pe2, roe1, roe2), seq)
+    return _rec("CFA_Level", "Equity Valuation", "Multiplier Models", "L2_Medium", f"Compare P/E and ROE for {pe1:.1f}x vs {pe2:.1f}x.", tools, conv, "P/E: {:.1f}x vs {:.1f}x, ROE: {:.1%} vs {:.1%}".format(pe1, pe2, roe1, roe2), seq)
 
 
 def agentic_eq_dcf_sensitivity(rng, seq):
     fcff = rng.randint(10, 20) * 1000000
-    wacc = _rnd(0.08, 0.13)
-    g1 = _rnd(0.01, 0.03)
-    g2 = _rnd(0.02, 0.05)
+    wacc = _rnd(rng, 0.08, 0.13)
+    g1 = _rnd(rng, 0.01, 0.03)
+    g2 = _rnd(rng, 0.02, 0.05)
     if g2 >= wacc:
-        g2 = wacc - _rnd(0.01, 0.04)
+        g2 = wacc - _rnd(rng, 0.01, 0.04)
     tv1 = fcff * (1 + g1) / (wacc - g1)
     tv2 = fcff * (1 + g2) / (wacc - g2)
     tools = [_tool("compute_metrics", "Compute DCF valuation metrics", {"type": "object", "properties": {"fcff": {"type": "number"}, "wacc": {"type": "number"}, "terminal_growth": {"type": "number"}, "proj_years": {"type": "integer"}}})]
@@ -110,11 +87,11 @@ def agentic_eq_dcf_sensitivity(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"terminal_value": round(tv2, 2), "growth_rate": g2})},
         {"role": "assistant", "content": "TV at g={:.1%}: ${:.0f}M. Sensitivity: {:.1%} change".format(g1, tv1, g2, tv2, (tv2-tv1)/tv1*100 if tv1 > 0 else 0, g2-g1)}
     ]
-    return _rec("CFA_Level", "Equity Valuation", "DCF Valuation", "L2_Hard", "DCF sensitivity on terminal growth.", tools, conv, "g={:.1%}: ${:.0f}M".format(g1, tv1), seq)
+    return _rec("CFA_Level", "Equity Valuation", "DCF Valuation", "L2_Hard", f"DCF at WACC {wacc:.1%}.", tools, conv, "g={:.1%}: ${:.0f}M".format(g1, tv1), seq)
 
 
 def agentic_eq_portfolio_val(rng, seq):
-    stocks = [("AAPL", _rnd(20, 29), _rnd(1.2, 1.8)), ("MSFT", _rnd(25, 34), _rnd(0.3, 0.5)), ("GOOG", _rnd(15, 25), _rnd(0.2, 0.4))]
+    stocks = [("AAPL", _rnd(rng, 20, 29), _rnd(rng, 1.2, 1.8)), ("MSFT", _rnd(rng, 25, 34), _rnd(rng, 0.3, 0.5)), ("GOOG", _rnd(rng, 15, 25), _rnd(rng, 0.2, 0.4))]
     tools = [_tool("get_fundamentals", "Get fundamental metrics", {"type": "object", "properties": {"symbol": {"type": "string"}, "metrics": {"type": "array", "items": {"type": "string"}}}})]
     tcs = []
     tres = []
@@ -127,13 +104,13 @@ def agentic_eq_portfolio_val(rng, seq):
     total_pe = sum(pe for _, pe, _ in stocks) / len(stocks)
     total_roe = sum(roe for _, _, roe in stocks) / len(stocks)
     conv.append({"role": "assistant", "content": "Mean P/E={:.1f}x Mean ROE={:.1%}".format(total_pe, total_roe)})
-    return _rec("CFA_Level_III", "Equity Valuation", "Portfolio Valuation", "L3_Hard", "Three-stock portfolio valuation.", tools, conv, "Mean P/E={:.1f}x Mean ROE={:.1%}".format(total_pe, total_roe), seq)
+    return _rec("CFA_Level_III", "Equity Valuation", "Portfolio Valuation", "L3_Hard", f"Portfolio: P/E {total_pe:.1f}x.", tools, conv, "Mean P/E={:.1f}x Mean ROE={:.1%}".format(total_pe, total_roe), seq)
 
 def agentic_eq_risk_adjusted(rng, seq):
-    ret_p = _rnd(0.12, 0.20)
-    ret_m = _rnd(0.08, 0.14)
-    bet = _rnd(0.85, 1.15)
-    rf = _rnd(0.03, 0.05)
+    ret_p = _rnd(rng, 0.12, 0.20)
+    ret_m = _rnd(rng, 0.08, 0.14)
+    bet = _rnd(rng, 0.85, 1.15)
+    rf = _rnd(rng, 0.03, 0.05)
     alpha = ret_p - (rf + bet * (ret_m - rf))
     tools = [_tool("get_risk_metrics", "Get risk-adjusted metrics", {"type": "object", "properties": {"returns": {"type": "array", "items": {"type": "number"}}, "benchmark_returns": {"type": "array", "items": {"type": "number"}}, "rf": {"type": "number"}}})]
     conv = [
@@ -142,17 +119,17 @@ def agentic_eq_risk_adjusted(rng, seq):
         {"role": "tool_result", "name": "get_risk_metrics", "content": json.dumps({"jensen_alpha": round(alpha, 4), "treynor": round(alpha / bet, 4), "beta": bet})},
         {"role": "assistant", "content": "Jensen alpha={:.2%}.".format(alpha)}
     ]
-    return _rec("CFA_Level_II", "Portfolio Management", "Risk-Adjusted Returns", "L2_Hard", "Risk-adjusted return metrics.", tools, conv, "Alpha={:.2%}".format(alpha), seq)
+    return _rec("CFA_Level_II", "Portfolio Management", "Risk-Adjusted Returns", "L2_Hard", f"Alpha={alpha:.2%}.", tools, conv, "Alpha={:.2%}".format(alpha), seq)
 
 
 def agentic_eq_mispricing(rng, seq):
-    d1 = _rnd(2.0, 5.0)
-    g = _rnd(0.02, 0.06)
-    re = _rnd(0.10, 0.15)
+    d1 = _rnd(rng, 2.0, 5.0)
+    g = _rnd(rng, 0.02, 0.06)
+    re = _rnd(rng, 0.10, 0.15)
     if g >= re:
-        g = re - _rnd(0.02, 0.05)
+        g = re - _rnd(rng, 0.02, 0.05)
     intrinsic = d1 / (re - g)
-    market = intrinsic * _rnd(0.85, 0.95) if rng.choice(["cheap", "rich"]) == "cheap" else intrinsic * _rnd(1.05, 1.15)
+    market = intrinsic * _rnd(rng, 0.85, 0.95) if rng.choice(["cheap", "rich"]) == "cheap" else intrinsic * _rnd(rng, 1.05, 1.15)
     discount = (intrinsic - market) / market * 100
     tools = [_tool("compute_metrics", "Compute DDM valuation", {"type": "object", "properties": {"next_dividend": {"type": "number"}, "growth_rate": {"type": "number"}, "cost_of_equity": {"type": "number"}}})]
     conv = [
@@ -161,13 +138,13 @@ def agentic_eq_mispricing(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"intrinsic_value": round(intrinsic, 2), "growth_rate": g, "cost_of_equity": re})},
         {"role": "assistant", "content": "DDM intrinsic ${:.2f} vs market ${:.2f}: {}%.".format(intrinsic, market, discount)}
     ]
-    return _rec("CFA_Level_II", "Equity Valuation", "Mispricing Detection", "L2_Hard", "Evaluate mispricing via DDM.", tools, conv, "DDM ${:.2f} Market ${:.2f}".format(intrinsic, market), seq)
+    return _rec("CFA_Level_II", "Equity Valuation", "Mispricing Detection", "L2_Hard", f"DDM {intrinsic:.2f} vs {market:.2f}.", tools, conv, "DDM ${:.2f} Market ${:.2f}".format(intrinsic, market), seq)
 
 
 def agentic_eq_tool_recovery(rng, seq):
-    p = _rnd(15, 30)
-    eps = _rnd(1.3, 2.0)
-    ev_ebitda = _rnd(8, 18)
+    p = _rnd(rng, 15, 30)
+    eps = _rnd(rng, 1.3, 2.0)
+    ev_ebitda = _rnd(rng, 8, 18)
     tools = [_tool("get_fundamentals", "Get fundamental metrics", {"type": "object", "properties": {"symbol": {"type": "string"}, "metrics": {"type": "array", "items": {"type": "string"}}}}), _tool("compute_metrics", "Compute valuation multiples", {"type": "object", "properties": {"price": {"type": "number"}, "eps": {"type": "number"}, "ev": {"type": "number"}, "ebitda": {"type": "number"}}})]
     conv = [
         {"role": "user", "content": "Get P/E and EV/EBITDA for this company."},
@@ -178,12 +155,12 @@ def agentic_eq_tool_recovery(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"p_e_ratio": eps, "ev_ebitda": ev_ebitda})},
         {"role": "assistant", "content": "P/E={:.1f}x EV/EBITDA={:.1f}x from fallback.".format(eps, ev_ebitda)}
     ]
-    return _rec("CFA_Level_II", "Equity Valuation", "Tool Failure Recovery", "L2_Medium", "Handle tool failure, recover.", tools, conv, "P/E={:.1f}x EV/EBITDA={:.1f}x".format(eps, ev_ebitda), seq)
+    return _rec("CFA_Level_II", "Equity Valuation", "Tool Failure Recovery", "L2_Medium", f"p={p:.0f} eps={eps:.1f}", tools, conv, "P/E={:.1f}x EV/EBITDA={:.1f}x".format(eps, ev_ebitda), seq)
 
 def agentic_eq_resid_income(rng, seq):
     bv0 = rng.randint(20, 40) * 1000000
     ni = rng.randint(4, 8) * 1000000
-    re = _rnd(0.10, 0.14)
+    re = _rnd(rng, 0.10, 0.14)
     ri1 = ni - re * bv0
     v0 = bv0 + ri1 / (1 + re) + ri1 / (1 + re) ** 2
     tools = [_tool("compute_metrics", "Compute residual income valuation", {"type": "object", "properties": {"book_value": {"type": "number"}, "net_income": {"type": "number"}, "cost_of_equity": {"type": "number"}}})]
@@ -193,12 +170,12 @@ def agentic_eq_resid_income(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"value": round(v0, 2)})},
         {"role": "assistant", "content": "V0=${:.2f}M.".format(v0 / 1e6)}
     ]
-    return _rec("CFA_Level_II", "Equity Valuation", "Residual Income", "L2_Medium", "2-period residual income.", tools, conv, "V0=${:.2f}M".format(v0 / 1e6), seq)
+    return _rec("CFA_Level_II", "Equity Valuation", "Residual Income", "L2_Medium", f"V0={v0/1e6:.2f}.", tools, conv, "V0=${:.2f}M".format(v0 / 1e6), seq)
 
 
 def agentic_eq_analyst_consensus(rng, seq):
     p = rng.randint(80, 120)
-    eps = _rnd(5.0, 10.0)
+    eps = _rnd(rng, 5.0, 10.0)
     targets = [p * (1.05 + i * 0.04) for i in range(3)]
     tools = [_tool("get_fundamentals", "Get fundamental metrics", {"type": "object", "properties": {"symbol": {"type": "string"}, "metrics": {"type": "array", "items": {"type": "string"}}}})]
     conv = [
@@ -207,12 +184,12 @@ def agentic_eq_analyst_consensus(rng, seq):
         {"role": "tool_result", "name": "get_fundamentals", "content": json.dumps({"target_prices": [round(t, 2) for t in targets]})},
         {"role": "assistant", "content": "Avg target ${:.2f} vs ${:.2f} current = {:.1%} upside.".format(sum(targets)/3, p, (sum(targets)/3/p - 1))}
     ]
-    return _rec("CFA_Level_II", "Equity Valuation", "Analyst Estimates", "L2_Medium", "Analyst consensus targets.", tools, conv, "Avg target ${:.2f} {:.1%} upside".format(sum(targets)/3, sum(targets)/3/p - 1), seq)
+    return _rec("CFA_Level_II", "Equity Valuation", "Analyst Estimates", "L2_Medium", f"EPS {eps:.2f}.", tools, conv, "Avg target ${:.2f} {:.1%} upside".format(sum(targets)/3, sum(targets)/3/p - 1), seq)
 
 
 def agentic_eq_bvps(rng, seq):
-    eps = _rnd(3.0, 8.0)
-    br = _rnd(0.3, 0.6)
+    eps = _rnd(rng, 3.0, 8.0)
+    br = _rnd(rng, 0.3, 0.6)
     g = eps * br
     s0 = rng.randint(50, 80)
     s10 = s0 * (1 + g / 100) ** 10
@@ -223,15 +200,15 @@ def agentic_eq_bvps(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"book_value_10yr": round(s10, 2), "growth_rate": round(g, 2)})},
         {"role": "assistant", "content": "BV0=${:.0f}, BV10=${:.2f}, growth at {:.0%}.".format(s0, s10, g)}
     ]
-    return _rec("CFA_Level_II", "Equity Valuation", "Book Value", "L2_Medium", "10-year BV projection.", tools, conv, "BV0=${:.0f} BV10=${:.2f}".format(s0, s10), seq)
+    return _rec("CFA_Level_II", "Equity Valuation", "Book Value", "L2_Medium", f"BV grow at {g:.0%}.", tools, conv, "BV0=${:.0f} BV10=${:.2f}".format(s0, s10), seq)
 
 
 def agentic_eq_dua(rng, seq):
-    d0 = _rnd(1.0, 4.0)
-    g1 = _rnd(0.08, 0.15)
+    d0 = _rnd(rng, 1.0, 4.0)
+    g1 = _rnd(rng, 0.08, 0.15)
     n = rng.randint(3, 6)
-    g2 = _rnd(0.02, 0.04)
-    re = _rnd(0.10, 0.14)
+    g2 = _rnd(rng, 0.02, 0.04)
+    re = _rnd(rng, 0.10, 0.14)
     d1 = d0 * (1 + g1)
     pn = d1 * (1 + g2) / (re - g2)
     pv0 = d1 / (1 + re) + pn / (1 + re) ** n
@@ -242,7 +219,7 @@ def agentic_eq_dua(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"value": round(pv0, 2)})},
         {"role": "assistant", "content": "P0=${:.2f}.".format(pv0)}
     ]
-    return _rec("CFA_Level_II", "Equity Valuation", "Two-Stage DDM", "L2_Hard", "Two-stage dividend growth.", tools, conv, "P0=${:.2f}".format(pv0), seq)
+    return _rec("CFA_Level_II", "Equity Valuation", "Two-Stage DDM", "L2_Hard", f"D0={d0:.2f} g1={g1:.0%}.", tools, conv, "P0=${:.2f}".format(pv0), seq)
 
 def agentic_eq_screening(rng, seq):
     screens = [("AAPL", rng.randint(20, 28), round(rng.uniform(0.15, 0.25), 2)),
@@ -259,12 +236,12 @@ def agentic_eq_screening(rng, seq):
     conv.extend(touts)
     best = min(screens, key=lambda x: x[1])
     conv.append({"role": "assistant", "content": "Best multiple: {} P/E={:.0f}x.".format(best[0], best[1])})
-    return _rec("CFA_Level_II", "Equity Valuation", "Multiples Screening", "L2_Medium", "Multi-company screening.", tools, conv, "Best: {} P/E={:.0f}x".format(best[0], best[1]), seq)
+    return _rec("CFA_Level_II", "Equity Valuation", "Multiples Screening", "L2_Medium", f"screens=[{min(screens)[1]:.0f}..{max(screens)[1]:.0f}]", tools, conv, "Best: {} P/E={:.0f}x".format(best[0], best[1]), seq)
 
 
 def agentic_eq_esg(rng, seq):
-    ret_g = _rnd(0.10, 0.16)
-    ret_b = _rnd(0.06, 0.12)
+    ret_g = _rnd(rng, 0.10, 0.16)
+    ret_b = _rnd(rng, 0.06, 0.12)
     tools = [_tool("get_risk_metrics", "Get ESG-adjusted performance metrics", {"type": "object", "properties": {"returns": {"type": "array", "items": {"type": "number"}}, "esg_score": {"type": "number"}}})]
     conv = [
         {"role": "user", "content": "Green fund {}%, brown fund {}%. ESG score 8.8.".format(ret_g * 100, ret_b * 100)},
@@ -272,7 +249,7 @@ def agentic_eq_esg(rng, seq):
         {"role": "tool_result", "name": "get_risk_metrics", "content": json.dumps({"green_return": round(ret_g, 2), "brown_return": round(ret_b, 2), "esg_premium": round(ret_g - ret_b, 4)})},
         {"role": "assistant", "content": "ESG premium: {:.1%}.".format(ret_g - ret_b)}
     ]
-    return _rec("CFA_Level_III", "Portfolio Management", "ESG Integration", "L3_Medium", "ESG adjusted returns.", tools, conv, "ESG premium {:.1%}".format(ret_g - ret_b), seq)
+    return _rec("CFA_Level_III", "Portfolio Management", "ESG Integration", "L3_Medium", f"green={ret_g:.2%} brown={ret_b:.2%}", tools, conv, "ESG premium {:.1%}".format(ret_g - ret_b), seq)
 
 def agentic_fi_bond_pricing(rng, seq):
     c = rng.randint(3, 6)
@@ -286,12 +263,12 @@ def agentic_fi_bond_pricing(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"price": round(pricer, 2), "ytm": ytm})},
         {"role": "assistant", "content": "Price=${:.2f} premium bond at {:.2f}% YTM.".format(pricer, ytm * 100) if pricer > 100 else "Price=${:.2f} discount bond at {:.2f}% YTM.".format(pricer, ytm * 100)}
     ]
-    return _rec("CFA_Level", "Fixed Income", "Bond Pricing", "L2_Medium", "Bond price from YTM.", tools, conv, "Price=${:.2f}".format(pricer), seq)
+    return _rec("CFA_Level", "Fixed Income", "Bond Pricing", "L2_Medium", f"price={pricer:.2f}", tools, conv, "Price=${:.2f}".format(pricer), seq)
 
 
 def agentic_fi_duration(rng, seq):
     c = rng.randint(4, 7)
-    ytm = _rnd(0.035, 0.065)
+    ytm = _rnd(rng, 0.035, 0.065)
     n = rng.randint(5, 10)
     dur_approx = 0
     for t in range(1, n + 1):
@@ -305,11 +282,11 @@ def agentic_fi_duration(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"macaulay_duration": round(dur_approx, 2), "convexity": round(n * (n + 1) / (1 + ytm) ** 2, 2), "ytm": ytm})},
         {"role": "assistant", "content": "Mac_dur={:.1f}yr.".format(dur_approx)}
     ]
-    return _rec("CFA_Level_II", "Fixed Income", "Duration & Convexity", "L2_Hard", "Duration calculation.", tools, conv, "Mac_dur={:.1f}yr".format(dur_approx), seq)
+    return _rec("CFA_Level_II", "Fixed Income", "Duration & Convexity", "L2_Hard", f"c={c}% ytm={ytm:.2%}", tools, conv, "Mac_dur={:.1f}yr".format(dur_approx), seq)
 
 
 def agentic_fi_yield_curve(rng, seq):
-    s1, s3, s5, s10 = [_rnd(0.025 + i * 0.005, 0.045 + i * 0.005) for i in range(4)]
+    s1, s3, s5, s10 = [_rnd(rng, 0.025 + i * 0.005, 0.045 + i * 0.005) for i in range(4)]
     sp1 = s3 - s1
     sp2 = s5 - s3
     sp3 = s10 - s5
@@ -320,11 +297,11 @@ def agentic_fi_yield_curve(rng, seq):
         {"role": "tool_result", "name": "run_analysis", "content": json.dumps({"curve": "upward_sloping", "s1": s1, "s3": s3, "s5": s5, "s10": s10, "spreads": [round(sp1, 4), round(sp2, 4), round(sp3, 4)]})},
         {"role": "assistant", "content": "Upward sloping: 1-3 {:.2%}, 3-5 {:.2%}, 5-10 {:.2%}.".format(sp1, sp2, sp3)}
     ]
-    return _rec("CFA_Level_II", "Fixed Income", "Yield Curve", "L2_Medium", "Spot rate curve.", tools, conv, "1Y={:.2%} 3Y={:.2%} 5Y={:.2%} 10Y={:.2%}".format(s1, s3, s5, s10), seq)
+    return _rec("CFA_Level_II", "Fixed Income", "Yield Curve", "L2_Medium", f"s1={s1:.2%} 3y={s3:.2%}", tools, conv, "1Y={:.2%} 3Y={:.2%} 5Y={:.2%} 10Y={:.2%}".format(s1, s3, s5, s10), seq)
 
 
 def agentic_fi_bond_portfolio(rng, seq):
-    bonds = [("A", rng.randint(2, 5), _rnd(0.055, 0.075)), ("B", rng.randint(7, 12), _rnd(0.035, 0.055)), ("C", rng.randint(15, 20), _rnd(0.040, 0.060))]
+    bonds = [("A", rng.randint(2, 5), _rnd(rng, 0.055, 0.075)), ("B", rng.randint(7, 12), _rnd(rng, 0.035, 0.055)), ("C", rng.randint(15, 20), _rnd(rng, 0.040, 0.060))]
     tools = [_tool("get_fundamentals", "Get bond metrics", {"type": "object", "properties": {"bond": {"type": "string"}, "maturity": {"type": "integer"}, "ytm": {"type": "number"}}})]
     tc_args = [{"bond": name, "maturity": yr, "ytm": ytm} for name, yr, ytm in bonds]
     tcs = [{"type": "function", "function": {"name": "get_fundamentals", "arguments": args}} for args in tc_args]
@@ -336,13 +313,13 @@ def agentic_fi_bond_portfolio(rng, seq):
         conv.append({"role": "tool_result", "name": "get_fundamentals", "content": json.dumps({name: {"maturity": yr, "ytm": ytm, "duration": round(yr * 0.9, 1)}})})
     avg_dur = sum(b[1] * 0.9 for b in bonds) / len(bonds)
     conv.append({"role": "assistant", "content": "Avg duration={:.1f}yr.".format(avg_dur)})
-    return _rec("CFA_Level_III", "Fixed Income", "Bond Portfolio", "L3_Hard", "Multi-bond portfolio duration.", tools, conv, "Avg_duration={:.1f}yr".format(avg_dur), seq)
+    return _rec("CFA_Level_III", "Fixed Income", "Bond Portfolio", "L3_Hard", f"avg_dur={avg_dur:.1f}y", tools, conv, "Avg_duration={:.1f}yr".format(avg_dur), seq)
 
 
 def agentic_fi_convexity(rng, seq):
-    dur = _rnd(4.0, 8.0)
+    dur = _rnd(rng, 4.0, 8.0)
     c = round(dur * (1 + rng.randint(20, 80) / 100), 1)
-    ddy = _rnd(0.02, 0.06)
+    ddy = _rnd(rng, 0.02, 0.06)
     d_dur_c = -dur * ddy + c * (ddy ** 2) / 2
     tools = [_tool("compute_metrics", "Compute bond price change with duration and convexity", {"type": "object", "properties": {"duration": {"type": "number"}, "convexity": {"type": "number"}, "change_yield": {"type": "number"}}})]
     conv = [
@@ -351,11 +328,11 @@ def agentic_fi_convexity(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"duration_effect": round(-dur * ddy, 4), "convexity_effect": round(c * (ddy ** 2) / 2, 4), "total": round(d_dur_c, 4)})},
         {"role": "assistant", "content": "Dur={:.2%} Conv={:.2%} Tot={:.2%}. Positive convexity adds value.".format(-dur * ddy, c * (ddy ** 2) / 2, d_dur_c)}
     ]
-    return _rec("CFA_Level_II", "Fixed Income", "Convexity Adjustment", "L2_Hard", "Duration + convexity.", tools, conv, "Dur={:.2%} Conv={:.2%} Tot={:.2%}".format(-dur * ddy, c * (ddy ** 2) / 2, d_dur_c), seq)
+    return _rec("CFA_Level_II", "Fixed Income", "Convexity Adjustment", "L2_Hard", f"dur={dur:.1f} conv={c:.1f}", tools, conv, "Dur={:.2%} Conv={:.2%} Tot={:.2%}".format(-dur * ddy, c * (ddy ** 2) / 2, d_dur_c), seq)
 
 
 def agentic_fi_zero_coupon(rng, seq):
-    ytm = _rnd(0.03, 0.06)
+    ytm = _rnd(rng, 0.03, 0.06)
     n = rng.randint(1, 20)
     p = 100 / (1 + ytm) ** n
     tools = [_tool("compute_metrics", "Compute zero coupon bond price", {"type": "object", "properties": {"years": {"type": "integer"}, "ytm": {"type": "number"}}})]
@@ -365,11 +342,11 @@ def agentic_fi_zero_coupon(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"price": round(p, 2)})},
         {"role": "assistant", "content": "Price=${:.2f} at {:.2f}% YTM.".format(p, ytm * 100)}
     ]
-    return _rec("CFA_Level_II", "Fixed Income", "Zero Coupon Bonds", "L2_Medium", "Zero coupon pricing.", tools, conv, "Price=${:.2f}".format(p), seq)
+    return _rec("CFA_Level_II", "Fixed Income", "Zero Coupon Bonds", "L2_Medium", f"zero ytm={ytm:.2%} n={n}", tools, conv, "Price=${:.2f}".format(p), seq)
 
 def agentic_risk_var_parametric(rng, seq):
     port = rng.randint(10, 50) * 1e6
-    mu, sigma = _rnd(0.0005, 0.002), _rnd(0.01, 0.025)
+    mu, sigma = _rnd(rng, 0.0005, 0.002), _rnd(rng, 0.01, 0.025)
     z = 1.645
     var_95 = port * (mu - z * sigma) * (1 ** 0.5)
     tools = [_tool("compute_metrics", "Compute Value at Risk (parametric)", {"type": "object", "properties": {"portfolio_value": {"type": "number"}, "mu": {"type": "number"}, "sigma": {"type": "number"}, "confidence": {"type": "number"}, "h": {"type": "number"}}})]
@@ -379,13 +356,13 @@ def agentic_risk_var_parametric(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"var_95": round(abs(var_95), 2), "mu": mu, "sigma": sigma})},
         {"role": "assistant", "content": "1-day 95% VaR=${:.0f}K (parametric).".format(abs(var_95) * 1000)}
     ]
-    return _rec("CFA_Level_II", "Risk Management", "Value at Risk", "L2_Hard", "Parametric VaR.", tools, conv, "VaR=${:.0f}K".format(abs(var_95) * 1000), seq)
+    return _rec("CFA_Level_II", "Risk Management", "Value at Risk", "L2_Hard", f"VaR95={abs(var_95)*1000:.0f}K", tools, conv, "VaR=${:.0f}K".format(abs(var_95) * 1000), seq)
 
 
 def agentic_risk_cvar(rng, seq):
     port = rng.randint(20, 100) * 1e6
-    sigma = _rnd(0.015, 0.03)
-    mu = _rnd(0.001, 0.003)
+    sigma = _rnd(rng, 0.015, 0.03)
+    mu = _rnd(rng, 0.001, 0.003)
     z95, z99 = 1.645, 2.326
     var95 = port * (mu - z95 * sigma)
     cvar99 = port * (mu - z99 * sigma) * (1 / 0.01)
@@ -396,12 +373,12 @@ def agentic_risk_cvar(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"cvar_99": round(abs(cvar99), 2), "var_95": round(abs(var95), 2)})},
         {"role": "assistant", "content": "99% CVaR=${:.0f}K. 95% VaR=${:.0f}K. CVaR > VaR by definition.".format(abs(cvar99) * 1000, abs(var95) * 1000)}
     ]
-    return _rec("CFA_Level_III", "Risk Management", "CVaR/Expected Shortfall", "L3_Hard", "Expected shortfall.", tools, conv, "CVaR=${:.0f}K".format(abs(cvar99) * 1000), seq)
+    return _rec("CFA_Level_III", "Risk Management", "CVaR/Expected Shortfall", "L3_Hard", f"CVaR={abs(cvar99)*1000:.0f}K", tools, conv, "CVaR=${:.0f}K".format(abs(cvar99) * 1000), seq)
 
 
 def agentic_risk_stress_test(rng, seq):
-    baseline = _rnd(5, 20) * 1e6
-    scenarios = {"crash": _rnd(0.15, 0.30), "rates_up": _rnd(0.08, 0.15), "fx_shock": _rnd(0.10, 0.20)}
+    baseline = _rnd(rng, 5, 20) * 1e6
+    scenarios = {"crash": _rnd(rng, 0.15, 0.30), "rates_up": _rnd(rng, 0.08, 0.15), "fx_shock": _rnd(rng, 0.10, 0.20)}
     losses = {}
     for name, shock in scenarios.items():
         losses[name] = baseline * shock
@@ -412,12 +389,12 @@ def agentic_risk_stress_test(rng, seq):
         {"role": "tool_result", "name": "run_analysis", "content": json.dumps({"losses": {k: round(v / 1e6, 1) for k, v in losses.items()}})},
         {"role": "assistant", "content": "Stress losses: crash ${:.1f}M rates ${:.1f}M fx ${:.1f}M. Worst: equity crash.".format(losses["crash"] / 1e6, losses["rates_up"] / 1e6, losses["fx_shock"] / 1e6)}
     ]
-    return _rec("CFA_Level_III", "Risk Management", "Stress Testing", "L3_Hard", "Portfolio stress scenario.", tools, conv, "Worst: crash ${:.1f}M".format(max(l for l in losses.values())), seq)
+    return _rec("CFA_Level_III", "Risk Management", "Stress Testing", "L3_Hard", f"crash={scenarios['crash']:.1%}", tools, conv, "Worst: crash ${:.1f}M".format(max(l for l in losses.values())), seq)
 
 
 def agentic_risk_greeks(rng, seq):
-    delta, gamma, theta, vega, rho = _rnd(0.4, 0.8), _rnd(0.01, 0.04), _rnd(0.05, 0.20), _rnd(0.15, 0.30), _rnd(0.02, 0.08)
-    s_mv = _rnd(0.25, 0.50)
+    delta, gamma, theta, vega, rho = _rnd(rng, 0.4, 0.8), _rnd(rng, 0.01, 0.04), _rnd(rng, 0.05, 0.20), _rnd(rng, 0.15, 0.30), _rnd(rng, 0.02, 0.08)
+    s_mv = _rnd(rng, 0.25, 0.50)
     tools = [_tool("get_risk_metrics", "Get derivatives greeks", {"type": "object", "properties": {"contract": {"type": "string"}}})]
     conv = [
         {"role": "user", "content": "Options greeks delta={} gamma={} theta={} vega={} rho={}. P&L for {}% move?".format(delta, gamma, theta, vega, rho, s_mv * 100)},
@@ -425,11 +402,11 @@ def agentic_risk_greeks(rng, seq):
         {"role": "tool_result", "name": "get_risk_metrics", "content": json.dumps({"delta": delta, "gamma": gamma, "theta": theta, "vega": vega, "rho": rho})},
         {"role": "assistant", "content": "Delta {:.0%}*{:.0%}+1/2*1*{:.0%}^2={:.0%}. P&L ~{:.0%}.".format(delta, s_mv, s_mv, delta * s_mv + 0.5 * gamma * s_mv**2, delta * s_mv + 0.5 * gamma * s_mv**2)}
     ]
-    return _rec("CFA_Level_II", "Risk Management", "Greeks P&L", "L2_Hard", "Options greeks.", tools, conv, "Approx P&L={:.0%}".format(delta * s_mv + 0.5 * gamma * s_mv**2), seq)
+    return _rec("CFA_Level_II", "Risk Management", "Greeks P&L", "L2_Hard", f"delta={delta:.2f} gamma={gamma:.2f} vega={vega:.2f}", tools, conv, "Approx P&L={:.0%}".format(delta * s_mv + 0.5 * gamma * s_mv**2), seq)
 
 
 def agentic_risk_delta_hedge(rng, seq):
-    delta_call = _rnd(0.50, 0.65)
+    delta_call = _rnd(rng, 0.50, 0.65)
     delta_total = -delta_call * rng.randint(50, 200)
     s0 = rng.randint(100, 150)
     hedge_ratio = delta_total / s0
@@ -441,7 +418,7 @@ def agentic_risk_delta_hedge(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"hedge_shares": round(-delta_total), "hedge_ratio": round(delta_total / s0, 4)})},
         {"role": "assistant", "content": "Buy {:.0f} shares. Cost ${:.0f}/yr.".format(-delta_total, cost * 1000)}
     ]
-    return _rec("CFA_Level_II", "Risk Management", "Delta Hedging", "L2_Hard", "Delta hedge calculation.", tools, conv, "Buy {:.0f} shares @ delta={:.2f}".format(-delta_total, delta_call), seq)
+    return _rec("CFA_Level_II", "Risk Management", "Delta Hedging", "L2_Hard", f"delta_hedge={abs(delta_total):.0f}shares", tools, conv, "Buy {:.0f} shares @ delta={:.2f}".format(-delta_total, delta_call), seq)
 
 
 def agentic_risk_historical_var(rng, seq):
@@ -459,11 +436,11 @@ def agentic_risk_historical_var(rng, seq):
         {"role": "tool_result", "name": "run_analysis", "content": json.dumps({"var_95": round(var95, 2), "var_99": round(var99, 2)})},
         {"role": "assistant", "content": "95% VaR=${:.0f}K, 99% VaR=${:.0f}K. Historical percentiles.".format(var95 * 1000, var99 * 1000)}
     ]
-    return _rec("CFA_Level_II", "Risk Management", "Historical VaR", "L2_Medium", "Historical simulation VaR.", tools, conv, "VaR95=${:.0f}K VaR99=${:.0f}K".format(var95 * 1000, var99 * 1000), seq)
+    return _rec("CFA_Level_II", "Risk Management", "Historical VaR", "L2_Medium", f"VaR95={var95:.0f}K VaR99={var99:.0f}K", tools, conv, "VaR95=${:.0f}K VaR99=${:.0f}K".format(var95 * 1000, var99 * 1000), seq)
 
 def agentic_pm_risk_budget(rng, seq):
-    port = _rnd(0.08, 0.14)
-    vol = _rnd(0.10, 0.20)
+    port = _rnd(rng, 0.08, 0.14)
+    vol = _rnd(rng, 0.10, 0.20)
     n_assets = 4
     weights = [round(rng.uniform(0.1, 0.4), 2) for _ in range(n_assets - 1)]
     weights.append(round(1 - sum(weights), 2))
@@ -477,12 +454,12 @@ def agentic_pm_risk_budget(rng, seq):
         {"role": "assistant", "content": "RC=[{:.0%},{:.0%},{:.0%},{:.0%}]".format(risk_contrib[0], risk_contrib[1], risk_contrib[2], risk_contrib[3])}
 
     ]
-    return _rec("CFA_Level_III", "Portfolio Management", "Risk Budgeting", "L3_Hard", "Risk contribution allocation.", tools, conv, "RC=[{:.0%},{:.0%},{:.0%},{:.0%}]".format(risk_contrib[0], risk_contrib[1], risk_contrib[2], risk_contrib[3]), seq)
+    return _rec("CFA_Level_III", "Portfolio Management", "Risk Budgeting", "L3_Hard", f"w1={weights[0]:.0%} w2={weights[1]:.0%}", tools, conv, "RC=[{:.0%},{:.0%},{:.0%},{:.0%}]".format(risk_contrib[0], risk_contrib[1], risk_contrib[2], risk_contrib[3]), seq)
 
 
 def agentic_pm_tracking(rng, seq):
-    act_track_vol = _rnd(0.03, 0.08)
-    info_ratio = _rnd(0.2, 0.8) / act_track_vol
+    act_track_vol = _rnd(rng, 0.03, 0.08)
+    info_ratio = _rnd(rng, 0.2, 0.8) / act_track_vol
     tools = [_tool("get_risk_metrics", "Compute tracking error and information ratio", {"type": "object", "properties": {"active_returns": {"type": "array", "items": {"type": "number"}}}})]
     conv = [
         {"role": "user", "content": "Active vol {:.2%} info ratio 0.5. Risk-adjusted?"},
@@ -490,12 +467,12 @@ def agentic_pm_tracking(rng, seq):
         {"role": "tool_result", "name": "get_risk_metrics", "content": json.dumps({"tracking_error": act_track_vol, "info_ratio": round(info_ratio, 4)})},
         {"role": "assistant", "content": "TE={:.2%} IR={:.2f}. IR > 0.5 good active skill.".format(act_track_vol, info_ratio)}
     ]
-    return _rec("CFA_Level_III", "Portfolio Management", "Tracking Error", "L3_Medium", "Tracking ratio.", tools, conv, "TE={:.2%} IR={:.2f}".format(act_track_vol, info_ratio), seq)
+    return _rec("CFA_Level_III", "Portfolio Management", "Tracking Error", "L3_Medium", f"te={act_track_vol:.2%}", tools, conv, "TE={:.2%} IR={:.2f}".format(act_track_vol, info_ratio), seq)
 
 
 def agentic_pm_factor_model(rng, seq):
-    r_p = _rnd(0.08, 0.14)
-    r_mkt = _rnd(0.05, 0.10)
+    r_p = _rnd(rng, 0.08, 0.14)
+    r_mkt = _rnd(rng, 0.05, 0.10)
     smb = round(rng.uniform(0, 0.03) * (1 if rng.randint(0, 1) else -1), 4)
     hml = round(rng.uniform(0, 0.03) * (1 if rng.randint(0, 1) else -1), 4)
     rms = round(rng.uniform(0, 0.03) * (1 if rng.randint(0, 1) else -1), 4)
@@ -508,13 +485,13 @@ def agentic_pm_factor_model(rng, seq):
         {"role": "tool_result", "name": "run_analysis", "content": json.dumps({"alpha": round(alpha, 4), "factors": {"smb": smb, "hml": hml, "rms": rms, "mom": mom}})},
         {"role": "assistant", "content": "Alpha = {:.2%}. Factors: SMB={}, HML={}, RMW={}, MOM={}.".format(alpha, smb, hml, rms, mom)}
     ]
-    return _rec("CFA_Level_III", "Portfolio Management", "Factor Models", "L3_Hard", "4-factor model.", tools, conv, "Alpha={:.2%}".format(alpha), seq)
+    return _rec("CFA_Level_III", "Portfolio Management", "Factor Models", "L3_Hard", f"alpha={alpha:.2%}", tools, conv, "Alpha={:.2%}".format(alpha), seq)
 
 
 def agentic_pm_optimal_weight(rng, seq):
-    r1, r2 = _rnd(0.10, 0.16), _rnd(0.08, 0.14)
-    v1, v2 = _rnd(0.12, 0.25), _rnd(0.10, 0.20)
-    c = _rnd(-0.3, 0.3)
+    r1, r2 = _rnd(rng, 0.10, 0.16), _rnd(rng, 0.08, 0.14)
+    v1, v2 = _rnd(rng, 0.12, 0.25), _rnd(rng, 0.10, 0.20)
+    c = _rnd(rng, -0.3, 0.3)
     rf = 0.04
     denom = (r1 - rf) * v2 + (r2 - rf) * v1 - 2 * c * v1 * v2
     w_star = ((r1 - rf) * v2 - (r2 - rf) * c * v1 * v2) / denom if denom != 0 else 0.5
@@ -525,12 +502,12 @@ def agentic_pm_optimal_weight(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"w_star": round(w_star, 4), "rf": rf})},
         {"role": "assistant", "content": "Optimal w1={:.0%}, w2={:.0%} Mean-var efficient.".format(w_star, 1-w_star)}
     ]
-    return _rec("CFA_Level_III", "Portfolio Management", "Optimal Weights", "L3_Hard", "Mean-variance optimizer.", tools, conv, "w1={:.0%} w2={:.0%}".format(w_star, 1-w_star), seq)
+    return _rec("CFA_Level_III", "Portfolio Management", "Optimal Weights", "L3_Hard", f"w1={w_star:.0%}", tools, conv, "w1={:.0%} w2={:.0%}".format(w_star, 1-w_star), seq)
 
 
 def agentic_frm_credit_rv(rng, seq):
-    pd1, pd2 = _rnd(0.01, 0.08), _rnd(0.02, 0.12)
-    lgd = _rnd(0.4, 0.7)
+    pd1, pd2 = _rnd(rng, 0.01, 0.08), _rnd(rng, 0.02, 0.12)
+    lgd = _rnd(rng, 0.4, 0.7)
     exp = pd1 * lgd  # Expected loss from name1
     exp2 = pd2 * lgd  # Expected loss from name2
     tools = [_tool("compute_metrics", "Compute credit risk metrics", {"type": "object", "properties": {"probability_of_default": {"type": "number"}, "loss_given_default": {"type": "number"}, "exposure": {"type": "number"}}})]
@@ -542,13 +519,13 @@ def agentic_frm_credit_rv(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"expected_loss": round(exp2, 2)})},
         {"role": "assistant", "content": "EL1=${:,.0f}, EL2=${:,.0f}. Portfolio EL=${:,.0f}".format(exp, exp2, exp + exp2)}
     ]
-    return _rec("FRM", "Credit Risk", "Expected Credit Loss", "L3_Hard", "Compute expected loss for portfolio.", tools, conv, "EL=${:,.0f}".format(exp + exp2), seq)
+    return _rec("FRM", "Credit Risk", "Expected Credit Loss", "L3_Hard", f"pd1={pd1:.2f} lgd={lgd:.2f}", tools, conv, "EL=${:,.0f}".format(exp + exp2), seq)
 
 
 def agentic_frm_cva(rng, seq):
-    pd1, pd2 = _rnd(0.02, 0.06), _rnd(0.03, 0.08)
-    ead1, ead2 = _rnd(5e6, 20e6), _rnd(8e6, 25e6)
-    lgd = _rnd(0.45, 0.65)
+    pd1, pd2 = _rnd(rng, 0.02, 0.06), _rnd(rng, 0.03, 0.08)
+    ead1, ead2 = _rnd(rng, 5e6, 20e6), _rnd(rng, 8e6, 25e6)
+    lgd = _rnd(rng, 0.45, 0.65)
     cva1 = pd1 * lgd * ead1
     cva2 = pd2 * lgd * ead2
     tools = [_tool("compute_metrics", "Compute CVA for counterparty", {"type": "object", "properties": {"pd": {"type": "number"}, "lgd": {"type": "number"}, "ewad": {"type": "number"}}})]
@@ -560,23 +537,23 @@ def agentic_frm_cva(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"cva": round(cva2, 2)})},
         {"role": "assistant", "content": "CVA: ${:,.2f} + ${:,.2f} = ${:,.2f}".format(cva1, cva2, cva1 + cva2)}
     ]
-    return _rec("FRM", "Credit Risk", "CVA", "L3_Hard", "Compute CVA for two counterparties.", tools, conv, "CVA=${:,.2f}".format(cva1 + cva2), seq)
+    return _rec("FRM", "Credit Risk", "CVA", "L3_Hard", f"CVA={cva1+cva2:,.2f}", tools, conv, "CVA=${:,.2f}".format(cva1 + cva2), seq)
 
 
 def agentic_frm_op_risk(rng, seq):
-    VaR_99, VaR_95 = _rnd(10, 30), _rnd(7, 22)
+    VaR_99, VaR_95 = _rnd(rng, 10, 30), _rnd(rng, 7, 22)
     tools = [_tool("compute_metrics", "Compute operational loss distribution metrics", {"type": "object", "properties": {"var_95": {"type": "number"}, "var_99": {"type": "number"}, "severity": {"type": "number"}}})]
     conv = [
         {"role": "user", "content": "Operational VaR at 95pct: ${:.0f}M, at 99pct: ${:.0f}M. What does the tail risk say?".format(VaR_95, VaR_99)},
-        {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "compute_metrics", "arguments": {"var_95": VaR_95, "var_99": VaR_99, "severity": _rnd(2, 5)}}}]},
+        {"role": "assistant", "tool_calls": [{"type": "function", "function": {"name": "compute_metrics", "arguments": {"var_95": VaR_95, "var_99": VaR_99, "severity": _rnd(rng, 2, 5)}}}]},
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"tail_gap": round(VaR_99 - VaR_95, 2)})},
         {"role": "assistant", "content": "Tail gap is ${:.0f}M. High tail risk from rare but severe events.".format(VaR_99 - VaR_95)}
     ]
-    return _rec("FRM", "Operational Risk", "Operational Risk Capital", "L3_Hard", "Tail risk from VaR gap.", tools, conv, "Tail gap=${:.0f}M".format(VaR_99 - VaR_95), seq)
+    return _rec("FRM", "Operational Risk", "Operational Risk Capital", "L3_Hard", f"tail={VaR_99 - VaR_95:.0f}M", tools, conv, "Tail gap=${:.0f}M".format(VaR_99 - VaR_95), seq)
 
 
 def agentic_frm_liquidity(rng, seq):
-    bid, ask = _rnd(1.05, 1.5), _rnd(1.55, 2.1)
+    bid, ask = _rnd(rng, 1.05, 1.5), _rnd(rng, 1.55, 2.1)
     spread = ask - bid
     tools = [_tool("compute_metrics", "Compute liquidity and cost metrics", {"type": "object", "properties": {"bid": {"type": "number"}, "ask": {"type": "number"}, "notional": {"type": "number"}}})]
     conv = [
@@ -585,13 +562,13 @@ def agentic_frm_liquidity(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"round_trip_cost": round(spread * 50000000, 2)})},
         {"role": "assistant", "content": "Spread = {:.2f}. Round-trip cost = ${:,.0f}.".format(spread, spread * 50000000)}
     ]
-    return _rec("FRM", "Liquidity Risk", "Liquidity Cost", "L3_Hard", "Round-trip cost from bid-ask spread.", tools, conv, "Cost=${:,.0f}".format(spread * 50000000), seq)
+    return _rec("FRM", "Liquidity Risk", "Liquidity Cost", "L3_Hard", f"cost={spread * 50000000:,.0f}", tools, conv, "Cost=${:,.0f}".format(spread * 50000000), seq)
 
 
 def agentic_frm_credit_portfolio(rng, seq):
-    ead1, ead2, ead3 = _rnd(10e6, 40e6), _rnd(15e6, 50e6), _rnd(20e6, 60e6)
-    pd1, pd2, pd3 = _rnd(0.01, 0.05), _rnd(0.02, 0.06), _rnd(0.03, 0.08)
-    lgd = _rnd(0.4, 0.6)
+    ead1, ead2, ead3 = _rnd(rng, 10e6, 40e6), _rnd(rng, 15e6, 50e6), _rnd(rng, 20e6, 60e6)
+    pd1, pd2, pd3 = _rnd(rng, 0.01, 0.05), _rnd(rng, 0.02, 0.06), _rnd(rng, 0.03, 0.08)
+    lgd = _rnd(rng, 0.4, 0.6)
     el = sum(p * lgd * e for p, e in zip([pd1, pd2, pd3], [ead1, ead2, ead3]))
     tools = [_tool("compute_metrics", "Compute portfolio credit metrics", {"type": "object", "properties": {"probabilities_of_default": {"type": "array", "items": {"type": "number"}}, "lgd": {"type": "number"}, "exposures": {"type": "array", "items": {"type": "number"}}}})]
     conv = [
@@ -600,53 +577,53 @@ def agentic_frm_credit_portfolio(rng, seq):
         {"role": "tool_result", "name": "compute_metrics", "content": json.dumps({"portfolio_el": round(el, 2)})},
         {"role": "assistant", "content": "Portfolio expected loss = ${:,.0f}".format(el)}
     ]
-    return _rec("FRM", "Credit Risk", "Credit Portfolio", "L3_Hard", "Portfolio expected loss from 3 credits.", tools, conv, "EL=${:,.0f}".format(el), seq)
+    return _rec("FRM", "Credit Risk", "Credit Portfolio", "L3_Hard", f"EL={el:,.0f}", tools, conv, "EL=${:,.0f}".format(el), seq)
 
 
 
 TEMPLATES = {
 
     # Equity
-        "analyst_consensus": _bind(agentic_eq_analyst_consensus),
-        "bvps": _bind(agentic_eq_bvps),
-        "dcf_sensitivity": _bind(agentic_eq_dcf_sensitivity),
-        "dua": _bind(agentic_eq_dua),
-        "esg": _bind(agentic_eq_esg),
-        "mispricing": _bind(agentic_eq_mispricing),
-        "multipler_compare": _bind(agentic_eq_multipler_compare),
-        "portfolio_val": _bind(agentic_eq_portfolio_val),
-        "resid_income": _bind(agentic_eq_resid_income),
-        "risk_adjusted": _bind(agentic_eq_risk_adjusted),
-        "screening": _bind(agentic_eq_screening),
-        "tool_recovery": _bind(agentic_eq_tool_recovery),
+        "analyst_consensus": agentic_eq_analyst_consensus,
+        "bvps": agentic_eq_bvps,
+        "dcf_sensitivity": agentic_eq_dcf_sensitivity,
+        "dua": agentic_eq_dua,
+        "esg": agentic_eq_esg,
+        "mispricing": agentic_eq_mispricing,
+        "multipler_compare": agentic_eq_multipler_compare,
+        "portfolio_val": agentic_eq_portfolio_val,
+        "resid_income": agentic_eq_resid_income,
+        "risk_adjusted": agentic_eq_risk_adjusted,
+        "screening": agentic_eq_screening,
+        "tool_recovery": agentic_eq_tool_recovery,
 
     # FRM
-        "credit_portfolio": _bind(agentic_frm_credit_portfolio),
-        "credit_rv": _bind(agentic_frm_credit_rv),
-        "cva": _bind(agentic_frm_cva),
-        "liquidity": _bind(agentic_frm_liquidity),
-        "op_risk": _bind(agentic_frm_op_risk),
+        "credit_portfolio": agentic_frm_credit_portfolio,
+        "credit_rv": agentic_frm_credit_rv,
+        "cva": agentic_frm_cva,
+        "liquidity": agentic_frm_liquidity,
+        "op_risk": agentic_frm_op_risk,
 
     # Fixed Income
-        "bond_portfolio": _bind(agentic_fi_bond_portfolio),
-        "bond_pricing": _bind(agentic_fi_bond_pricing),
-        "convexity": _bind(agentic_fi_convexity),
-        "duration": _bind(agentic_fi_duration),
-        "yield_curve": _bind(agentic_fi_yield_curve),
-        "zero_coupon": _bind(agentic_fi_zero_coupon),
+        "bond_portfolio": agentic_fi_bond_portfolio,
+        "bond_pricing": agentic_fi_bond_pricing,
+        "convexity": agentic_fi_convexity,
+        "duration": agentic_fi_duration,
+        "yield_curve": agentic_fi_yield_curve,
+        "zero_coupon": agentic_fi_zero_coupon,
 
     # Portfolio Management
-        "factor_model": _bind(agentic_pm_factor_model),
-        "optimal_weight": _bind(agentic_pm_optimal_weight),
-        "risk_budget": _bind(agentic_pm_risk_budget),
-        "tracking": _bind(agentic_pm_tracking),
+        "factor_model": agentic_pm_factor_model,
+        "optimal_weight": agentic_pm_optimal_weight,
+        "risk_budget": agentic_pm_risk_budget,
+        "tracking": agentic_pm_tracking,
 
     # Risk Management
-        "cvar": _bind(agentic_risk_cvar),
-        "delta_hedge": _bind(agentic_risk_delta_hedge),
-        "greeks": _bind(agentic_risk_greeks),
-        "historical_var": _bind(agentic_risk_historical_var),
-        "stress_test": _bind(agentic_risk_stress_test),
-        "var_parametric": _bind(agentic_risk_var_parametric),
+        "cvar": agentic_risk_cvar,
+        "delta_hedge": agentic_risk_delta_hedge,
+        "greeks": agentic_risk_greeks,
+        "historical_var": agentic_risk_historical_var,
+        "stress_test": agentic_risk_stress_test,
+        "var_parametric": agentic_risk_var_parametric,
 
 }
