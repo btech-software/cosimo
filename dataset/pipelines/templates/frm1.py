@@ -668,11 +668,11 @@ def v1_qa_var_basics(rng, seq):
     tail = 100.0 - conf
 
     q = (f"A financial institution reports a {conf}% {horizon}-day VaR of "
-         f"${fmt(var_dollar):,.0f}. What is the correct interpretation?")
+         f"${fmt(var_dollar, 0)}. What is the correct interpretation?")
 
     tr = (_assume(["VaR is a quantile at the given confidence level",
                    "VaR is not subadditive for non-elliptical distributions"]) +
-          f"Step 1. {conf}% {horizon}-day VaR = ${fmt(var_dollar):,.0f} means:\n"
+          f"Step 1. {conf}% {horizon}-day VaR = ${fmt(var_dollar, 0)} means:\n"
           f"  - There is a {tail}% probability that loss over {horizon} days EXCEEDS VaR.\n"
           f"  - Equivalently, {conf}% of {horizon}-day losses are at or below VaR.\n"
           f"Step 2. VaR does NOT measure average loss given VaR is breached (that is CVaR/ES).\n"
@@ -680,7 +680,7 @@ def v1_qa_var_basics(rng, seq):
           f"Step 4. Trap: interpreting VaR as a maximum loss. It is a statistical quantile.\n"
           f"    Tail losses can and do significantly exceed the VaR threshold.")
 
-    flaw = {"answer": f"Maximum possible loss is ${fmt(var_dollar):,.0f}",
+    flaw = {"answer": f"Maximum possible loss is ${fmt(var_dollar, 0)}",
             "pitfall": "VaR as maximum loss bound",
             "reasoning_trace": (f"Step 1. VaR at {conf}% confidence means a {tail}% chance of EXCEEDING VaR.\n"
                                 f"CVaR/ES is needed to capture the tail severity beyond VaR.")}
@@ -689,11 +689,11 @@ def v1_qa_var_basics(rng, seq):
                      "difficulty": "FRM1_Easy", "question_type": "MCQ",
                      "pitfalls": ["quantile vs max error", "CVaR/ES distinction"]},
             "question": q,
-            "answer": (f"A {conf}% {horizon}-day VaR of ${fmt(var_dollar):,.0f} means "
+            "answer": (f"A {conf}% {horizon}-day VaR of ${fmt(var_dollar, 0)} means "
                        f"a {tail}% probability loss EXCEEDS this amount over {horizon} days."),
-            "distractors": [f"Maximum loss = ${fmt(var_dollar):,.0f}",
-                            f"Average loss = ${fmt(var_dollar):,.0f}",
-                            f"{conf}% probability loss equals ${fmt(var_dollar):,.0f}"],
+            "distractors": [f"Maximum loss = ${fmt(var_dollar, 0)}",
+                            f"Average loss = ${fmt(var_dollar, 0)}",
+                            f"{conf}% probability loss equals ${fmt(var_dollar, 0)}"],
             "reasoning_trace": tr, "flawed": flaw,
             "params": {"var_dollar": var_dollar, "conf": conf, "horizon": horizon}}
 

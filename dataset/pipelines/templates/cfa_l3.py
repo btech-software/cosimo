@@ -454,6 +454,283 @@ def pw_behavioral(rng, seq):
             "params":{"initial":initial,"gain":gain,"final_val":final_val,"ref_pt":ref_pt}}
 
 
+
+
+# ---------------- Level III coverage extension ----------------
+# Merged from cfa_l3_new.py. Fixed on the way in: four f-string syntax errors
+# and one rng.random() call (core.RNG exposes the generator as .r).
+
+def eq_factor_model(rng, seq):
+    """Multi-factor model: market, size, value exposures with Jensen alpha."""
+    rf = rng.uniform(0.02, 0.04, 3)
+    mkt_prem = rng.uniform(0.05, 0.09, 3)
+    size_prem = rng.uniform(0.01, 0.04, 3)
+    val_prem = rng.uniform(0.01, 0.03, 3)
+    s_mkt = rng.uniform(0.80, 1.20, 3)
+    s_size = rng.uniform(-0.30, 0.30, 3)
+    s_val = rng.uniform(-0.20, 0.40, 3)
+    alpha = rng.uniform(-0.02, 0.02, 3)
+    expected = rf + s_mkt*mkt_prem + s_size*size_prem + s_val*val_prem + alpha
+    q = (f"Three-factor model: rf={pct(rf,1)}, MKP={pct(mkt_prem,1)}, "
+         f"SML={pct(size_prem,1)}, VAL={pct(val_prem,1)}. Loadings: "
+         f"bMKT={s_mkt:.2f}, bSML={s_size:.2f}, bVAL={s_val:.2f}. "
+         f"Alpha={pct(alpha,1)}. Compute expected return.")
+    tr = (_assume([f"Expected = rf + beta_MKT*MKT + beta_SML*SML + beta_VAL*VAL + alpha"]) +
+          f"Step 1. MKP contrib = {s_mkt:.2f} x {pct(mkt_prem,1)} = {s_mkt*mkt_prem:.4f}.\n"
+          f"Step 2. SML contrib = {s_size:.2f} x {pct(size_prem,1)} = {s_size*size_prem:.4f}.\n"
+          f"Step 3. VAL contrib = {s_val:.2f} x {pct(val_prem,1)} = {s_val*val_prem:.4f}.\n"
+          f"Step 4. E[R] = {pct(rf)} + {s_mkt*mkt_prem:.4f} + {s_size*size_prem:.4f} "
+          f"+ {s_val*val_prem:.4f} + {pct(alpha)} = {pct(expected)}.\n"
+          f"Step 5. Trap: ignoring tilts gives {pct(rf+mkt_prem)}.\n")
+    wrong = rf + mkt_prem
+    flaw = {"answer": f"{pct(wrong)}", "pitfall": "ignoring factor tilts",
+            "reasoning_trace": (_assume([f"single-factor = rf + MKP"]) +
+            f"Quoting {pct(rf,1)}+{pct(mkt_prem,1)}={pct(wrong)} ignores beta_SML={s_size:.2f} "
+            f"and beta_VAL={s_val:.2f} tilts.")}
+    return {"meta": {"topic": "Equity", "subtopic": "Factor Models",
+                     "difficulty": "L3_Medium", "question_type": "Calculation",
+                     "pitfalls": ["factor tilts", "Jensen alpha"]},
+            "question": q, "answer": f"{pct(expected)}",
+            "distractors": [f"{pct(wrong)}", f"{pct(rf+mkt_prem)}", f"{pct(rf)}"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"s_mkt": s_mkt, "s_size": s_size, "s_val": s_val, "expected": expected,
+                       "alpha": alpha, "rf": rf}}
+
+def port_mean_variance(rng, seq):
+    """Two-asset MVO: compute portfolio return, vol, Sharpe."""
+    wf1 = rng.uniform(0.40, 0.65, 3)
+    w2 = 1.0 - wf1
+    mu1, mu2 = rng.uniform(0.08, 0.12, 3), rng.uniform(0.04, 0.07, 3)
+    sig1, sig2 = rng.uniform(0.12, 0.20, 3), rng.uniform(0.08, 0.15, 3)
+    rho = rng.uniform(-0.3, 0.5, 3)
+    port_mu = wf1*mu1 + w2*mu2
+    port_var = wf1**2*sig1**2 + w2**2*sig2**2 + 2*wf1*w2*rho*sig1*sig2
+    port_sig = math.sqrt(max(port_var, 0))
+    rf = rng.uniform(0.02, 0.04, 3)
+    sharpe = (port_mu - rf)/port_sig
+    no_corr_sig = math.sqrt(wf1**2*sig1**2 + w2**2*sig2**2)
+    q = (f"Two-asset portfolio: A ({wf1:.2f}, mu={pct(mu1,1)}, sigma={pct(sig1,1)}), "
+         f"B ({w2:.2f}, mu={pct(mu2,1)}, sigma={pct(sig2,1)}), rho={rho:.3f}. "
+         f"RF={pct(rf)}. Compute portfolio mu, sigma, Sharpe.")
+    tr = (_assume([f"mu_p = w1*mu1 + w2*mu2"]) +
+          f"Step 1. mu_p = {pct(wf1)}x{pct(mu1,1)} + {pct(w2)}x{pct(mu2,1)} = {pct(port_mu)}.\n"
+          f"Step 2. Var = {wf1:.2f}^2x{sig1:.4f}^2 + {w2:.2f}^2x{sig2:.4f}^2 "
+          f"+ 2x{wf1:.2f}x{w2:.2f}x{rho:.3f}x{sig1:.4f}x{sig2:.4f} = {port_var:.6f}.\n"
+          f"Step 3. sigma_p = {pct(port_sig)}.\n"
+          f"Step 4. Sharpe = ({pct(port_mu)}-{pct(rf)})/{pct(port_sig)} = {sharpe:.4f}.\n"
+          f"Step 5. Trap: rho=0 gives sigma={pct(no_corr_sig)}.\n")
+    flaw = {"answer": f"sigma={pct(no_corr_sig)}, Sharpe={(port_mu-rf)/no_corr_sig:.4f}",
+            "pitfall": "ignoring correlation",
+            "reasoning_trace": (_assume([f"rho = 0"]) +
+            f"Dropping Cov term {2*wf1*w2*rho*sig1*sig2:.6f} gives wrong sigma. "
+            f"Correct: {pct(port_sig)} with rho={rho:.3f}.")}
+    return {"meta": {"topic": "Portfolio Management", "subtopic": "Mean-Variance Optimization",
+                     "difficulty": "L3_Medium", "question_type": "Calculation",
+                     "pitfalls": ["covariance term", "sharpe"]},
+            "question": q,
+            "answer": f"mu={pct(port_mu)}, sigma={pct(port_sig)}, Sharpe={sharpe:.4f}",
+            "distractors": [f"{pct(mu1)}, sigma={pct(sig1)}",
+                          f"mu={pct(port_mu)}, sigma={pct(no_corr_sig)}"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"wf1": wf1, "mu1": mu1, "mu2": mu2, "sig1": sig1, "sig2": sig2, "rho": rho}}
+
+def fip_ldi(rng, seq):
+    """Liability-Driven Investing: surplus duration gap analysis."""
+    port_val = rng.randint(200, 500) * 1_000_000
+    liab_val = rng.randint(180, 480) * 1_000_000
+    dur_port = rng.uniform(5.0, 10.0, 3)
+    dur_liab = rng.uniform(7.0, 12.0, 3)
+    dy = rng.uniform(0.0025, 0.0075, 4)
+    surplus = port_val - liab_val
+    d_port = -dur_port * port_val * dy
+    d_liab = -dur_liab * liab_val * dy
+    d_surplus = d_port - d_liab
+    q = (f"LDI: portfolio {fmt(port_val)}, D={dur_port:.2f}. "
+         f"Liabilities {fmt(liab_val)}, D={dur_liab:.2f}. "
+         f"Surplus={fmt(surplus)}. Yields +{dy*100:.2f}bps. Effect on surplus?")
+    tr = (_assume([f"Delta V = -D x V x dY"]) +
+          f"Step 1. dA = -{dur_port:.2f} x {fmt(port_val)} x {dy:.4f} = {fmt(d_port)}.\n"
+          f"Step 2. dL = -{dur_liab:.2f} x {fmt(liab_val)} x {dy:.4f} = {fmt(d_liab)}.\n"
+          f"Step 3. dSurplus = {fmt(d_port)} - {fmt(d_liab)} = {fmt(d_surplus)}.\n"
+          f"Step 4. {'Surplus ' + fmt(d_surplus)}.\n"
+          f"Step 5. Trap: duration matching != full immunization (convexity gap remains).\n")
+    flaw = {"answer": "surplus unchanged", "pitfall": "ignoring duration gap",
+            "reasoning_trace": (_assume([f"D_A = D_L is enough"]) +
+            f"{dur_port:.2f} != {dur_liab:.2f}, gap={abs(dur_port-dur_liab):.2f}. "
+            f"dSurplus = {fmt(d_surplus)}.")}
+    return {"meta": {"topic": "Fixed Income", "subtopic": "Liability-Driven Investing",
+                     "difficulty": "L3_Hard", "question_type": "Calculation",
+                     "pitfalls": ["duration gap", "convexity mismatch"]},
+            "question": q,
+            "answer": f"surplus changes by {fmt(d_surplus)}",
+            "distractors": ["surplus unchanged",
+                          f"surplus changes by {fmt(d_port)}",
+                          f"surplus changes by {-d_surplus}"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"port_val": port_val, "dur_port": dur_port, "dur_liab": dur_liab,
+                       "d_surplus": d_surplus}}
+
+def fip_interest_rate_risk(rng, seq):
+    """Key-rate duration: parallel vs twist scenarios."""
+    port_val = rng.randint(300, 700) * 1_000_000
+    krd_2y = rng.uniform(0.15, 0.35, 3)
+    krd_5y = rng.uniform(0.40, 0.65, 3)
+    krd_10y = rng.uniform(0.25, 0.50, 3)
+    dy_parallel = 0.005
+    dv_all = -port_val * (krd_2y + krd_5y + krd_10y) * dy_parallel
+    dv_twist = -port_val * (krd_2y*(-0.003) + krd_10y*(0.007))
+    q = (f"Portfolio {fmt(port_val)}, KRD 2y={krd_2y:.2f}, 5y={krd_5y:.2f}, 10y={krd_10y:.2f}. "
+         f"Delta-V (+50bp parallel vs twist 2y:-30bp/10y:+70bp).")
+    tr = (_assume([f"Delta V ~ -KRD x dY x V"]) +
+          f"Step 1. Parallel: sum KRD={krd_2y+krd_5y+krd_10y:.2f}. "
+          f"Delta-V = {-port_val:.0f} x {krd_2y+krd_5y+krd_10y:.2f} x 0.005 = {fmt(dv_all)}.\n"
+          f"Step 2. Twist: -V x ({krd_2y:.2f}x(-0.003) + {krd_10y:.2f}x0.007) = {fmt(dv_twist)}.\n"
+          f"Step 3. Trap: parallel DV01 != twist. KRD handles non-parallel shifts.\n")
+    flaw = {"answer": f"twist={fmt(dv_all)}", "pitfall": "parallel vs twist",
+            "reasoning_trace": (_assume([f"parallel DV01"]) +
+            f"Twist: {fmt(dv_twist)}, not {fmt(dv_all)}. KRD breaks yield curve into tenors.")}
+    return {"meta": {"topic": "Fixed Income", "subtopic": "Interest Rate Risk",
+                     "difficulty": "L3_Hard", "question_type": "Calculation",
+                     "pitfalls": ["parallel vs twist", "key-rate duration"]},
+            "question": q,
+            "answer": f"parallel: {fmt(dv_all)}; twist: {fmt(dv_twist)}",
+            "distractors": [f"parallel: {fmt(dv_all)}; twist: {fmt(dv_all)}",
+                          f"parallel: {fmt(-dv_all)}; twist: {fmt(-dv_twist)}"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"port_val": port_val, "dv_all": dv_all, "dv_twist": dv_twist,
+                       "krd_2y": krd_2y, "krd_10y": krd_10y}}
+
+def fip_bond_indexing(rng, seq):
+    """Bond indexing: stratified sampling vs optimization."""
+    n_bonds = rng.randint(200, 500)
+    bench_dur = rng.uniform(5.5, 8.5, 3)
+    bmv = rng.randint(5_000, 10_000) * 1_000_000
+    strat = rng.r.random() > 0.5
+    te = rng.uniform(0.30, 0.70, 2) if strat else rng.uniform(0.10, 0.30, 2)
+    cost = rng.uniform(0.04, 0.11, 2) if strat else rng.uniform(0.02, 0.05, 2)
+    n_baskets = rng.randint(8, 15) if strat else 0
+    n_constraints = rng.randint(3, 7) if not strat else 0
+    q = (f"Bond indexing: {n_bonds} bonds, bench D={bench_dur:.2f}, BMV={fmt(bmv)}. "
+         f"{'Stratified' if strat else 'Optimization'} sampling. "
+         f"TE={te:.2f}bps, cost={pct(cost)}. Evaluate strategy.")
+    trap = (f" Trap: stratified simpler but TE~{te*1.8:.1f}bps vs optimization "
+            f"{'factor-constrained' if not strat else ''}." if strat else
+            f" Trap: optimization lower TE but risk model in {n_constraints} factors.")
+    trap_clean = (f" Trap: stratified simpler but may have {te*1.8:.1f}bps TE; optimization "
+                  f"{n_constraints}-factor model has risk." if strat else
+                  f" Trap: cheaper optimization has {n_constraints} constraints to manage.") + trap[-20:]
+    tr = (_assume([f"index replication: minimize TE s.t. factor constraints"]) +
+          f"Step 1. {'Stratified: ' + str(n_baskets) + ' buckets' if strat else 'Optimization: ' + str(n_constraints) + ' risk factors'}.\\n"
+          f"Step 2. TE = {te:.2f}bps. Annual cost = {fmt(int(bmv * cost))}.\\n"
+          f"Step 3. {trap}")
+    flaw = {"answer": "full replication at lowest cost",
+            "pitfall": "ignoring TE trade-off",
+            "reasoning_trace": (_assume([f"cheapest option"]) +
+            f"Cheapest ignores {te:.2f}bps TE or {n_constraints} factors.")}
+    return {"meta": {"topic": "Fixed Income", "subtopic": "Bond Indexing",
+                     "difficulty": "L3_Medium", "question_type": "Calculation",
+                     "pitfalls": ["tracking error", "strategy trade-offs"]},
+            "question": q,
+            "answer": f"{'Stratified' if strat else 'Optimization'} sampling, TE={te:.2f}bps",
+            "distractors": ["stratified sampling", "full replication", "enhanced indexing"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"n_bonds": n_bonds, "bench_dur": bench_dur, "te": te, "cost": cost}}
+
+def risk_risk_budgeting(rng, seq):
+    """Risk budgeting: marginal and percentage contribution to risk."""
+    port_val = rng.randint(200, 500) * 1_000_000
+    n = 4
+    raw_w = [rng.uniform(0.15, 0.40) for _ in range(n)]
+    t = sum(raw_w)
+    w = [wi/t for wi in raw_w]
+    vols = [rng.uniform(0.08, 0.22, 3) for _ in range(n)]
+    corr = [[0.0]*n for _ in range(n)]
+    for i in range(n):
+        corr[i][i] = 1.0
+        for j in range(i+1, n):
+            c = rng.uniform(0.1, 0.6, 3)
+            corr[i][j] = c
+            corr[j][i] = c
+    port_var = sum(w[i]*w[j]*vols[i]*vols[j]*corr[i][j] for i in range(n) for j in range(n))
+    port_sig = math.sqrt(max(port_var, 1e-8))
+    # PCTR approx: w_i * beta_i / sigma_p * 100 where beta_i = sum_j w_j * sigma_ij / sigma_p
+    beta_vec = []
+    for i in range(n):
+        b = sum(w[j]*vols[j]*corr[i][j] for j in range(n)) / port_sig
+        beta_vec.append(b)
+    mctr = [w[i]*beta_vec[i]*port_sig for i in range(n)]
+    pctr = [mctr[i]/port_sig*100 for i in range(n)]
+    # normalize pctr to sum to 100
+    pctr_sum = sum(pctr)
+    pctr = [p/pctr_sum*100 for p in pctr]
+    top_i = max(range(n), key=lambda i: pctr[i])
+    q = (f"Risk budget: 4-asset portfolio, value {fmt(port_val)}. "
+         f"w=({', '.join(f'{ww:.2f}' for ww in w)}), "
+         f"vol=({', '.join(f'{vv:.2f}' for vv in vols)}). "
+         f"sigma_p={pct(port_sig)}. % risk contribution each?")
+    top_pct = pctr[top_i]
+    tr = (_assume([f"PCTR additive: sum = 100%"]) +
+          f"Step 1. Beta_i = sum_j(w_j * sigma_ij) / sigma_p.\\n"
+          f"Step 2. MCTR_i = w_i * beta_i * sigma_p.\\n"
+          f"Step 3. PCTR_i = MCTR_i / sigma_p * 100.\\n"
+          f"  A1: {pctr[0]:.1f}%, A2: {pctr[1]:.1f}%, A3: {pctr[2]:.1f}%, A4: {pctr[3]:.1f}%.\\n"
+          f"Top: Asset {top_i+1} ({top_pct:.1f}%).\\n"
+          f"Step 4. Trap: equal weights != equal risk contribution.\\n")
+    flaw = {"answer": "each equally (25% risk)",
+            "pitfall": "weight = risk contribution",
+            "reasoning_trace": (_assume([f"w_i = PCTR_i"]) +
+            f"Volatility and correlation differences mean weights don't equal risk shares. "
+            f"Asset {top_i+1} w={w[top_i]:.2f} but PCTR={top_pct:.1f}%.")}
+    return {"meta": {"topic": "Portfolio Management", "subtopic": "Risk Budgeting",
+                     "difficulty": "L3_Hard", "question_type": "Calculation",
+                     "pitfalls": ["weight vs risk", "marginal contribution"]},
+            "question": q,
+            "answer": f"A{top_i+1}: {top_pct:.1f}% risk. sigma_p={pct(port_sig)}",
+            "distractors": ["each equally (25% risk)",
+                          "A1: highest due to weight",
+                          "A4 highest due to volatility"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"weights": w, "vols": vols, "port_sig": port_sig, "pctr": pctr,
+                       "top_i": top_i, "top_pct": top_pct}}
+
+def pe_wealth_transfer(rng, seq):
+    """Wealth transfer: estate tax with exemptions and gifting."""
+    estate = rng.randint(500, 1500) * 1_000_000
+    exemption = rng.randint(1200, 1400) * 1_000_000
+    annual_excl = rng.randint(150_000, 200_000)
+    yrs = rng.randint(10, 20)
+    tax_rate = rng.choice([0.30, 0.35, 0.40])
+    d_exemption = exemption * 2
+    excl_total = annual_excl * 2 * yrs
+    taxable = max(estate - d_exemption - excl_total, 0)
+    no_plan_tax = estate * tax_rate
+    with_plan_tax = taxable * tax_rate
+    saved = no_plan_tax - with_plan_tax
+    q = (f"Wealth transfer: gross estate {fmt(estate)}. Exemption {fmt(exemption)}/spouse. "
+         f"Annual exclusion {fmt(annual_excl)}/person for {yrs}y. Tax rate {pct(tax_rate)}. "
+         f"Compute estate tax savings from the strategy.")
+    tr = (_assume([f"exemption + annual exclusions reduce taxable estate"]) +
+          f"Step 1. Dual exemption = {fmt(d_exemption)}.\n"
+          f"Step 2. Exclusions = {fmt(annual_excl * 2)} x {yrs} = {fmt(excl_total)}.\n"
+          f"Step 3. Taxable = max({fmt(estate)}-{fmt(d_exemption)}-{fmt(excl_total)}, 0) = {fmt(taxable)}.\n"
+          f"Step 4. Tax no-plan: {fmt(no_plan_tax)}. Tax with-plan: {fmt(with_plan_tax)}.\n"
+          f"Step 5. Savings = {fmt(saved)}.\n"
+          f"Step 6. Trap: step-up in basis makes inheritance better than gifts for appreciated assets.\n")
+    flaw = {"answer": f"savings={fmt(no_plan_tax*0.50)}",
+            "pitfall": "ignoring exemptions",
+            "reasoning_trace": (_assume([f"no exemption/gifting planning"]) +
+            f"Not accounting for {fmt(d_exemption)} + {fmt(excl_total)} tax sheltering.")}
+    return {"meta": {"topic": "Private Wealth", "subtopic": "Wealth Transfer",
+                     "difficulty": "L3_Hard", "question_type": "Calculation",
+                     "pitfalls": ["exclusion math", "step-up in basis"]},
+            "question": q, "answer": f"savings ~{fmt(saved)}",
+            "distractors": [f"~{fmt(no_plan_tax*0.50)}",
+                          f"tax={fmt(taxable)}", "no savings possible"],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"estate": estate, "d_exemption": d_exemption, "excl_total": excl_total,
+                       "saved": saved, "taxable": taxable}}
+
+
 TEMPLATES = {
     "perf_twrr": perf_twrr, "perf_mwrr": perf_mwrr, "imm_duration_gap": imm_duration_gap,
     "risk_var": risk_var, "attr_carino": attr_carino, "tax_taxable_equiv": tax_taxable_equiv,
@@ -468,4 +745,13 @@ TEMPLATES = {
     "risk_extreme": risk_extreme,
     "alloc_black_litter": alloc_black_litter,
     "pw_behavioral": pw_behavioral,
+
+    # Level III coverage extension
+    "eq_factor_model": eq_factor_model,
+    "port_mean_variance": port_mean_variance,
+    "fip_ldi": fip_ldi,
+    "fip_interest_rate_risk": fip_interest_rate_risk,
+    "fip_bond_indexing": fip_bond_indexing,
+    "risk_risk_budgeting": risk_risk_budgeting,
+    "pe_wealth_transfer": pe_wealth_transfer,
 }
