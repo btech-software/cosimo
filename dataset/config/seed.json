@@ -1,11 +1,22 @@
 {
   "seed": 20260802,
-  "programs": ["CFA_Level_I", "CFA_Level_II", "CFA_Level_III", "FRM_Part_1", "FRM_Part_2"],
+  "round": 2,
+  "programs": [
+    "CFA_Level_I",
+    "CFA_Level_II",
+    "CFA_Level_III",
+    "FRM_Part_1",
+    "FRM_Part_2"
+  ],
   "target_examples": 50000,
   "min_verified_examples": 50000,
   "shard_size": 500,
   "shard_dir": "shards",
   "verification_reruns": 3,
   "preference_pair_ratio": 0.35,
-  "difficulty_distribution": {"easy": 0.35, "medium": 0.40, "hard": 0.25}
+  "difficulty_distribution": {
+    "easy": 0.35,
+    "medium": 0.4,
+    "hard": 0.25
+  }
 }

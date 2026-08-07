@@ -71,7 +71,68 @@ PROGRAMS = {
     "FRM_Part_2": "pipelines.templates.frm2",
 }
 
+NEW_RECORD_TYPES = {
+    "CFA_Level_I": {
+        "analysis": "pipelines.templates.v2_analysis",
+        "abstention": "pipelines.templates.v2_abstention",
+    },
+    "CFA_Level_II": {
+        "analysis": "pipelines.templates.v2_analysis",
+        "abstention": "pipelines.templates.v2_abstention",
+        "agentic": "pipelines.templates.v2_agentic",
+        "implementation": "pipelines.templates.v2_implementation",
+    },
+    "CFA_Level_III": {
+        "analysis": "pipelines.templates.v2_analysis",
+        "abstention": "pipelines.templates.v2_abstention",
+        "agentic": "pipelines.templates.v2_agentic",
+    },
+    "FRM_Part_1": {
+        "abstention": "pipelines.templates.v2_abstention",
+    },
+    "FRM_Part_2": {
+        "analysis": "pipelines.templates.v2_analysis",
+        "implementation": "pipelines.templates.v2_implementation",
+        "abstention": "pipelines.templates.v2_abstention",
+        "agentic": "pipelines.templates.v2_agentic",
+    },
+}
+
+_IMPL_TOPIC_MAP = {
+    "equity_dcf": ("Equity Valuation", "DCF Valuation"),
+    "equity_multiples": ("Equity Valuation", "Relative Valuation"),
+    "equity_black_scholes": ("Derivatives", "Option Pricing Models"),
+    "equity_capm": ("Equity Valuation", "CAPM"),
+    "equity_black_scholes_put": ("Derivatives", "Option Pricing Models"),
+    "equity_fcf_growth": ("Equity Valuation", "FCFF Valuation"),
+    "fi_bond_pricing": ("Fixed Income", "Bond Pricing"),
+    "fi_duration_convexity": ("Fixed Income", "Duration & Convexity"),
+    "fi_yield_curve": ("Fixed Income", "Yield Curve Analysis"),
+    "fi_convertible_bonds": ("Fixed Income", "Convertible Bonds"),
+    "fi_mbs_pricing": ("Fixed Income", "Mortgage-Backed Securities"),
+    "fi_zspread": ("Fixed Income", "Spread Analysis"),
+    "risk_par_var": ("Risk Management", "Value at Risk"),
+    "risk_historical_var": ("Risk Management", "Value at Risk"),
+    "risk_cvar": ("Risk Management", "Value at Risk"),
+    "risk_greeks_delta_gamma": ("Risk Management", "Options Greeks"),
+    "risk_sharpe_sortino": ("Portfolio Management", "Performance Metrics"),
+    "risk_monte_carlo_opa": ("Risk Management", "Monte Carlo Simulation"),
+    "port_risk_parity": ("Portfolio Management", "Risk Parity"),
+    "port_efficient_frontier": ("Portfolio Management", "Portfolio Theory"),
+    "port_track_error": ("Portfolio Management", "Active Management"),
+    "port_blume": ("Portfolio Management", "Regression Analysis"),
+    "frm_cvar_calc": ("Risk Management", "Value at Risk"),
+    "frm_ivr": ("Risk Management", "Implied Volatility Ratios"),
+    "frm_fraud_detection": ("Operational Risk", "Fraud Detection"),
+    "frm_loss_distribution": ("Operational Risk", "Loss Distribution Modeling"),
+}
+
 SHARD_SIZE = 500
+
+# Standalone preference records shard here, beside the per-program directories.
+# Separate directory + separate id prefix = the SFT/preference overlap that made
+# the first DPO run a no-op cannot recur.
+PREFERENCE_PROGRAM = "preference"
 
 
 def _pair_ratio():
@@ -116,7 +177,7 @@ def build_preference(program, tpl_name, rng, seq, tpl_fn):
         qtype=meta["question_type"], question=rich["question"], answer=rich["answer"],
         distractors=rich["distractors"], trace=rich["reasoning_trace"],
         metadata={"pitfalls": meta["pitfalls"], "generator": f"{tpl_name}", "source": "synthetic_template"},
-        preference_pair=pair, seq=seq, seed=rng.seed,
+        preference_pair=pair, seq=seq, seed=rng.seed, record_type="exam",
         verification={
             "method": "reference_code_exec",
             "template": tpl_name,
@@ -129,9 +190,273 @@ def build_preference(program, tpl_name, rng, seq, tpl_fn):
     return rec
 
 
+# The harness chat template (jobs/fine-tune/configs/chat_template.jinja) tests
+# `message['role'] == 'tool'`. A turn labelled `tool_result` renders as nothing, so
+# the tool output would silently vanish from the supervised target.
+_TOOL_ROLE = {"tool_result": "tool", "tool": "tool"}
+
+
+def _normalize_turn(turn):
+    """Map a generator's role name onto the harness chat template's vocabulary."""
+    return {**turn, "role": _TOOL_ROLE.get(turn.get("role"), turn.get("role"))}
+
+
+def build_new_record_type(program, tpl_name, rng, seq, tpl_fn, record_type):
+    """Generate a non-exam record (analysis, abstention, agentic, implementation).
+
+    One branch per record type: the four template modules return different dict
+    shapes, and each carries fields that define its type (`defect` for abstention,
+    `tool_schemas`/`conversation` for agentic, `code`/`test_code` for
+    implementation). Dropping those leaves a record that validates but teaches
+    nothing, so every branch forwards them explicitly.
+    """
+    from pipelines.core import record
+
+    rec_dict = tpl_fn(rng, seq)
+
+    # ---- v2_analysis: topic/subtopic are nested inside "meta" ----
+    if record_type == "analysis":
+        from pipelines.templates import analysis_depth
+        meta = rec_dict.get("meta", {})
+        topic = meta.get("topic", "")
+        subtopic = meta.get("subtopic", "")
+        difficulty = meta.get("difficulty", "Medium")
+        metadata_out = {
+            "topic": topic, "subtopic": subtopic, "difficulty": difficulty,
+            "generator": tpl_name, "source": "synthetic_template",
+            "record_type": "analysis", "pitfalls": meta.get("pitfalls", []),
+        }
+        # The long-form tail is composed here, centrally, from the record's own
+        # RNG -- topic-keyed paragraphs that each compute their own numbers. Its
+        # predecessor was one identical 819-token essay pasted into all 8,084
+        # analysis rows (88% of every answer, topically wrong for most of them).
+        answer = analysis_depth.deepen(
+            rng, topic, subtopic, rec_dict.get("answer", "")
+        )
+        return record(
+            program=program, topic=topic, subtopic=subtopic, difficulty=difficulty,
+            qtype=meta.get("question_type", "Analysis"),
+            question=rec_dict.get("question", ""), answer=answer,
+            distractors=[], trace="",
+            verified=rec_dict.get("verified", True),
+            verification=rec_dict.get("verification") or {},
+            metadata=metadata_out, record_type="analysis",
+            seq=seq, seed=rng.seed,
+        )
+
+    # ---- v2_implementation: no topic/question in output, infer from tpl_name ----
+    if record_type == "implementation":
+        topic, subtopic = _IMPL_TOPIC_MAP.get(tpl_name, ("Finance", "Applied Practice"))
+        metadata_out = {
+            "topic": topic, "subtopic": subtopic, "difficulty": "Applied",
+            "generator": tpl_name, "source": "synthetic_template",
+            "record_type": "implementation",
+            "language": rec_dict.get("language", "python"),
+            "has_tests": bool(rec_dict.get("test_code")),
+        }
+        return record(
+            program=program, topic=topic, subtopic=subtopic, difficulty="Applied",
+            qtype="Implementation",
+            question=rec_dict.get("docstring", f"Implement: {tpl_name}"),
+            answer=rec_dict.get("answer", ""),
+            distractors=[], trace="",
+            verified=rec_dict.get("verified", True),
+            verification=rec_dict.get("verification") or {},
+            metadata=metadata_out, record_type="implementation",
+            code=rec_dict.get("code", ""), test_code=rec_dict.get("test_code"),
+            seq=seq, seed=rng.seed,
+        )
+
+    # ---- v2_agentic: the conversation and its tool schemas ARE the record ----
+    if record_type == "agentic":
+        metadata_out = dict(rec_dict.get("metadata") or {})
+        metadata_out.update(
+            generator=tpl_name, source="synthetic_template", record_type="agentic",
+        )
+        return record(
+            program=program, topic=rec_dict.get("topic", ""),
+            subtopic=rec_dict.get("subtopic", ""),
+            difficulty=rec_dict.get("difficulty", "Medium"),
+            qtype=rec_dict.get("question_type", "Agentic"),
+            question=rec_dict.get("question", ""), answer=rec_dict.get("answer", ""),
+            distractors=[], trace="",
+            verified=rec_dict.get("verified", True),
+            verification=rec_dict.get("verification") or {},
+            metadata=metadata_out, record_type="agentic",
+            tool_schemas=rec_dict.get("tool_schemas"),
+            conversation=[_normalize_turn(t) for t in rec_dict.get("conversation", [])],
+            seq=seq, seed=rng.seed,
+        )
+
+    # ---- v2_abstention: `defect` is top-level and must reach metadata.defect ----
+    if record_type == "abstention":
+        metadata_out = dict(rec_dict.get("metadata") or {})
+        metadata_out.update(
+            generator=tpl_name, source="synthetic_template",
+            record_type="abstention", defect=rec_dict.get("defect"),
+        )
+        return record(
+            program=program, topic=rec_dict.get("topic", ""),
+            subtopic=rec_dict.get("subtopic", ""),
+            difficulty=rec_dict.get("difficulty", "Medium"),
+            qtype=rec_dict.get("question_type", "Calibration"),
+            question=rec_dict.get("question", ""), answer=rec_dict.get("answer", ""),
+            distractors=[], trace="",
+            verified=rec_dict.get("verified", True),
+            verification=rec_dict.get("verification") or {},
+            metadata=metadata_out, record_type="abstention",
+            seq=seq, seed=rng.seed,
+        )
+
+    raise ValueError(f"unknown record_type {record_type!r} for template {tpl_name!r}")
+
+
+def build_preference_record(tpl_name, rng, seq, tpl_fn):
+    """Build a standalone preference record in the `cosimopref_` id namespace.
+
+    Kept out of the supervised id space on purpose. In the first corpus the pair's
+    `chosen` side was the supervised row's own reasoning_trace, so DPO started from
+    a saturated reward margin and produced exactly zero gradient. A separate
+    namespace makes that overlap impossible rather than merely unlikely, and lets
+    the harness keep every pair instead of discarding half via
+    data.preference_holdout_frac.
+    """
+    d = tpl_fn(rng, seq)
+    payload = [d["program"], d["topic"], d["subtopic"], d["prompt"], d["chosen"]]
+    rec = {
+        "id": f"cosimopref_{d['program']}_{seq:06d}_{core.sha_of(payload)}",
+        "record_type": "preference",
+        "program": d["program"],
+        "topic": d["topic"],
+        "subtopic": d["subtopic"],
+        "difficulty": d["difficulty"],
+        "question_type": d.get("question_type", "Preference"),
+        "prompt": d["prompt"],
+        "chosen": d["chosen"],
+        "rejected": d["rejected"],
+        "pitfall": d["pitfall"],
+        "mode": d["mode"],
+        "verified": True,
+        "verification": {
+            "method": "structural",
+            "template": tpl_name,
+            "seed": rng.seed,
+            "checks": ["chosen_differs_from_rejected", "mode_tagged"],
+        },
+        "metadata": {
+            "topic": d["topic"],
+            "subtopic": d["subtopic"],
+            "difficulty": d["difficulty"],
+            "question_type": d.get("question_type", "Preference"),
+            "source": "synthetic_template",
+            "seed": rng.seed,
+            "generator": tpl_name,
+            "generator_version": "1.0.0",
+            "round": core.ROUND,
+            "mode": d["mode"],
+        },
+    }
+    if d.get("contains_intentional_fabrication"):
+        # The terminology gate must not block a record whose rejected side is
+        # *supposed* to contain a fabricated collocation.
+        rec["contains_intentional_fabrication"] = True
+        rec["metadata"]["contains_intentional_fabrication"] = True
+    return rec
+
+
+def _variant_key(base, *parts):
+    """Deterministic (seed, seq) for one (program, template, [type], variant) key.
+
+    core.stable_hash rather than hash(): the builtin is salted by PYTHONHASHSEED,
+    so seeds -- and therefore every record id -- changed between processes. That
+    made the pipeline neither reproducible nor resumable, and a re-run appended
+    a fresh corpus instead of skipping what was already generated.
+    """
+    digest = core.stable_hash(*parts)
+    variant = parts[-1]
+    return (digest + variant * 7919) % (2**31), base + variant * 1000 + digest % 1000
+
+
+# Target share of the *mixed* corpus per record type, from the brief. Without
+# these, composition is an accident of how many programs each module happens to be
+# registered under: abstention has 62 generators across 5 programs = 310 instances,
+# so a flat PER_TEMPLATE put it at 40% of the corpus against a 10% target.
+#
+# These deliberately sum to 0.70, not 1.0. The remaining ~30% is the existing
+# btech-software/cosimo-cfa-frm-71k corpus, which this one is designed to be mixed
+# with rather than replace. So a share here of 0.25 is 25% of the mixed set and
+# 25/70 = 35.7% of what this pipeline emits -- both are correct, and the second is
+# what you see in the generated shards.
+COMPOSITION = {
+    "exam": 0.15,
+    "analysis": 0.25,
+    "abstention": 0.10,
+    "agentic": 0.12,
+    "implementation": 0.08,
+}
+
+
+def _instance_counts():
+    """Registered (generator, program) pairs per record type."""
+    counts = {"exam": 0}
+    for modname in PROGRAMS.values():
+        counts["exam"] += len(importlib.import_module(modname).TEMPLATES)
+    for type_map in NEW_RECORD_TYPES.values():
+        for record_type, modname in type_map.items():
+            n = len(getattr(importlib.import_module(modname), "TEMPLATES", {}))
+            counts[record_type] = counts.get(record_type, 0) + n
+    return counts
+
+
+def variant_budget(per_template):
+    """Variants per generator-instance per record type, honouring COMPOSITION.
+
+    `per_template` is the ceiling, not the setting: it caps variants per stem,
+    which is the memorisation control (v1 ran 71 stems x 1000 variants and opened
+    a 45-point generalisation gap). Within that cap the budget is scaled so the
+    resulting shares match COMPOSITION -- the type whose ceiling binds first
+    determines the corpus size, and every other type is scaled down to match.
+    """
+    instances = _instance_counts()
+    active = {t: n for t, n in instances.items() if n and t in COMPOSITION}
+    if not active:
+        return {t: per_template for t in instances}
+    total = min(per_template * n / COMPOSITION[t] for t, n in active.items())
+    budget = {}
+    for t, n in instances.items():
+        if t in active:
+            budget[t] = max(1, min(per_template, round(total * COMPOSITION[t] / n)))
+        else:
+            budget[t] = per_template
+    return budget
+
+
 def generate(per_template=50, program_filter=None, template_filter=None):
     from pipelines import progress as progress_mod
     produced = 0
+    budget = variant_budget(per_template)
+    print(f"[GEN] variant budget (cap {per_template}): "
+          + ", ".join(f"{t}={n}" for t, n in sorted(budget.items())))
+    seen = core.existing_ids()
+    skipped = 0
+    # Per-program row counts, so a resumed run continues its own program's shards
+    # instead of restarting at shard 0 and appending into finalized files.
+    offsets = {prog: 0 for prog in list(PROGRAMS) + [PREFERENCE_PROGRAM]}
+    counts, _ = core.shard_counts()
+    for prog in offsets:
+        offsets[prog] = sum(counts.get(prog, {}).values())
+
+    def emit(prog, rec):
+        nonlocal produced, skipped
+        if rec["id"] in seen:
+            skipped += 1
+            return
+        seen.add(rec["id"])
+        append_record(prog, offsets[prog] // SHARD_SIZE, rec, finalize=False)
+        offsets[prog] += 1
+        produced += 1
+
+    # 1. Generate exam records (traditional: calculation, vignette, CR, MCQ)
     for prog, modname in PROGRAMS.items():
         if program_filter and prog != program_filter:
             continue
@@ -139,24 +464,59 @@ def generate(per_template=50, program_filter=None, template_filter=None):
         for name, fn in mod.TEMPLATES.items():
             if template_filter and name != template_filter:
                 continue
-            for variant in range(per_template):
-                seed = 1000 * hash((prog, name)) % 10**9 + variant * 7919
-                seed = seed % (2**31)
+            for variant in range(budget.get('exam', per_template)):
+                seed, seq = _variant_key(100000, prog, name, variant)
                 rng = core.RNG(seed)
-                seq = 100000 + variant * 1000 + abs(hash((prog, name)) % 1000)
                 try:
                     rec = build_preference(prog, name, rng, seq, fn)
                 except Exception as e:
                     print(f"[GEN][FAIL] {prog}/{name} variant {variant}: {e}")
                     continue
-                # shard allocation
-                shard = produced // SHARD_SIZE
-                append_record(prog, shard, rec, finalize=False)
-                produced += 1
-            # finalize per template? no — finalize at program end
+                emit(prog, rec)
+
+    # 2. Generate new record types (analysis, abstention, agentic, implementation)
+    for prog, type_map in NEW_RECORD_TYPES.items():
+        if program_filter and prog != program_filter:
+            continue
+        for record_type, modname in type_map.items():
+            mod = importlib.import_module(modname)
+            tpls = getattr(mod, 'TEMPLATES', {})
+            for name, fn in tpls.items():
+                if template_filter and name != template_filter:
+                    continue
+                for variant in range(budget.get(record_type, per_template)):
+                    seed, seq = _variant_key(200000, prog, name, record_type, variant)
+                    rng = core.RNG(seed)
+                    try:
+                        rec = build_new_record_type(prog, name, rng, seq, fn, record_type)
+                    except Exception as e:
+                        print(f"[GEN][FAIL] {prog}/{record_type}/{name} variant {variant}: {e}")
+                        continue
+                    emit(prog, rec)
+
+    # 3. Standalone preference records, into their own shard directory so the
+    # publish step can ship them as a separate config and the id namespaces can
+    # never be confused.
+    if not program_filter:
+        pref_mod = importlib.import_module("pipelines.templates.v2_preference")
+        for name, fn in pref_mod.TEMPLATES.items():
+            if template_filter and name != template_filter:
+                continue
+            for variant in range(per_template):
+                seed, seq = _variant_key(300000, "preference", name, variant)
+                rng = core.RNG(seed)
+                try:
+                    rec = build_preference_record(name, rng, seq, fn)
+                except Exception as e:
+                    print(f"[GEN][FAIL] preference/{name} variant {variant}: {e}")
+                    continue
+                emit(PREFERENCE_PROGRAM, rec)
+
     # finalize all shards (rename tmp -> final)
     _finalize_all()
     progress_mod.write_progress()
+    if skipped:
+        print(f"[GEN] skipped {skipped} records already on disk")
     return produced
 
 
