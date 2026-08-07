@@ -353,13 +353,22 @@ def apply_source_caps(
     source_by_id: dict[str, str],
     sources: list[dict],
     seed: int,
+    holdout_families: set[str],
 ) -> tuple[list[data_schema.CosimoRecord], dict[str, int]]:
-    """Enforce each source's ``max_share`` of the merged pool.
+    """Enforce each source's ``max_share`` of the merged **trainable** pool.
 
     A capped source keeps ``share/(1 - share)`` times the size of the uncapped
-    remainder, so its share of the *final* pool is the configured one. The
-    subsample is seeded and order-preserving, and because the pool is sorted by
-    id it spreads across generators rather than truncating a contiguous block.
+    remainder, so its share of the final trainable pool is the configured one.
+    The subsample is seeded and order-preserving, and because the pool is sorted
+    by id it spreads across generators rather than truncating a contiguous block.
+
+    **Held-out records are exempt from the cap**, and that exemption is the
+    point of measuring against the trainable pool rather than all rows. A
+    held-out family never enters training — it is the `unseen_stems` measuring
+    instrument. Subsampling it would shrink the evaluation slice, and therefore
+    widen its confidence interval, as a side effect of retuning the training
+    mix. The knob that balances what the model learns must not quietly degrade
+    what measures it.
     """
     capped = {
         str(source["hub_id"]): float(source["max_share"])
@@ -380,24 +389,29 @@ def apply_source_caps(
             "no room for the uncapped sources"
         )
 
-    uncapped = [r for r in records if source_by_id[r.id] not in capped]
+    def held_out(record: data_schema.CosimoRecord) -> bool:
+        return data_schema.stem_family(record.generator) in holdout_families
+
+    trainable = [r for r in records if not held_out(r)]
+    uncapped = [r for r in trainable if source_by_id[r.id] not in capped]
     budget = len(uncapped) / (1.0 - sum(capped.values()))
-    kept: dict[str, list[data_schema.CosimoRecord]] = {"": uncapped}
+    surviving = {r.id for r in records if held_out(r)}
+    surviving |= {r.id for r in uncapped}
     dropped: dict[str, int] = {}
     for hub_id, share in capped.items():
-        pool = [r for r in records if source_by_id[r.id] == hub_id]
+        pool = [r for r in trainable if source_by_id[r.id] == hub_id]
         keep = subsample(pool, int(round(share * budget)), seed)
-        kept[hub_id] = keep
+        surviving |= {r.id for r in keep}
         if len(keep) < len(pool):
             dropped[hub_id] = len(pool) - len(keep)
             LOGGER.info(
-                "max_share=%s for %s: kept %d of %d records",
+                "max_share=%s for %s: kept %d of %d trainable records "
+                "(held-out records are exempt)",
                 share,
                 hub_id,
                 len(keep),
                 len(pool),
             )
-    surviving = {r.id for rows in kept.values() for r in rows}
     return [r for r in records if r.id in surviving], dropped
 
 
@@ -883,13 +897,24 @@ def prepare(
                 data_schema.stem_family(verification_template),
             }:
                 conflicts.append(conflict)
-        if record.record_type == data_schema.IMPLEMENTATION and not (
-            data_schema.is_valid_python(record.test_code)
-        ):
-            # Counted, not dropped: the code block still parses and carries the
-            # substance. Only the unparseable test block is left out of the
-            # target. A rising count means the generator regressed.
-            dropped["implementation_test_block_unparseable"] += 1
+        if record.record_type == data_schema.IMPLEMENTATION:
+            # Neither counter drops a record: the code block carries the
+            # substance either way. `reindented` is the published corpus's
+            # dedent defect being undone (see normalize_python_block) and should
+            # fall to 0 once v2 is regenerated from the fixed generator;
+            # `unparseable` is a block the repair could not recover, which is
+            # left out of the target. A rising count means a generator regressed.
+            for field, block in (
+                ("code", record.code),
+                ("test_code", record.test_code),
+            ):
+                if not block.strip():
+                    continue
+                normalized = data_schema.normalize_python_block(block)
+                if not normalized:
+                    dropped[f"implementation_{field}_unparseable"] += 1
+                elif normalized != block.strip():
+                    dropped[f"implementation_{field}_reindented"] += 1
         seen_ids.add(record.id)
         source_by_id[record.id] = source
         records.append(record)
@@ -898,7 +923,9 @@ def prepare(
     # Each mixed-in corpus is capped as a share of the merged pool, after the
     # drops above so the share describes rows that survived rather than rows the
     # Hub shipped.
-    records, capped = apply_source_caps(records, source_by_id, sources, seed)
+    records, capped = apply_source_caps(
+        records, source_by_id, sources, seed, holdout_families
+    )
     for hub_id, n in capped.items():
         dropped[f"over_max_share:{hub_id}"] += n
     LOGGER.info(

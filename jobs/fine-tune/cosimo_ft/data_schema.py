@@ -311,15 +311,7 @@ def has_preference(rec: CosimoRecord) -> bool:
 
 
 def is_valid_python(source: str) -> bool:
-    """True when ``source`` parses. Used to gate a corpus code block.
-
-    7,500 of v2's 13,000 ``implementation`` records ship a ``test_code`` field
-    with a stray-indent ``SyntaxError`` (``"f = g(x)\\n    assert len(f) == 4"``).
-    Every ``code`` field parses; only the test blocks are affected. Training a
-    model that is meant to write idiomatic Python on unparseable Python is worse
-    than training it on less Python, so the block is dropped when it does not
-    parse. The fix belongs in the generator, not here — see the harness README.
-    """
+    """True when ``source`` parses."""
     if not source.strip():
         return False
     try:
@@ -327,6 +319,47 @@ def is_valid_python(source: str) -> bool:
     except SyntaxError:
         return False
     return True
+
+
+def normalize_python_block(source: str) -> str:
+    """A parseable code block, or ``""`` when it cannot be made into one.
+
+    7,500 of the published v2 corpus's 13,000 ``implementation`` records ship a
+    ``test_code`` field that does not parse::
+
+        forwards = bootstrapped_yield([0.02, 0.03, 0.04])
+            assert len(forwards) == 4
+
+    The generator applied ``.strip()`` *before* ``textwrap.dedent()``, so the
+    first line lost its indent, dedent then measured a common prefix of ``""``
+    and did nothing, and every continuation line kept its indentation. That is
+    fixed at the source in ``dataset/pipelines/templates/v2_implementation.py``,
+    but the *published* corpus still carries it, so the damage is undone here:
+    re-dedent the continuation lines.
+
+    The repair is only attempted on a block that does not already parse, and is
+    only accepted when the result parses. A legitimately indented block — a
+    ``for`` body, a function with a suite — parses on the first check and is
+    never touched. Training a model meant to write idiomatic Python on Python
+    that does not parse is worse than training it on less Python, so anything
+    still unparseable after the repair is dropped rather than rendered.
+    """
+    text = (source or "").strip("\n")
+    if not text.strip():
+        return ""
+    if is_valid_python(text):
+        return text.strip()
+    lines = text.splitlines()
+    continuation = [line for line in lines[1:] if line.strip()]
+    if not continuation:
+        return ""
+    indent = min(len(line) - len(line.lstrip()) for line in continuation)
+    if not indent:
+        return ""
+    repaired = "\n".join(
+        [lines[0]] + [line[indent:] if line.strip() else line for line in lines[1:]]
+    )
+    return repaired.strip() if is_valid_python(repaired) else ""
 
 
 def is_exam(rec: CosimoRecord) -> bool:
@@ -368,15 +401,20 @@ def build_supervised_completion(rec: CosimoRecord, tag: str) -> str:
     ``implementation`` is composed rather than taken from ``answer``: the corpus
     puts the substance in ``code``/``test_code`` and leaves ``answer`` as the
     bare result (``"Value=$1,625,956,825"``, ~20 characters), which on its own
-    teaches nothing. Its test block is included only when it parses — see
-    :func:`is_valid_python`.
+    teaches nothing. Both blocks go through :func:`normalize_python_block`, so
+    nothing unparseable is ever a training target.
     """
     if is_exam(rec):
         return chat.build_completion(rec.reasoning_trace, rec.answer, tag)
     if rec.record_type == IMPLEMENTATION:
-        parts = [f"```python\n{rec.code.strip()}\n```"] if rec.code.strip() else []
-        if is_valid_python(rec.test_code):
-            parts.append(f"```python\n{rec.test_code.strip()}\n```")
+        parts = [
+            f"```python\n{block}\n```"
+            for block in (
+                normalize_python_block(rec.code),
+                normalize_python_block(rec.test_code),
+            )
+            if block
+        ]
         if rec.answer.strip():
             parts.append(rec.answer.strip())
         return "\n\n".join(parts)

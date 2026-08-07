@@ -362,19 +362,48 @@ def test_implementation_without_tests_still_renders_the_code():
     assert data_schema.build_supervised_completion(rec, TAG) == "```python\nx = 1\n```\n\nV=1"
 
 
-def test_unparseable_test_block_is_left_out_of_the_target():
-    # 7,500 of v2's 13,000 implementation records ship this exact stray-indent
-    # SyntaxError. Training a model that is meant to write idiomatic Python on
-    # Python that does not parse is worse than training it on less Python.
+def test_the_published_dedent_defect_is_repaired_not_discarded():
+    # 7,500 of the published v2 corpus's 13,000 implementation records ship this
+    # exact stray-indent SyntaxError: the generator ran .strip() before
+    # textwrap.dedent(), so only the first line lost its indent. The damage is
+    # deterministic and exactly recoverable, so the block is re-dedented rather
+    # than thrown away.
     broken = "forwards = bootstrapped_yield([0.02])\n    assert len(forwards) == 4"
     assert not data_schema.is_valid_python(broken)
+    repaired = data_schema.normalize_python_block(broken)
+    assert repaired == (
+        "forwards = bootstrapped_yield([0.02])\nassert len(forwards) == 4"
+    )
+    assert data_schema.is_valid_python(repaired)
+
     rec = data_schema.normalize_record(
         v2_row(
             record_type="implementation", answer="V=1", code="x = 1", test_code=broken
         )
     )
     completion = data_schema.build_supervised_completion(rec, TAG)
-    assert "assert len(forwards)" not in completion
+    assert "assert len(forwards) == 4" in completion
+    assert "    assert len(forwards)" not in completion
+
+
+def test_a_legitimately_indented_block_is_never_reindented():
+    # The repair must not be able to mangle real Python. A suite body parses on
+    # the first check, so it never enters the repair path at all.
+    suite = "for x in xs:\n    assert f(x)"
+    assert data_schema.normalize_python_block(suite) == suite
+
+
+def test_a_block_the_repair_cannot_recover_is_dropped():
+    rec = data_schema.normalize_record(
+        v2_row(
+            record_type="implementation",
+            answer="V=1",
+            code="x = 1",
+            test_code="def (:\n    ???",
+        )
+    )
+    completion = data_schema.build_supervised_completion(rec, TAG)
+    assert "???" not in completion
     assert "```python\nx = 1\n```" in completion
 
 

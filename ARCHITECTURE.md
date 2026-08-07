@@ -669,8 +669,10 @@ break silently, and each has a gate.
 `01_prepare_data.py` loads every source in `dataset.hub_id` + `dataset.mix` via
 `load_dataset` — by default `btech-software/cosimo-quant-reasoning-v2` (configs
 `default` and `preference`) plus `btech-software/cosimo-cfa-frm-71k` capped at
-30 % of the merged pool (config `default` only; its `preference_pairs` are not
-used). **The harness does not read `dataset/shards/`.** Regenerating the corpus
+12 % of the merged **trainable** pool (config `default` only; its
+`preference_pairs` are not used). Held-out records are exempt from the cap —
+they never train, so subsampling them would only shrink the `unseen_stems`
+measurement. **The harness does not read `dataset/shards/`.** Regenerating the corpus
 locally has no effect on training until it is published
 (`dataset/publish/push_to_hub.py`) and a source's `revision` points at it.
 

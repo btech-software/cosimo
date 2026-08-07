@@ -11,7 +11,7 @@ you how to notice that before you ship.
 
 Base model: `unsloth/Phi-4-mini-reasoning` (3.8 B, bf16).
 Corpus: **`btech-software/cosimo-quant-reasoning-v2`** (113 574 records across five record types,
-7 500 standalone preference pairs), mixed with `btech-software/cosimo-cfa-frm-71k` capped at 30 %
+7 500 standalone preference pairs), mixed with `btech-software/cosimo-cfa-frm-71k` capped at 12 %
 for exam depth. See [The corpus is a mix](#the-corpus-is-a-mix-of-two-published-datasets).
 Default pipeline: **LoRA SFT → DPO**, with a complete **ORPO** single-stage alternative.
 
@@ -183,10 +183,10 @@ not the split assignment of the full corpus.
 | Step | Wall clock | Estimated peak resident memory |
 | --- | --- | --- |
 | `00_check_env.py` | < 1 min | negligible |
-| `01_prepare_data.py` | 30–70 min (download + render + tokenize ~162 k rows from two Hub repos) | a few GB host |
+| `01_prepare_data.py` | 30–70 min (download + render + tokenize ~135 k rows from two Hub repos) | a few GB host |
 | `03_baseline_eval.py` (default suites) | 2–4 h *(estimate; longer now, see below)* | ~10–15 GB |
 | `04_train_sft.py --dry-run` | 3–8 min | ~15–25 GB |
-| `04_train_sft.py` (1 epoch) | **~15 h estimated** on the mixed corpus (6.3 h measured on v1-only: 22 574 s, 2 147 steps) | ~15–30 GB |
+| `04_train_sft.py` (1 epoch) | **~12 h estimated** on the mixed corpus (6.3 h measured on v1-only: 22 574 s, 2 147 steps) | ~15–30 GB |
 | `06_evaluate.py` (default suites) | 2–4 h *(estimate)* | ~10–15 GB |
 | `05_train_dpo.py` (1 epoch) | **~1.7 h estimated** on 7 425 pairs (5.1 h measured on 22 048: 18 396 s, 1 378 steps) | ~20–35 GB |
 | `07_compare.py` | seconds | negligible |
@@ -199,7 +199,7 @@ uses that budget. Batches also shrink to stay inside `eval.max_batch_tokens`, so
 with the larger budget. Budget generously for `03_baseline_eval.py` in particular.
 
 **SFT wall clock is the number that moved most, and it moved against you.** The corpus went from
-63 500 SFT rows to **154 808**, so a single epoch is now ~15 h rather than 6.3 h at the same
+63 500 SFT rows to **125 939**, so a single epoch is now ~12 h rather than 6.3 h at the same
 throughput, and non-exam targets are longer than exam ones (an analysis answer is ~900 tokens
 against ~250), which pushes it further. If that is too long, `data.max_train_records` is the knob —
 **not** a smaller `dataset.mix` share and not a shorter persona, because either changes what the
@@ -207,26 +207,26 @@ model is rather than how long it takes to make.
 
 The arithmetic, so you can disagree with it:
 
-* **Corpus.** 113 574 rows from v2, plus v1 capped at 30 % of the merged pool (48 675 of its
-  71 000 kept). Cross-source duplicate questions remove 2 683. Six held-out stem families remove
-  5 193 (~3.2 %). `val_frac` and `test_frac` are 1 % each of the remainder. **SFT train = 154 808
-  rows** (measured), of which 42.9 % are exam.
+* **Corpus.** 113 574 rows from v2, plus v1 capped at 12 % of the merged *trainable* pool
+  (21 211 of its 71 000 kept, held-out records exempt from the cap). Cross-source duplicate
+  questions remove 2 683. Six held-out stem families remove 6 910 (~5 %). **SFT train = 125 939
+  rows** (measured), of which 29.9 % are exam.
   Preference: v2's 7 500 standalone pairs, minus the ones whose split assignment put them in val —
   **DPO train = 7 425 pairs** (measured).
-* **Tokens per example.** p50 **770**, p95 1 665, max 1 829 (measured, mixed corpus). The identity
+* **Tokens per example.** p50 **794**, p95 1 689, max 1 829 (measured, mixed corpus). The identity
   block is ~650 of that on every row — see
   [The system prompt](#the-system-prompt-is-two-blocks). Nothing exceeds `max_seq_length: 8192`.
-* **SFT steps.** 154 808 at effective batch 32 = **~4 838 optimizer steps**, against 2 147 measured
-  for v1-only. At the measured 3.04 samples/s that is ~14.1 h, and longer with the heavier non-exam
+* **SFT steps.** 125 939 at effective batch 32 = **~3 936 optimizer steps**, against 2 147 measured
+  for v1-only. At the measured 3.04 samples/s that is ~11.5 h, and longer with the heavier non-exam
   targets.
 * **DPO steps.** 7 425 at effective batch 16 = **~464 steps**, against 1 378 measured. Each step
   still forwards four sequences (chosen/rejected × policy/reference), so it is expensive per step,
   but the stage is now a third of its former length.
-* **Evaluation.** Default suites are ~680 (`cosimo_test`) + **5 193** (`cosimo_unseen_stems`) +
-  250 (GSM8K) + 250 (MATH-500) ≈ **6 370 items** at up to 2048 new tokens each. Decoding is
+* **Evaluation.** Default suites are 657 (`cosimo_test`) + **6 910** (`cosimo_unseen_stems`) +
+  250 (GSM8K) + 250 (MATH-500) ≈ **8 070 items** at up to 2048 new tokens each. Decoding is
   memory-bandwidth bound (7.6 GB of bf16 weights read per step against ~273 GB/s), so batching helps
   but does not rescue you. **`cosimo_unseen_stems` dominates**, which is why
-  `eval.samples.cosimo_unseen_stems` defaults to `1000` rather than the whole ~5 200-item slice.
+  `eval.samples.cosimo_unseen_stems` defaults to `1000` rather than the whole ~6 900-item slice.
   To cut it further while iterating:
 
   ```bash
@@ -255,21 +255,29 @@ one pool by `01_prepare_data.py`. The default is v2 uncapped plus v1 at 30 %:
 | Preference config | `preference`, ids **disjoint** (`cosimopref_`) | `preference_pairs`, ids **shared** |
 | Generators | 299 | 71 (all also in v2) |
 | Used for pairs here | yes | **no** (`preference_config: null`) |
+| Trainable rows kept | all | 12 % of the merged trainable pool |
 
 **Why mix at all.** v2 is deliberately majority non-exam — exam is 21 % of it, and each of the six
 held-out stem families has only 174 rows against v1's 1 000. v1 supplies the exam depth and a
-usable `cosimo_unseen_stems` slice; the 30 % cap is what stops it re-creating the exam-only corpus
-that flattened the first run. The cap is a share of the *merged* pool and is enforced by a seeded
-subsample after every drop, so it describes rows that actually survived.
+usable `cosimo_unseen_stems` slice; the cap is what stops it re-creating the exam-only corpus that
+flattened the first run. At `max_share: 0.12` exam lands at **30 % of SFT**, so roughly 70 % of
+what the model trains on is the material v2 was built to supply. The trade-off against exam depth
+is smooth — 0.20 gives 36.6 %, 0.30 gives 44.5 % — and the table is in `configs/base.yaml`.
+
+**`max_share` is a share of the merged *trainable* pool, and held-out records are exempt.** A
+held-out family never trains; it is the `unseen_stems` measuring instrument. Subsampling it would
+shrink the evaluation slice and widen its confidence interval as a side effect of retuning the
+training mix, so the cap does not touch it. The holdout is 6 910 items at every setting.
+`data.test_frac` is coupled the same way and for the same reason — see below.
 
 **What preparation produces at the defaults** (measured, full corpus):
 
 | | rows |
 | --- | --- |
-| `sft_train.jsonl` | 154 808 — exam 42.9 %, analysis 26.0 %, agentic 12.5 %, abstention 10.3 %, implementation 8.3 % |
-| `sft_val.jsonl` | 1 570 |
-| `eval_cosimo_test.jsonl` | 678 (exam only) |
-| `eval_cosimo_unseen_stems.jsonl` | 5 193 (exam only, six families) |
+| `sft_train.jsonl` | 125 939 — analysis 31.9 %, exam 29.9 %, agentic 15.3 %, abstention 12.7 %, implementation 10.2 % |
+| `sft_val.jsonl` | 1 279 |
+| `eval_cosimo_test.jsonl` | 657 (exam only) |
+| `eval_cosimo_unseen_stems.jsonl` | 6 910 (exam only, six families) |
 | `pref_train.jsonl` / `pref_val.jsonl` | 7 425 / 75, SFT overlap **0** |
 
 Read `by_record_type` in `split_manifest.json` first. A corpus that has drifted back to
@@ -308,11 +316,16 @@ masking configuration.
   dropped (2 683 rows at the defaults, since v1 repeats some of them internally). Duplicates
   *within* one corpus are left alone — v1 has 15 366 of them and that is a pre-existing property of
   that dataset, not something the mix introduced.
-* **7 500 of v2's 13 000 `implementation` records ship a `test_code` field that does not parse**
-  (a stray-indent `SyntaxError`: `"f = g(x)\n    assert len(f) == 4"`). Every `code` field parses;
-  only the test blocks are affected. The block is included in the target only when `ast.parse`
-  accepts it, and the count is reported as `implementation_test_block_unparseable` in the manifest.
-  **The real fix belongs in the corpus generator**, not here.
+* **7 500 of the published v2's 13 000 `implementation` records ship a `test_code` field that does
+  not parse** — a stray-indent `SyntaxError` (`"f = g(x)\n    assert len(f) == 4"`), because the
+  generator ran `.strip()` before `textwrap.dedent()` and only the first line lost its indent.
+  Fixed at the source in `dataset/pipelines/templates/v2_implementation.py`, but the published
+  corpus still carries it, so `normalize_python_block` undoes the damage by re-dedenting the
+  continuation lines. The repair runs **only** on a block that fails to parse and is accepted
+  **only** if the result parses, so a legitimately indented block can never be mangled; anything
+  still unparseable is dropped rather than rendered. Both counts are in the manifest
+  (`implementation_test_code_reindented`, `..._unparseable`). All 7 500 currently repair cleanly,
+  and the reindented count should fall to 0 once v2 is regenerated from the fixed generator.
 
 ### Only exam records are graded
 
@@ -536,7 +549,7 @@ python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | `model.dtype` | `bfloat16` | Native on Blackwell; the base checkpoint is already bf16. |
 | `dataset.hub_id` / `.revision` | `btech-software/cosimo-quant-reasoning-v2` / `main` | The primary corpus. Pin a SHA for a frozen result; the manifest records the resolved SHA of **every** source. |
 | `dataset.preference_config` | `preference` | Which Hub config carries the pairs, or `null` for none. v2 names it `preference` and its ids are disjoint from the supervised rows; v1 names it `preference_pairs` and shares them. |
-| `dataset.mix` | v1 at `max_share: 0.30` | Additional corpora merged into the same pool. Same keys plus `max_share`, a ceiling as a fraction of the merged pool (`null` = uncapped), enforced by a seeded subsample. See [The corpus is a mix](#the-corpus-is-a-mix-of-two-published-datasets). |
+| `dataset.mix` | v1 at `max_share: 0.12` | Additional corpora merged into the same pool. Same keys plus `max_share`, a ceiling as a fraction of the merged **trainable** pool (`null` = uncapped, held-out records exempt), enforced by a seeded subsample. See [The corpus is a mix](#the-corpus-is-a-mix-of-two-published-datasets). |
 | `paths.*` | `data/`, `data/processed/`, `runs/` | Resolved against this directory, never the CWD. |
 | `prompt.*` | see above | identity / identity_short / exam_protocol / variation_rate / final_answer_tag. |
 | `chat.template_path` | `configs/chat_template.jinja` | The prompt surface. `null` reinstates the vendor identity preamble and is refused by the scripts. |
@@ -550,7 +563,8 @@ python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 
 | Knob | Default | What it does |
 | --- | --- | --- |
-| `data.val_frac` / `data.test_frac` | `0.01` each | ~650 rows each; enough for a stable eval-loss curve and a usable Wilson interval, small enough to keep evaluation affordable. |
+| `data.val_frac` | `0.01` | ~1 280 rows: enough for a stable eval-loss curve, small enough to keep mid-training evaluation to minutes. Applies to every record type. |
+| `data.test_frac` | `0.017` | 657 rows. Higher than `val_frac` because it is taken from the **exam** records alone (~30 % of the corpus) — the other types have no gradeable answer. At 1 % it would be ~390, widening the headline Wilson interval as a side effect of a training-mix decision. |
 | `data.max_train_records` | `null` | Cap on SFT training rows (seeded subsample). The knob to reach for when wall clock is the problem. Does not affect DPO. |
 | `data.preference_holdout_frac` | `0.5` | Fraction of preference-carrying records **reserved** for the preference stage: excluded from `sft_*.jsonl`, written to `pref_*.jsonl`. **Inert at the defaults** — it only applies to a corpus whose pairs share ids with its supervised rows, and v2's do not. Kept, with its validation gate, for the case where v1's pairs are re-enabled. |
 | `data.holdout_families` | six families | Excluded from **all** training, across **every** record type; see [`unseen_stems`](#why-unseen_stems-exists). |
@@ -616,8 +630,8 @@ system prompt given to the **base** model too, which is what makes the compariso
 
 | Suite | What it measures |
 | --- | --- |
-| `cosimo_test` | Held-out IID slice (~680 items, **exam records only**). The headline in-domain number. |
-| `cosimo_unseen_stems` | Six stem families excluded from all training (~5 200 items, **exam records only**). Generalisation to question structures never trained on. |
+| `cosimo_test` | Held-out IID slice (657 items, **exam records only**). The headline in-domain number. |
+| `cosimo_unseen_stems` | Six stem families excluded from all training (6 910 items, **exam records only**). Generalisation to question structures never trained on. |
 | `gsm8k` | 250 grade-school math items. **Regression check**, not a target. |
 | `math500` | 250 competition math items. **Regression check**, not a target. |
 
@@ -670,9 +684,12 @@ The holdout applies to **every** record type, so a family's analysis and agentic
 out of training too — but only its exam records are evaluated, because the other types cannot be
 graded.
 
-**The slice is smaller than it was.** v1 had ~1 000 rows per held-out family and v2 has 174, so the
-mixed slice is ~5 200 items rather than ~6 000. Evaluating it is cheaper; the Wilson interval is
-correspondingly a little wider.
+**The slice does not move when the training mix does.** Held-out records are exempt from
+`dataset.mix`'s `max_share` cap, so it stays 6 910 items (v1's ~1 000 per family plus v2's 174) at
+every setting. That is deliberate: a knob that balances what the model learns must not quietly
+widen the confidence interval of what measures it. `data.test_frac` is raised to 1.7 % for the same
+reason — it applies to exam records only, which are ~30 % of the corpus, so 1 % would have yielded
+~390 items instead of 657.
 
 **Read the two numbers like this.** `cosimo_test` accuracy is optimistic — treat it as an upper
 bound that includes template familiarity. `cosimo_unseen_stems` accuracy is the honest one for
@@ -700,7 +717,7 @@ the exam suites. Format compliance went 4 % → 100 %. The model now answers eve
 of a four-step exam trace.
 
 That run trained on an exam-only corpus where every target ended in `FINAL ANSWER:`. **The
-`cosimo-quant-reasoning-v2` mix is the direct answer to it**: 57 % of SFT rows are now analysis,
+`cosimo-quant-reasoning-v2` mix is the direct answer to it**: 70 % of SFT rows are now analysis,
 abstention, agentic or implementation records, none of which carry the grading contract or the
 exam protocol. Whether that is *enough* is unmeasured — no run has been executed on the mixed
 corpus, and `exam_shape_rate` from
@@ -1048,17 +1065,17 @@ and the standalone preference shape.
    wrong about finance.
 7. **Memory figures and the evaluation wall clock are still estimates**, and the SFT training
    figure is now an estimate too: the 6.3 h measurement was taken on the v1-only corpus, which is
-   41 % of the mixed one.
+   half the size of the mixed one.
 8. **One epoch, one seed, no sweep.** The hyperparameters are defensible defaults with reasons
    attached, not tuned values. Nobody has run this twice. In particular, `learning_rate: 2.0e-4`
    and `num_train_epochs: 1` were chosen against a 63 500-row corpus and have not been revisited
-   for a 154 808-row one.
-9. **The preference stage is 7 425 pairs against 154 808 SFT rows** — 4.8 %, down from ~17 %. It
+   for a 125 939-row one.
+9. **The preference stage is 7 425 pairs against 125 939 SFT rows** — 5.9 %, down from ~17 %. It
    covers four failure modes and five programs, but it is a much narrower slice of topics than SFT
    sees, and `FRM_Part_1` has only 250 pairs in the published set.
 10. **Nothing has been run on the mixed corpus.** The preparation is verified end to end and every
     gate passes, but no baseline, SFT, DPO or assistant evaluation has been executed against it.
-    That the corpus is now 57 % non-exam does not prove style collapse is solved — `exam_shape_rate`
+    That the corpus is now 70 % non-exam does not prove style collapse is solved — `exam_shape_rate`
     from `09_assistant_eval.py` is the measurement that will say, and it has not been taken.
 11. **The tool suite tests format, not judgement.** `agentic` uses mock results and checks that the
     right tool was chosen and its output reached the answer. Nothing checks whether calling that
@@ -1068,8 +1085,7 @@ and the standalone preference shape.
 12. **The results currently on disk were measured at `max_new_tokens: 768`** on the v1-only corpus,
     and are truncation-bound on the baseline. They need re-measuring at the new 2048 default before
     any delta is quoted, and their training corpus no longer exists in this configuration.
-13. **7 500 of v2's 13 000 `implementation` records ship an unparseable `test_code` field.** The
-    harness drops the block rather than train on Python that does not parse, and reports the count
-    as `implementation_test_block_unparseable`, but the defect is in the corpus generator
-    (`dataset/pipelines/templates/v2_implementation.py`) and 58 % of the test blocks are being
-    thrown away as a result.
+13. **The published v2 corpus predates the `v2_implementation.py` dedent fix.** Its 7 500 broken
+    `test_code` blocks are repaired in the harness rather than discarded, which is sound but is a
+    workaround: regenerating and republishing v2 is what actually removes it, and until then the
+    manifest's `implementation_test_code_reindented` count stays at 7 500.

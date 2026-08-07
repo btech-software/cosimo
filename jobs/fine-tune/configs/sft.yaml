@@ -43,7 +43,7 @@ lora:
   # SFT and the later DPO stage comparable.
   lora_alpha: 32
 
-  # No dropout: the dataset is ~155k synthetic rows over 299 generator stems, so
+  # No dropout: the dataset is ~126k synthetic rows over 299 generator stems, so
   # the run is a single epoch and there is no time to overfit. Dropout would only
   # add gradient noise. It also lets Unsloth take its fast fused LoRA path.
   lora_dropout: 0.0
@@ -140,14 +140,14 @@ sft:
   # small and the final checkpoint is stable without an explicit averaging pass.
   lr_scheduler_type: cosine
 
-  # 3% warmup (~145 steps on the full mixed set). Enough to get the freshly
+  # 3% warmup (~118 steps on the full mixed set). Enough to get the freshly
   # initialised LoRA B matrices off zero before the peak rate arrives.
   warmup_ratio: 0.03
 
-  # One epoch over ~157k rows (~155k corpus + 2k tool rows). The dataset is
+  # One epoch over ~128k rows (~126k corpus + 2k tool rows). The dataset is
   # synthetic and generated from 299 stems; a second epoch memorises stem
-  # wording instead of teaching method. This is ~4,840 optimizer steps at
-  # effective batch 32, against 2,147 on the v1-only corpus -- roughly 15 h.
+  # wording instead of teaching method. This is ~3,940 optimizer steps at
+  # effective batch 32, against 2,147 on the v1-only corpus -- roughly 12 h.
   num_train_epochs: 1
 
   # -1 = run the full epoch. Set to a small positive number (e.g. --set
@@ -155,7 +155,7 @@ sft:
   max_steps: -1
 
   # Mild decoupled weight decay on the adapter matrices only; keeps the update
-  # norm from drifting over ~5k steps.
+  # norm from drifting over ~4k steps.
   weight_decay: 0.01
 
   # NOT adamw_8bit. bitsandbytes 0.49.2's aarch64 wheel does ship sm_121 cubins

@@ -30,13 +30,30 @@ dataset:
 
   # Additional corpora merged into the same pool. Each entry takes the same
   # keys as above plus `max_share`, its ceiling as a fraction of the merged
-  # supervised pool (null = uncapped); the cap is a seeded subsample.
+  # *trainable* pool (null = uncapped); the cap is a seeded subsample.
+  #
+  # Trainable, not total: held-out records are exempt. They never train -- they
+  # are the unseen_stems measuring instrument -- so capping them would shrink
+  # the evaluation slice and widen its confidence interval as a side effect of
+  # retuning the training mix. The holdout stays 6,910 items at every setting
+  # below.
   #
   # v1 is mixed in for exam depth -- 71 stems x ~1000 rows, against v2's 174
-  # rows per stem -- and capped at 30% so the corpus stays majority non-exam,
-  # which is the whole point of v2. Its embedded preference pairs are NOT used
-  # (preference_config: null): the preference stage trains on v2's standalone
-  # pairs, whose ids no supervised row shares.
+  # rows per stem. 0.12 puts exam at ~30% of SFT, so roughly 70% of what the
+  # model trains on is the analysis / abstention / agentic / implementation
+  # material v2 was built to supply. That balance is the whole point: an
+  # exam-only corpus is what compressed run 1's answers to 120 tokens. The
+  # trade-off is exam depth, and it is a smooth one:
+  #
+  #   max_share   SFT rows   exam share
+  #        0.30    160,757        44.5%
+  #        0.20    140,662        36.6%
+  #        0.12    127,875        30.2%   <- default
+  #        0.10    125,033        28.6%
+  #
+  # v1's embedded preference pairs are NOT used (preference_config: null): the
+  # preference stage trains on v2's standalone pairs, whose ids no supervised
+  # row shares.
   #
   # Rows whose question text already appears in a higher-priority source are
   # dropped: 1,840 exam questions are byte-identical across the two corpora
@@ -46,7 +63,7 @@ dataset:
     - hub_id: btech-software/cosimo-cfa-frm-71k
       revision: main
       preference_config: null
-      max_share: 0.30
+      max_share: 0.12
 paths:
   data_dir: data
   processed_dir: data/processed
