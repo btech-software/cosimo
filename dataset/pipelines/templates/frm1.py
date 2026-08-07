@@ -2,7 +2,7 @@
 FRM Part 1 templates (market risk, VaR, Greeks, valuation).
 """
 import math
-from pipelines.core import fmt, pct
+from pipelines.core import fmt, pct, render_trace
 from pipelines.templates.wrappers import wrap_cr, wrap_mcq, wrap_vignette
 
 PROG = "FRM_Part_1"
@@ -17,16 +17,18 @@ def mkt_param_var(rng, seq):
     var = value*sig_d*z
     q = (f"Portfolio {fmt(value)}, daily σ {pct(sig_d,2)}, parametric {pct(1-z*0,1)} VaR with z={z}. "
          f"Compute one-day VaR = V·σ·z.")
-    tr = (_assume([f"parametric VaR = V × σ × z", f"normal returns"]) +
-          f"Step 1. σ×z = {pct(sig_d,2)}×{z} = {sig_d*z:.5f}.\n"
-          f"Step 2. VaR = {fmt(value)}×{sig_d*z:.5f} = {fmt(var)}.\n"
-          f"Step 3. Interpretation: {pct(1-(0.5 if z==1.645 else 0.05 if z==1.96 else 0.01))} confidence.\n"
-          f"Step 4. Trap: using annual σ without the √daily scaling overstates VaR.")
+    steps = [
+        ("Step 1.", 'σ×z = {pct(sig_d,2)}×{z} = {sig_d*z:.5f}.\\n'),
+        ("Step 2.", 'VaR = {fmt(value)}×{sig_d*z:.5f} = {fmt(var)}.\\n'),
+        ("Step 3.", 'Interpretation: {pct(1-(0.5 if z==1.645 else 0.05 if z==1.96 else 0.01))} confidence.\\n'),
+        ("Step 4.", 'Trap: using annual σ without the √daily scaling overstates VaR'),
+    ]
+    tr = render_trace(rng, ['parametric VaR = V × σ × z', 'normal returns'], steps, conclusion='Trap: using annual σ without the √daily scaling overstates VaR')
     flaw = {"answer": f"{fmt(value*sig_d*z*math.sqrt(250))}", "pitfall": "time aggregation",
-            "reasoning_trace": (_assume([f"annualizing daily VaR"]) +
-            f"Step 1. Multiplying daily VaR by √250 = {fmt(math.sqrt(250))} scales to a 1-year horizon "
-            f"{fmt(value*sig_d*z*math.sqrt(250))}; the question asks one-day VaR = {fmt(var)}. "
-            f"Daily VaR uses daily σ, not annualized.")}
+            "reasoning_trace": render_trace(rng, ['annualizing daily VaR'], [
+                ("Step 1.", 'Multiplying daily VaR by √250 = {fmt(math.sqrt(250))} scales to a 1-year horizon \n{fmt(value*sig_d*z*math.sqrt(250))}; the question asks one-day VaR = {fmt(var)}. \nDaily VaR uses daily σ, not annualized'),
+            ]),
+                   }
     return {"meta":{"topic":"Market Risk","subtopic":"Parametric VaR","difficulty":"FRM1_Medium",
                     "question_type":"Calculation","pitfalls":["time aggregation","confidence level"]},
             "question":q, "answer":f"{fmt(var)}", "distractors":[f"{fmt(value*sig_d*z*math.sqrt(250))}", f"{fmt(value*sig_d)}", f"{fmt(var*2)}"],
@@ -38,14 +40,17 @@ def mkt_cvar(rng, seq):
     cvar = var*loss_avg
     q = (f"Daily 95% VaR = {fmt(var)}. Expected loss given that VaR is breached = {loss_avg:.2f}×VaR. "
          f"Compute CVaR/ES.")
-    tr = (_assume([f"CVaR = E[loss | loss > VaR]"]) +
-          f"Step 1. CVaR = VaR × loss-multiple = {fmt(var)}×{loss_avg:.2f} = {fmt(cvar)}.\n"
-          f"Step 2. CVaR ≥ VaR always; CVaR captures tail severity, VaR only the threshold.\n"
-          f"Step 3. Trap: reporting VaR as the expected tail loss ignores the magnitude beyond the threshold.")
+    steps = [
+        ("Step 1.", 'CVaR = VaR × loss-multiple = {fmt(var)}×{loss_avg:.2f} = {fmt(cvar)}.\\n'),
+        ("Step 2.", 'CVaR ≥ VaR always; CVaR captures tail severity, VaR only the threshold.\\n'),
+        ("Step 3.", 'Trap: reporting VaR as the expected tail loss ignores the magnitude beyond the threshold'),
+    ]
+    tr = render_trace(rng, ['CVaR = E[loss | loss > VaR]'], steps, conclusion='Trap: reporting VaR as the expected tail loss ignores the magnitude beyond the threshold')
     flaw = {"answer": f"{fmt(var)}", "pitfall": "CVaR vs VaR",
-            "reasoning_trace": (_assume([f"using VaR as tail loss"]) +
-            f"Step 1. Quoting VaR {fmt(var)} as the expected tail loss ignores that breaches average "
-            f"{loss_avg:.2f}× VaR; CVaR = {fmt(cvar)}. VaR is a quantile, not a conditional expectation.")}
+            "reasoning_trace": render_trace(rng, ['using VaR as tail loss'], [
+                ("Step 1.", 'Quoting VaR {fmt(var)} as the expected tail loss ignores that breaches average \n{loss_avg:.2f}× VaR; CVaR = {fmt(cvar)}. VaR is a quantile, not a conditional expectation'),
+            ]),
+                   }
     return {"meta":{"topic":"Market Risk","subtopic":"CVaR/ES","difficulty":"FRM1_Medium",
                     "question_type":"Calculation","pitfalls":["CVaR vs VaR","tail severity"]},
             "question":q, "answer":f"{fmt(cvar)}", "distractors":[f"{fmt(var)}", f"{fmt(cvar*2)}", f"{fmt(var*loss_avg*0.5)}"],
@@ -57,14 +62,17 @@ def greek_delta_hedge(rng, seq):
     hedge_shares = delta*units
     q = (f"Call delta {delta:.2f} on {units} call options (each on 1 share). "
          f"Compute shares needed for a delta-neutral hedge.")
-    tr = (_assume([f"delta-neutral: shares = Δ × units"]) +
-          f"Step 1. Shares = {delta:.2f}×{units} = {fmt(hedge_shares)}.\n"
-          f"Step 2. This offsets the short-call position's Δ exposure.\n"
-          f"Step 3. Trap: forgetting Δ (using 1 share per option) over-hedges and leaves residual risk.")
+    steps = [
+        ("Step 1.", 'Shares = {delta:.2f}×{units} = {fmt(hedge_shares)}.\\n'),
+        ("Step 2.", "This offsets the short-call position's Δ exposure.\\n"),
+        ("Step 3.", 'Trap: forgetting Δ (using 1 share per option) over-hedges and leaves residual risk'),
+    ]
+    tr = render_trace(rng, ['delta-neutral: shares = Δ × units'], steps, conclusion='Trap: forgetting Δ (using 1 share per option) over-hedges and leaves residual risk')
     flaw = {"answer": f"{fmt(units)}", "pitfall": "ignoring delta",
-            "reasoning_trace": (_assume([f"1:1 hedge"]) +
-            f"Step 1. Hedging 1 share per option ({fmt(units)}) ignores the option delta {delta:.2f}; "
-            f"correct hedge is Δ×units = {delta:.2f}×{fmt(units)} = {fmt(hedge_shares)}.")}
+            "reasoning_trace": render_trace(rng, ['1:1 hedge'], [
+                ("Step 1.", 'Hedging 1 share per option ({fmt(units)}) ignores the option delta {delta:.2f}; \ncorrect hedge is Δ×units = {delta:.2f}×{fmt(units)} = {fmt(hedge_shares)}'),
+            ]),
+                   }
     return {"meta":{"topic":"Options","subtopic":"Delta Hedging","difficulty":"FRM1_Easy",
                     "question_type":"Calculation","pitfalls":["delta weighting","hedge ratio"]},
             "question":q, "answer":f"{fmt(hedge_shares)}", "distractors":[f"{fmt(units)}", f"{fmt(hedge_shares*2)}", f"{fmt(delta)}"],
@@ -78,14 +86,17 @@ def bond_var_duration(rng, seq):
     var = value*pchange
     q = (f"Bond portfolio {fmt(value)}, modified duration {mod:.2f}. Yield rises by {pct(dy,2)}. "
          f"Estimate price change and VaR: ΔV ≈ −ModDur × Δy × V.")
-    tr = (_assume([f"ΔP/P ≈ −ModDur × Δy", f"ΔV ≈ ΔP/P × V"]) +
-          f"Step 1. ΔP/P = −{mod:.2f}×{pct(dy,2)} = {pchange:.5f} = {pct(pchange)}.\n"
-          f"Step 2. ΔV = {pct(pchange)}×{fmt(value)} = {fmt(var)} (loss).\n"
-          f"Step 3. Trap: ignoring the negative sign reports a gain; yields rising ⇒ price falls.")
+    steps = [
+        ("Step 1.", 'ΔP/P = −{mod:.2f}×{pct(dy,2)} = {pchange:.5f} = {pct(pchange)}.\\n'),
+        ("Step 2.", 'ΔV = {pct(pchange)}×{fmt(value)} = {fmt(var)} (loss).\\n'),
+        ("Step 3.", 'Trap: ignoring the negative sign reports a gain; yields rising ⇒ price falls'),
+    ]
+    tr = render_trace(rng, ['ΔP/P ≈ −ModDur × Δy', 'ΔV ≈ ΔP/P × V'], steps, conclusion='Trap: ignoring the negative sign reports a gain; yields rising ⇒ price falls')
     flaw = {"answer": f"{fmt(-var)}", "pitfall": "duration sign",
-            "reasoning_trace": (_assume([f"sign error"]) +
-            f"Step 1. Writing ΔV = +ModDur×Δy×V = {fmt(-var)} treats a yield increase as a gain. "
-            f"Duration measures price sensitivity with a NEGATIVE sign for yields: ΔV = −{mod:.2f}×{pct(dy,2)}×{fmt(value)} = {fmt(var)} (loss)." )}
+            "reasoning_trace": render_trace(rng, ['sign error'], [
+                ("Step 1.", 'Writing ΔV = +ModDur×Δy×V = {fmt(-var)} treats a yield increase as a gain. \nDuration measures price sensitivity with a NEGATIVE sign for yields: ΔV = −{mod:.2f}×{pct(dy,2)}×{fmt(value)} = {fmt(var)} (loss)'),
+            ]),
+                   }
     return {"meta":{"topic":"Market Risk","subtopic":"Bond VaR","difficulty":"FRM1_Hard",
                     "question_type":"Calculation","pitfalls":["duration sign","duration approximation"]},
             "question":q, "answer":f"{fmt(var)}", "distractors":[f"{fmt(-var)}", f"{fmt(value*pchange*2)}", f"{fmt(value)}"],
@@ -98,14 +109,17 @@ def reg_beta_corr(rng, seq):
     beta = rho*sig_a/sig_m
     q = (f"ρ(asset, market) = {rho:.2f}, σ_asset {pct(sig_a,1)}, σ_market {pct(sig_m,1)}. "
          f"Compute asset beta = ρ·σ_a/σ_m.")
-    tr = (_assume([f"β = ρ × σ_a / σ_m"]) +
-          f"Step 1. ρ×σ_a = {rho:.2f}×{pct(sig_a,1)} = {rho*sig_a:.4f}.\n"
-          f"Step 2. Divide by σ_m = {pct(sig_m,1)}: β = {beta:.2f}.\n"
-          f"Step 3. Trap: using correlation alone ({rho:.2f}) as beta ignores the volatility ratio.")
+    steps = [
+        ("Step 1.", 'ρ×σ_a = {rho:.2f}×{pct(sig_a,1)} = {rho*sig_a:.4f}.\\n'),
+        ("Step 2.", 'Divide by σ_m = {pct(sig_m,1)}: β = {beta:.2f}.\\n'),
+        ("Step 3.", 'Trap: using correlation alone ({rho:.2f}) as beta ignores the volatility ratio'),
+    ]
+    tr = render_trace(rng, ['β = ρ × σ_a / σ_m'], steps, conclusion='Trap: using correlation alone ({rho:.2f}) as beta ignores the volatility ratio')
     flaw = {"answer": f"{fmt(rho*sig_a)}", "pitfall": "beta vs correlation",
-            "reasoning_trace": (_assume([f"using ρ as β"]) +
-            f"Step 1. Reporting correlation {rho:.2f} as beta ignores σ_a/σ_m = {pct(sig_a,1)}/{pct(sig_m,1)} "
-            f"= {sig_a/sig_m:.2f}; β = ρ×σ_a/σ_m = {beta:.2f}.")}
+            "reasoning_trace": render_trace(rng, ['using ρ as β'], [
+                ("Step 1.", 'Reporting correlation {rho:.2f} as beta ignores σ_a/σ_m = {pct(sig_a,1)}/{pct(sig_m,1)} \n= {sig_a/sig_m:.2f}; β = ρ×σ_a/σ_m = {beta:.2f}'),
+            ]),
+                   }
     return {"meta":{"topic":"Quantitative Methods","subtopic":"Regression & Beta","difficulty":"FRM1_Medium",
                     "question_type":"Calculation","pitfalls":["beta vs correlation","volatility ratio"]},
             "question":q, "answer":f"β = {beta:.2f}", "distractors":[f"β = {fmt(rho)}", f"β = {fmt(rho*sig_a)}", f"β = {fmt(beta*2)}"],
@@ -120,15 +134,17 @@ def bsm_put_parity(rng, seq):
     put = call + k*math.exp(-r*t) - s
     q = (f"Put-call parity: S={s}, K={k}, r={pct(r,1)}, T={t:.1f}, call price {call:.2f}. "
          f"Compute the put price: P = C + K·e^(−rT) − S.")
-    tr = (_assume([f"put-call parity: C − P = S − PV(K)"]) +
-          f"Step 1. PV(K) = {k}×e^(−{r:.2f}×{t:.1f}) = {k*math.exp(-r*t):.3f}.\n"
-          f"Step 2. P = {call:.2f} + {k*math.exp(-r*t):.3f} − {s} = {fmt(put)}.\n"
-          f"Step 3. Trap: using K undiscounted ({k}) overstates the put by the discount factor.")
+    steps = [
+        ("Step 1.", 'PV(K) = {k}×e^(−{r:.2f}×{t:.1f}) = {k*math.exp(-r*t):.3f}.\\n'),
+        ("Step 2.", 'P = {call:.2f} + {k*math.exp(-r*t):.3f} − {s} = {fmt(put)}.\\n'),
+        ("Step 3.", 'Trap: using K undiscounted ({k}) overstates the put by the discount factor'),
+    ]
+    tr = render_trace(rng, ['put-call parity: C − P = S − PV(K)'], steps, conclusion='Trap: using K undiscounted ({k}) overstates the put by the discount factor')
     flaw = {"answer": f"{fmt(call + k - s)}", "pitfall": "undiscounted strike",
-            "reasoning_trace": (_assume([f"undiscounted strike"]) +
-            f"Step 1. P = C + K − S = {call:.2f} + {k} − {s} = {fmt(call+k-s)}. "
-            f"Put-call parity uses the PRESENT VALUE of the strike K·e^(−rT) = {k*math.exp(-r*t):.3f}, "
-            f"giving P = {fmt(put)}.")}
+            "reasoning_trace": render_trace(rng, ['undiscounted strike'], [
+                ("Step 1.", 'P = C + K − S = {call:.2f} + {k} − {s} = {fmt(call+k-s)}. \nPut-call parity uses the PRESENT VALUE of the strike K·e^(−rT) = {k*math.exp(-r*t):.3f}, \ngiving P = {fmt(put)}'),
+            ]),
+                   }
     return {"meta":{"topic":"Options","subtopic":"Put-Call Parity","difficulty":"FRM1_Medium",
                     "question_type":"Calculation","pitfalls":["PV of strike","parity formula"]},
             "question":q, "answer":f"{fmt(put)}", "distractors":[f"{fmt(call+k-s)}", f"{fmt(call)}", f"{fmt(put*2)}"],
@@ -142,12 +158,16 @@ def mkt_historical_var(rng, seq):
     var95 = pv * sigma * 1.645
     q = (f"Portfolio value {fmt(pv)}, daily volatility {pct(sigma)}. "
          f"Compute 1-day 95% VaR.")
-    tr = (_assume([f"VaR(95%) = V × σ × 1.645"]) +
-          f"Step 1. VaR = {fmt(pv)} × {pct(sigma)} × 1.645 = {fmt(var95)}.\n"
-          f"Step 2. Trap: using 99% z-score 2.326 gives {fmt(pv*sigma*2.326)}.")
+    steps = [
+        ("Step 1.", 'VaR = {fmt(pv)} × {pct(sigma)} × 1.645 = {fmt(var95)}.\\n'),
+        ("Step 2.", 'Trap: using 99% z-score 2.326 gives {fmt(pv*sigma*2.326)}'),
+    ]
+    tr = render_trace(rng, ['VaR(95%) = V × σ × 1.645'], steps, conclusion='Trap: using 99% z-score 2.326 gives {fmt(pv*sigma*2.326)}')
     flaw = {"answer": f"{fmt(pv*sigma*2.326)}", "pitfall": "confidence z-score",
-            "reasoning_trace": (_assume([f"99% z-score used"]) +
-            f"Step 1. VaR = {fmt(pv)} × {pct(sigma)} × 2.326 = {fmt(pv*sigma*2.326)}.")}
+            "reasoning_trace": render_trace(rng, ['99% z-score used'], [
+                ("Step 1.", 'VaR = {fmt(pv)} × {pct(sigma)} × 2.326 = {fmt(pv*sigma*2.326)}'),
+            ]),
+                   }
     return {"meta": {"topic":"Valuation and Risk Models","subtopic":"VaR Models","difficulty":"FRM1_Medium",
                      "question_type":"Calculation","pitfalls":["confidence z-score"]},
             "question":q, "answer":f"{fmt(var95)}",
@@ -165,12 +185,16 @@ def fut_forward_price(rng, seq):
         sim = s0 * (1 + 2 * r * t)
     q = (f"Spot {fmt(s0)}, risk-free rate {pct(r)}, maturity {t} yr. "
          f"Compute the no-arbitrage forward price.")
-    tr = (_assume([f"F_0 = S_0 × (1+r)^T"]) +
-          f"Step 1. F_0 = {fmt(s0)} × (1+{pct(r)})^{t:.2f} = {fmt(f0)}.\n"
-          f"Step 2. Trap: using simple r×T without compounding gives {fmt(s0*(1+r*t))}.")
+    steps = [
+        ("Step 1.", 'F_0 = {fmt(s0)} × (1+{pct(r)})^{t:.2f} = {fmt(f0)}.\\n'),
+        ("Step 2.", 'Trap: using simple r×T without compounding gives {fmt(s0*(1+r*t))}'),
+    ]
+    tr = render_trace(rng, ['F_0 = S_0 × (1+r)^T'], steps, conclusion='Trap: using simple r×T without compounding gives {fmt(s0*(1+r*t))}')
     flaw = {"answer": f"{fmt(s0*(1+r*t))}", "pitfall": "compounding over T",
-            "reasoning_trace": (_assume([f"simple interest used"]) +
-            f"Step 1. F_0 = {fmt(s0)} × (1+{pct(r)}×{t:.2f}) = {fmt(s0*(1+r*t))}.")}
+            "reasoning_trace": render_trace(rng, ['simple interest used'], [
+                ("Step 1.", 'F_0 = {fmt(s0)} × (1+{pct(r)}×{t:.2f}) = {fmt(s0*(1+r*t))}'),
+            ]),
+                   }
     return {"meta": {"topic":"Financial Markets and Products","subtopic":"Forward and Futures","difficulty":"FRM1_Easy",
                       "question_type":"Calculation","pitfalls":["compounding over T"]},
             "question":q, "answer":f"{fmt(f0)}",
@@ -201,9 +225,10 @@ def v1_qa_time_series(rng, seq):
           f"Steady-state variance Var(Xt) = σ²_ε/(1−φ²) = {ss_var:.3f}.\n"
           f"Step 4. Trap: using Xt = φ + εt ignores the lagged value {xt_1:.3f}.")
     flaw = {"answer": f"{fmt(phi + eps)}", "pitfall": "ignoring lagged value",
-            "reasoning_trace": (_assume([f"Xt = φ + εt"]) +
-            f"Step 1. {phi:.3f} + {eps:.1f} = {phi + eps:.3f} — this ignores the lagged value Xt-1 = {xt_1:.3f}. "
-            f"Correct: Xt = φ×Xt-1 + εt = {phi:.3f}×{xt_1:.3f} + {eps:.1f} = {xt:.3f}.")}
+            "reasoning_trace": render_trace(rng, ['Xt = φ + εt'], [
+                ("Step 1.", '{phi:.3f} + {eps:.1f} = {phi + eps:.3f} — this ignores the lagged value Xt-1 = {xt_1:.3f}. \nCorrect: Xt = φ×Xt-1 + εt = {phi:.3f}×{xt_1:.3f} + {eps:.1f} = {xt:.3f}'),
+            ]),
+                   }
     return {"meta":{"topic":"Quantitative Methods","subtopic":"Time Series Analysis","difficulty":"v1_FRM1_Hard",
                     "question_type":"Calculation","pitfalls":["lagged value","stationarity check"]},
             "question":q, "answer":f"{xt:.3f}",
@@ -256,10 +281,10 @@ def v1_qa_simulation(rng, seq):
                     f"Step 5. Trap: averaging terminal prices instead of discounting each payoff, "
                     f"or using the forward price E[ST] directly ignores the optionality.")
     flaw = {"answer": f"{fmt(s0 - k if s0 > k else 0)}", "pitfall": "intrinsic value only",
-            "reasoning_trace": (_assume([f"intrinsic value"]) +
-            f"Step 1. Quoting the intrinsic value max(S0−K, 0) = {fmt(s0 - k if s0 > k else 0)} ignores both "
-            f"time value (σ = {pct(sigma)}) and simulation-based discounting. "
-            f"Monte Carlo PV = {fmt(pv)}, which includes the random payoff distribution.")}
+            "reasoning_trace": render_trace(rng, ['intrinsic value'], [
+                ("Step 1.", 'Quoting the intrinsic value max(S0−K, 0) = {fmt(s0 - k if s0 > k else 0)} ignores both \ntime value (σ = {pct(sigma)}) and simulation-based discounting. \nMonte Carlo PV = {fmt(pv)}, which includes the random payoff distribution'),
+            ]),
+                   }
     return {"meta":{"topic":"Quantitative Methods","subtopic":"Monte Carlo Simulation","difficulty":"v1_FRM1_Hard",
                     "question_type":"Calculation","pitfalls":["optionality","discount each payoff"]},
             "question":q, "answer":f"{fmt(pv)}",
@@ -309,9 +334,10 @@ def v1_qa_prob_stats(rng, seq):
           f"the cumulative sum up to {k_target}.")
     flawed_ans = individual_probs.get(k_target, 0)
     flaw = {"answer": f"{flawed_ans:.6f}", "pitfall": "PMF instead of CDF",
-            "reasoning_trace": (_assume([f"P(X = k) only"]) +
-            f"Step 1. Computing P(X = {k_target}) = {flawed_ans:.6f} ignores the cumulative "
-            f"nature of P(X <= {k_target}). CDF sums P(X=0) through P(X={k_target}) = {cdf_val:.6f}.")}
+            "reasoning_trace": render_trace(rng, ['P(X = k) only'], [
+                ("Step 1.", 'Computing P(X = {k_target}) = {flawed_ans:.6f} ignores the cumulative \nnature of P(X <= {k_target}). CDF sums P(X=0) through P(X={k_target}) = {cdf_val:.6f}'),
+            ]),
+                   }
     return {"meta":{"topic":"Quantitative Methods","subtopic":"Probability Distributions","difficulty":"v1_FRM1_Medium",
                     "question_type":"Calculation","pitfalls":["CDF vs PMF","binomial expansion"]},
             "question":q, "answer":f"P(X <= {k_target}) = {cdf_val:.6f}",
@@ -397,11 +423,10 @@ def v1_fm_corp_bond(rng, seq):
         price_rf += cf * df
 
     flaw = {"answer": f"{fmt(price_rf)}", "pitfall": "ignoring credit spread",
-            "reasoning_trace": (_assume([f"risk-free discounting"]) +
-            f"Step 1. Pricing at the risk-free spot rates alone = {fmt(price_rf)} ignores the "
-            f"credit spread {pct(credit_spread,1)}. A corporate bond must be discounted at "
-            f"spot + credit spread, giving price = {fmt(price)}. "
-            f"The spread accounts for default risk.")}
+            "reasoning_trace": render_trace(rng, ['risk-free discounting'], [
+                ("Step 1.", 'Pricing at the risk-free spot rates alone = {fmt(price_rf)} ignores the \ncredit spread {pct(credit_spread,1)}. A corporate bond must be discounted at \nspot + credit spread, giving price = {fmt(price)}. \nThe spread accounts for default risk'),
+            ]),
+                   }
     return {"meta":{"topic":"Fixed Income","subtopic":"Corporate Bonds","difficulty":"v1_FRM1_Hard",
                     "question_type":"Calculation","pitfalls":["credit spread","risk-free rate"]},
             "question":q, "answer":f"{fmt(price)}",
@@ -448,10 +473,10 @@ def v1_fm_mortgage(rng, seq):
           f"Step 6. Total interest over {years} yrs = {fmt(total_interest)}.\n"
           f"Step 7. Trap: using annual rate directly as monthly rate overstates the payment by factor of 12.")
     flaw = {"answer": f"{fmt(principal * annual_rate / 12)}", "pitfall": "annual rate used as monthly",
-            "reasoning_trace": (_assume([f"monthly rate = annual rate"]) +
-            f"Step 1. {fmt(principal * annual_rate / 12)} uses annual rate {pct(annual_rate)} "
-            f"as if it were the monthly rate. The monthly rate is r = {pct(annual_rate,2)} / 12 = {pct(monthly_rate)}, "
-            f"yielding M = {fmt(monthly_payment)}.")}
+            "reasoning_trace": render_trace(rng, ['monthly rate = annual rate'], [
+                ("Step 1.", '{fmt(principal * annual_rate / 12)} uses annual rate {pct(annual_rate)} \nas if it were the monthly rate. The monthly rate is r = {pct(annual_rate,2)} / 12 = {pct(monthly_rate)}, \nyielding M = {fmt(monthly_payment)}'),
+            ]),
+                   }
     return {"meta":{"topic":"Fixed Income","subtopic":"Mortgages","difficulty":"v1_FRM1_Hard",
                     "question_type":"Calculation","pitfalls":["monthly vs annual rate","amortization"]},
             "question":q, "answer":f"{fmt(monthly_payment)}",
@@ -501,11 +526,10 @@ def v1_fm_swap(rng, seq):
                     f"Step 6. Trap: quoting the zero-coupon rate {pct(y)} as the swap rate ignores the annuity factor "
                     f"(the sum of discount factors).")
     flaw = {"answer": f"{pct(y)}", "pitfall": "yield rate vs swap rate",
-            "reasoning_trace": (_assume([f"swap rate = yield"]) +
-            f"Step 1. The flat yield {pct(y)} is the zero-coupon rate, NOT the par swap rate. "
-            f"The par swap rate accounts for the annuity of payments: "
-            f"s = (1 − DF_n)/ΣDF_i = {pct(par_rate_quarterly)} quarterly = {pct(par_rate_quarterly * 4)} annualized. "
-            f"Swaps pay a stream of fixed flows, so the rate must be spread across all periods.")}
+            "reasoning_trace": render_trace(rng, ['swap rate = yield'], [
+                ("Step 1.", 'The flat yield {pct(y)} is the zero-coupon rate, NOT the par swap rate. \nThe par swap rate accounts for the annuity of payments: \ns = (1 − DF_n)/ΣDF_i = {pct(par_rate_quarterly)} quarterly = {pct(par_rate_quarterly * 4)} annualized. \nSwaps pay a stream of fixed flows, so the rate must be spread across all periods'),
+            ]),
+                   }
     return {"meta":{"topic":"Financial Markets and Products","subtopic":"Swaps","difficulty":"v1_FRM1_Hard",
                     "question_type":"Calculation","pitfalls":["par rate vs yield","annuity factor"]},
             "question":q, "answer":f"par rate = {pct(par_rate_quarterly * 4)} p.a.",
@@ -632,13 +656,14 @@ def v1_mkt_backtesting(rng, seq):
          f"Exception rate = {exception_rate:.3%}. "
          f"Under Basel backtesting, classify the zone and describe the response.")
 
-    tr = (_assume(["Green: 0-3 exceptions / Yellow: 4-10 / Red: 11+ for 99% VaR"]) +
-          f"Step 1. Expected exceptions at 99% VaR in {n_days} days = {n_days * 0.01:.0f}. "
-          f"Observed = {exceptions}.\n"
-          f"Step 2. Exception rate = {exceptions}/{n_days} = {exception_rate:.3%}.\n"
-          f"Step 3. Zone = {zone.upper()} -> {signal}.\n"
-          f"Step 4. Capital surcharge: green = minimum, yellow = 0.40x, red = 1.00x.\n"
-          f"Step 5. Trap: using total count without adjusting for window length.")
+    steps = [
+        ("Step 1.", 'Expected exceptions at 99% VaR in {n_days} days = {n_days * 0.01:.0f}. \nObserved = {exceptions}.\\n'),
+        ("Step 2.", 'Exception rate = {exceptions}/{n_days} = {exception_rate:.3%}.\\n'),
+        ("Step 3.", 'Zone = {zone.upper()} -> {signal}.\\n'),
+        ("Step 4.", 'Capital surcharge: green = minimum, yellow = 0.40x, red = 1.00x.\\n'),
+        ("Step 5.", 'Trap: using total count without adjusting for window length'),
+    ]
+    tr = render_trace(rng, ['Green: 0-3 exceptions / Yellow: 4-10 / Red: 11+ for 99% VaR'], steps, conclusion='Trap: using total count without adjusting for window length')
 
     flaw = {"answer": "0.5% exception rate is acceptable", "pitfall": "ignoring zone classification",
             "reasoning_trace": (f"Step 1. The rate {exception_rate:.3%} must be mapped to a zone - "
@@ -719,15 +744,12 @@ def v1_qa_risk_types(rng, seq):
          f"Scenario: {scenario}\n\n"
          f"What primary category of risk does this represent?")
 
-    tr = (_assume(["Basel risk taxonomy: Market, Credit, Operational, Liquidity"]) +
-          f"Step 1. This is {risk_type}: {explanation}.\n"
-          f"Step 2. Distinguishing categories:\n"
-          f"  Market risk: losses from price movements in rates, FX, equities, commodities.\n"
-          f"  Credit risk: losses from default or downgrade of counterparties/instruments.\n"
-          f"  Operational risk: losses from people, processes, systems, or external events.\n"
-          f"  Liquidity risk: inability to fund liabilities (funding) or sell at fair value (market).\n"
-          f"Step 3. Interdependence: a credit event can trigger market risk and liquidity risk.\n"
-          f"    Risk managers must map cross-category contagion channels.")
+    steps = [
+        ("Step 1.", 'This is {risk_type}: {explanation}.\\n'),
+        ("Step 2.", 'Distinguishing categories:\\n\n  Market risk: losses from price movements in rates, FX, equities, commodities.\\n\n  Credit risk: losses from default or downgrade of counterparties/instruments.\\n\n  Operational risk: losses from people, processes, systems, or external events.\\n\n  Liquidity risk: inability to fund liabilities (funding) or sell at fair value (market).\\n'),
+        ("Step 3.", 'Interdependence: a credit event can trigger market risk and liquidity risk.\\n\n    Risk managers must map cross-category contagion channels'),
+    ]
+    tr = render_trace(rng, ['Basel risk taxonomy: Market, Credit, Operational, Liquidity'], steps)
 
     flaw = {"answer": "market risk - any loss is a market risk event",
             "pitfall": "not distinguishing risk categories",
@@ -768,22 +790,14 @@ def v1_fm_financial_crises(rng, seq):
     q = (f"Review the {era}: {desc}\n\n"
          f"What were the primary risk factors and risk-management failures involved?")
 
-    tr = (_assume(["Crisis framework: risk accumulation -> trigger -> amplification -> response"]) +
-          f"Step 1. Risk accumulation:\n"
-          f"  - Asset quality deteriorated; leverage ratios increased.\n"
-          f"  - Risk models on calm-period data underestimated tail correlation.\n"
-          f"  - Long-dated assets funded by short-term wholesale funding.\n"
-          f"Step 2. Amplification channels:\n"
-          f"  - Financial contagion via CDS, REPO, derivatives.\n"
-          f"  - Margin cascades: MTM losses -> margin calls -> forced liquidations.\n"
-          f"  - Procyclicality: VaR falls in calm periods -> more leverage -> fragility.\n"
-          f"Step 3. Risk-management failures:\n"
-          f"  - VaR calibrated on aberrant calm data.\n"
-          f"  - Stress tests not validated against crisis scenarios.\n"
-          f"  - No countercyclical capital buffers (Basel pro-cyclicality).\n"
-          f"  - Inadequate liquidity stress testing for withdrawal.\n"
-          f"Step 4. Regulatory response: Dodd-Frank, Basel III countercyclical buffers.\n"
-          f"Step 5. Key lesson: risk models must stress for known-unknowns. Tail is not pure Black Swan.")
+    steps = [
+        ("Step 1.", 'Risk accumulation:\\n\n  - Asset quality deteriorated; leverage ratios increased.\\n\n  - Risk models on calm-period data underestimated tail correlation.\\n\n  - Long-dated assets funded by short-term wholesale funding.\\n'),
+        ("Step 2.", 'Amplification channels:\\n\n  - Financial contagion via CDS, REPO, derivatives.\\n\n  - Margin cascades: MTM losses -> margin calls -> forced liquidations.\\n\n  - Procyclicality: VaR falls in calm periods -> more leverage -> fragility.\\n'),
+        ("Step 3.", 'Risk-management failures:\\n\n  - VaR calibrated on aberrant calm data.\\n\n  - Stress tests not validated against crisis scenarios.\\n\n  - No countercyclical capital buffers (Basel pro-cyclicality).\\n\n  - Inadequate liquidity stress testing for withdrawal.\\n'),
+        ("Step 4.", 'Regulatory response: Dodd-Frank, Basel III countercyclical buffers.\\n'),
+        ("Step 5.", 'Key lesson: risk models must stress for known-unknowns. Tail is not pure Black Swan'),
+    ]
+    tr = render_trace(rng, ['Crisis framework: risk accumulation -> trigger -> amplification -> response'], steps)
 
     flaw = {"answer": ("The crisis was a pure Black Swan - "
                        "no risk model could have predicted it"),
@@ -867,15 +881,16 @@ def v1_qa_probability_stats(rng, seq):
     q = (f"Risk manager tests 99% VaR model over {n_days} days. "
          f"{exceptions_obs} exceedances. Test H0: model correctly specified (alpha = {alpha:.0%}).")
 
-    tr = (_assume(["Two-sided test: reject H0 if |z_obs| > z_crit"]) +
-          f"Step 1. H0: true failure rate = 1%. H1: miscalibrated.\n"
-          f"Step 2. Observed rate = {exceptions_obs}/{n_days} = {obs_rate:.4f}.\n"
-          f"Step 3. SE = sqrt(0.01 * 0.99 / {n_days}) = {se:.4f}.\n"
-          f"Step 4. z = ({obs_rate:.4f} - 0.01) / {se:.4f} = {z_stat:.2f}.\n"
-          f"Step 5. Critical value (alpha={alpha:.0%}) = {crit_val:.2f}.\n"
-          f"Step 6. |z|={abs(z_stat):.2f} {'>' if reject else '<='} {crit_val:.2f} -> "
-          f"{'Reject H0: miscalibrated.' if reject else 'Fail to reject H0: adequate.'}.\n"
-          f"Step 7. Trap: treating 'fail to reject' as H0 is proven. Type II error risk persists.")
+    steps = [
+        ("Step 1.", 'H0: true failure rate = 1%. H1: miscalibrated.\\n'),
+        ("Step 2.", 'Observed rate = {exceptions_obs}/{n_days} = {obs_rate:.4f}.\\n'),
+        ("Step 3.", 'SE = sqrt(0.01 * 0.99 / {n_days}) = {se:.4f}.\\n'),
+        ("Step 4.", 'z = ({obs_rate:.4f} - 0.01) / {se:.4f} = {z_stat:.2f}.\\n'),
+        ("Step 5.", 'Critical value (alpha={alpha:.0%}) = {crit_val:.2f}.\\n'),
+        ("Step 6.", "|z|={abs(z_stat):.2f} {'>' if reject else '<='} {crit_val:.2f} -> \n{'Reject H0: miscalibrated.' if reject else 'Fail to reject H0: adequate.'}.\\n"),
+        ("Step 7.", "Trap: treating 'fail to reject' as H0 is proven. Type II error risk persists"),
+    ]
+    tr = render_trace(rng, ['Two-sided test: reject H0 if |z_obs| > z_crit'], steps, conclusion="Trap: treating 'fail to reject' as H0 is proven. Type II error risk persists")
 
     flaw = {"answer": "Fail to reject H0: the model is confirmed correct",
             "pitfall": "treating fail-to-reject as proof",

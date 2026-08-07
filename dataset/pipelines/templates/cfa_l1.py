@@ -727,6 +727,218 @@ def econ_cross_rate(rng, seq):
 
 m_corp_wacc = wrap_mcq(corp_wacc)
 
+
+# New generators for uncovered subtopics
+
+def corr_regression(rng, seq):
+    n = 12
+    x = [rng.uniform(1, 10) for _ in range(n)]
+    y = [rng.uniform(5, 20) for _ in range(n)]
+    xm = sum(x) / n; ym = sum(y) / n
+    sxy = sum((a-xm)*(b-ym) for a,b in zip(x,y)) / (n-1)
+    sx = sum((a-xm)**2 for a in x) / (n-1)
+    sy = sum((b-ym)**2 for b in y) / (n-1)
+    r = sxy / (sx * sy) if sx*sy > 0 else 0; r2 = r**2
+    q = "Sample data: n=%d. Compute Pearson r and R-squared." % n
+    tr = (_assume(["r measures linearity"]) + "Step 1. Mean x=%0.2f, y=%0.2f.\n" % (xm,ym) +
+          "Step 2. Cov=%0.3f. Step 3. r=%0.3f. Step 4. R^2=%0.3f." % (sxy, r, r2))
+    flaw = {"answer": "r=%0.3f" % r, "pitfall": "no covariance", 
+            "reasoning_trace": (_assume(["skip cov"]) + "Step 1. Need cov=%0.3f then r=%0.3f." % (sxy, r))}
+    return {"meta": {"topic": "Quantitative Methods", "subtopic": "Correlation and Regression",
+                     "difficulty": "L1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["covariance sign"]},
+            "question": q, "answer": "cov=%0.3f, r=%0.3f, R^2=%0.3f" % (sxy, r, r2),
+            "distractors": ["cov=0, r=0", "cov=%0.3f, r=%0.3f" % (sxy*2, r*2)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"n": n, "r": r, "r2": r2, "cov": sxy}}
+
+def ts_ar1(rng, seq):
+    phi = rng.uniform(0.5, 0.92, 3); eps = rng.uniform(-3, 3, 2); yprev = rng.uniform(-2, 2, 2)
+    ynow = phi * yprev + eps
+    q = "AR(1): phi=%0.3f, y_prev=%0.3f, et=%0.3f. Forecast (E[et]=0)." % (phi, yprev, eps)
+    tr = (_assume(["AR(1): yt = phi*yt-1 + et"]) + "Step 1. phi*y_prev=%0.3f. Step 2. y_t=%0.3f." % (phi*yprev, ynow) + " Step 3. phi in (0,1) => stationary.")
+    flaw = {"answer": "%0.3f" % (yprev+eps), "pitfall": "random walk",
+            "reasoning_trace": (_assume(["RW"]) + "Step 1. y_t=%0.3f if phi=1." % (yprev+eps))}
+    return {"meta": {"topic": "Quantitative Methods", "subtopic": "Time-Series Analysis",
+                     "difficulty": "L1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["stationarity"]},
+            "question": q, "answer": "yt~%0.3f" % ynow,
+            "distractors": ["%0.3f" % (yprev+eps), "%0.3f" % (yprev*phi*2)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"phi": phi, "ynow": ynow}}
+
+def econ_money_mult(rng, seq):
+    rr = rng.uniform(0.05, 0.15, 3); res = rng.randint(50, 200) * 1000000
+    m = 1/rr; dms = res*m - res
+    q = "Fed buys $%s. Reserve ratio %s. Multiplier and delta MS?" % (fmt(res), pct(rr))
+    tr = (_assume(["mult = 1/reserve"]) + "Step 1. Mult=%0.1f. Step 2. Delta $%s." % (m, fmt(dms)))
+    flaw = {"answer": "%0.3f" % rr, "pitfall": "inverted multiplier",
+            "reasoning_trace": (_assume(["inverted"]) + "Step 1. Mult=1/rr=%0.1f." % m)}
+    return {"meta": {"topic": "Economics", "subtopic": "Monetary and Fiscal Policy",
+                     "difficulty": "L1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["money multiplier"]},
+            "question": q, "answer": "m=%0.1f; delta $%s" % (m, fmt(dms)),
+            "distractors": ["m=%0.3f" % rr, "m=%0.1f" % (m*0.5)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"rr": rr, "m": m, "dms": dms}}
+
+def econ_gdp_defl(rng, seq):
+    nom = rng.randint(800, 1500) * 10000000; real = rng.randint(700, 1300) * 10000000
+    d = nom/real*100; inf = d-100
+    q = "Nominal $%s, Real $%s. GDP deflator and inflation?" % (fmt(nom), fmt(real))
+    tr = (_assume(["deflator = (Nom/Real)*100"]) + "Step 1. Deflator=%0.2f. Step 2. Inflation=%0.2f%%." % (d, inf))
+    flaw = {"answer": pct(nom-real), "pitfall": "$ gap as inflation",
+            "reasoning_trace": (_assume(["confused"]) + "Step 1. Delta $=%s is not inflation." % fmt(nom-real))}
+    return {"meta": {"topic": "Economics", "subtopic": "Aggregate Output and GDP",
+                     "difficulty": "L1_Easy", "question_type": "Calculation",
+                     "pitfalls": ["GDP deflator"]},
+            "question": q, "answer": "deflator=%0.2f, inflation=%0.2f%%" % (d, inf),
+            "distractors": ["deflator=%0.2f, infl=%0.2f%%" % (d*2, inf), "deflator=%0.2f" % (nom/real)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"d": d, "inf": inf}}
+
+def deriv_fmark(rng, seq):
+    f0 = rng.randint(50, 80) * 100; ft = f0 + rng.randint(-10, 20)*100; notl = rng.randint(1,5)*1000000
+    pnl = (ft-f0)*notl/1000
+    q = "Long forward: F0=%s, Ft=%s, notional=$%s. MtM PnL?" % (fmt(f0), fmt(ft), fmt(notl))
+    tr = (_assume(["Long MtM=(Ft-F0)*notl/1000"]) + "Step 1. Delta=%0.0f. Step 2. PnL=%0.2f." % (ft-f0, pnl))
+    flaw = {"answer": fmt(f0-ft), "pitfall": "wrong sign",
+            "reasoning_trace": (_assume(["wrong"]) + "Step 1. Long = Ft-F0 = %0.0f." % (ft-f0))}
+    return {"meta": {"topic": "Derivatives", "subtopic": "Forward Commitments",
+                     "difficulty": "L1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["mark-to-market"]},
+            "question": q, "answer": "$%0.2f" % pnl,
+            "distractors": ["$%0.2f" % ((f0-ft)*notl/1000), "$%0.2f" % (pnl*1.2)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"f0": f0, "ft": ft, "pnl": pnl}}
+
+def alt_reit_val(rng, seq):
+    noi = rng.randint(20, 50) * 100000; cap = rng.uniform(0.05, 0.10, 3)
+    val = noi/cap
+    q = "REIT: NOI $%s, cap rate=%s. Value?" % (fmt(noi), pct(cap))
+    tr = (_assume(["val = NOI/cap"]) + "Step 1. Value=$%s." % fmt(val))
+    flaw = {"answer": fmt(noi*cap), "pitfall": "multiply not divide",
+            "reasoning_trace": (_assume(["inverted"]) + "Step 1. NOI/cap not NOI*cap. $%s." % fmt(val))}
+    return {"meta": {"topic": "Alternative Investments", "subtopic": "Real Estate",
+                     "difficulty": "L1_Easy", "question_type": "Calculation",
+                     "pitfalls": ["cap rate"]},
+            "question": q, "answer": "$%s" % fmt(val),
+            "distractors": ["$%s" % fmt(noi*cap), "$%s" % fmt(val*2)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"noi": noi, "cap": cap, "val": val}}
+
+def alt_pe_moic_calc(rng, seq):
+    inv = rng.randint(50, 200)*1000000; dist = rng.randint(30, 180)*1000000; res = rng.randint(10, 100)*1000000
+    tot = dist + res; moic = tot/inv; dpi = dist/inv; tv = tot/inv
+    q = "PE: invested $%s, dist $%s, resid $%s. MOIC, DPI, TVPI?" % (fmt(inv), fmt(dist), fmt(res))
+    tr = (_assume(["MOIC=(dist+res)/invested"]) + "Step 1. Total=%s. Step 2. MOIC=%0.2fx." % (fmt(tot), moic) + " DPI=%0.2fx." % dpi)
+    flaw = {"answer": "%0.2fx" % dpi, "pitfall": "MOIC=DPI",
+            "reasoning_trace": (_assume(["MOIC=DPI"]) + "Step 1. MOIC=%0.2fx." % moic)}
+    return {"meta": {"topic": "Alternative Investments", "subtopic": "Private Equity",
+                     "difficulty": "L1_Easy", "question_type": "Calculation",
+                     "pitfalls": ["MOIC"]},
+            "question": q, "answer": "MOIC=%0.2fx, DPI=%0.2fx, TVPI=%0.2fx" % (moic, dpi, tv),
+            "distractors": ["MOIC=%0.2fx" % dpi, "MOIC=%0.2fx" % (moic*2)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"inv": inv, "tot": tot, "moic": moic, "dpi": dpi}}
+
+def deriv_straddle_calc(rng, seq):
+    spot = rng.randint(45, 60); k = rng.randint(spot-3, spot+1)
+    pc = rng.randint(2, 6); pp = rng.randint(2, 6); tot = pc+pp
+    ue = spot+tot; de = spot-tot
+    q = "Long straddle K=%d: call $%d, put $%d, spot $%d. BEs and max loss?" % (k, pc, pp, spot)
+    tr = (_assume(["straddle up=spot+total, down=spot-total"]) + "Step 1. Total=%d. Step 2. UpBE=%d. Step 3. DownBE=%d. Step 4. Maxloss=%d." % (tot, ue, de, tot))
+    flaw = {"answer": "maxloss=%d" % (tot // 2), "pitfall": "avg premiums",
+            "reasoning_trace": (_assume(["avg"]) + "Step 1. Total=%d." % tot)}
+    return {"meta": {"topic": "Derivatives", "subtopic": "Options Markets",
+                     "difficulty": "L1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["straddle"]},
+            "question": q, "answer": "upBE=%d, downBE=%d, maxloss=%d" % (ue, de, tot),
+            "distractors": ["upBE=%d,downBE=%d" % (ue+1, de-1), "upBE=%d,downBE=%d" % (spot, spot)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"spot": spot, "tot": tot, "ue": ue, "de": de}}
+
+def corp_board_indep(rng, seq):
+    total = rng.randint(5, 15); indep = rng.randint(3, max(4, total-2))
+    p = indep/total*100
+    q = "Board: %d directors, %d independent. Independence%%?" % (total, indep)
+    tr = (_assume(["indep = indep/total"]) + "Step 1. %d/%d = %0.1f%%." % (indep, total, p))
+    flaw = {"answer": "%0.1f%%" % (100-p), "pitfall": "inverted",
+            "reasoning_trace": (_assume(["wrong"]) + "Step 1. %d/%d = %0.1f%%." % (indep, total, p))}
+    return {"meta": {"topic": "Corporate Issuers", "subtopic": "Corporate Governance",
+                     "difficulty": "L1_Easy", "question_type": "Calculation",
+                     "pitfalls": ["board comp"]},
+            "question": q, "answer": "%0.1f%%" % p,
+            "distractors": ["%0.1f%%" % (100-p), "50.0%"],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"total": total, "indep": indep, "p": p}}
+
+def eq_pb_calc(rng, seq):
+    price = rng.randint(20, 100); bps = rng.uniform(5.0, 30.0, 1)
+    pb = price/bps; roe = rng.uniform(0.10, 0.25, 3)
+    q = "Price $%0.0f, BVPS $%0.2f. P/B?" % (price, bps)
+    tr = (_assume(["P/B = Price/BVPS"]) + "Step 1. P/B = %0.0f/%0.2f = %0.2f." % (price, bps, pb))
+    flaw = {"answer": "%0.2f" % (bps/price), "pitfall": "inverted",
+            "reasoning_trace": (_assume(["inverted"]) + "Step 1. P/B = %0.2f." % pb)}
+    return {"meta": {"topic": "Equity Investments", "subtopic": "Company Valuation Fundamentals",
+                     "difficulty": "L1_Easy", "question_type": "Calculation",
+                     "pitfalls": ["P/B inversion"]},
+            "question": q, "answer": "P/B = %0.2f" % pb,
+            "distractors": ["%0.2f" % (bps/price), "%0.2f" % (pb*2), "%0.2f" % roe],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"price": price, "bps": bps, "pb": pb}}
+
+def fi_yield_fwd(rng, seq):
+    s1 = rng.uniform(0.03, 0.06, 3); s2 = rng.uniform(0.04, 0.08, 3)
+    if s2 <= s1: s2 = s1 + rng.uniform(0.005, 0.03)
+    fwd = (1+s2)**2/(1+s1) - 1
+    q = "1yr spot=%s, 2yr spot=%s. 1yr forward 1yr ahead?" % (pct(s1), pct(s2))
+    tr = (_assume(["fwd = (1+s2)^2/(1+s1)-1"]) + "Step 1. %0.5f/%0.3f. Step 2. fwd = %s." % ((1+s2)**2, 1+s1, pct(fwd)))
+    flaw = {"answer": pct(s2), "pitfall": "fwd=s2",
+            "reasoning_trace": (_assume(["fwd=s2"]) + "Step 1. fwd must satisfy (1+s2)^2=(1+s1)(1+f). fwd=%s." % pct(fwd))}
+    return {"meta": {"topic": "Fixed Income", "subtopic": "Yield Curve",
+                     "difficulty": "L1_Hard", "question_type": "Calculation",
+                     "pitfalls": ["forward rate"]},
+            "question": q, "answer": "fwd = %s" % pct(fwd),
+            "distractors": [pct(s2), pct(s2-s1), pct(fwd*0.5)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"s1": s1, "s2": s2, "fwd": fwd}}
+
+def fsa_cogs_calc(rng, seq):
+    beg = rng.randint(50, 200)*10000; purch = rng.randint(100, 400)*10000; end = rng.randint(40, 180)*10000
+    cogs = beg+purch-end; sales = rng.randint(500, 1000)*10000
+    gm = (sales-cogs)/sales if sales else 0
+    q = "BegInv $%s, Purch $%s, EndInv $%s, Sales $%s. COGS and gross margin?" % (fmt(beg), fmt(purch), fmt(end), fmt(sales))
+    tr = (_assume(["COGS = Beg + Purch - End"]) + "Step 1. COGS=%s. Step 2. GM=%s." % (fmt(cogs), pct(gm)))
+    flaw = {"answer": "COGS=%s" % fmt(purch-end), "pitfall": "forgotten begInv",
+            "reasoning_trace": (_assume(["forgot beg"]) + "Step 1. Must add beg=%s. COGS=%s." % (fmt(beg), fmt(cogs)))}
+    return {"meta": {"topic": "Financial Statement Analysis", "subtopic": "Income Statement",
+                     "difficulty": "L1_Easy", "question_type": "Calculation",
+                     "pitfalls": ["COGS formula"]},
+            "question": q, "answer": "COGS=%s, GM=%s" % (fmt(cogs), pct(gm)),
+            "distractors": ["COGS=%s; GM=%.1f%%" % (fmt(purch-end), 30), "COGS=%s" % fmt(cogs*1.2)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"beg": beg, "cogs": cogs, "sales": sales}}
+
+def fsa_working_capital_calc(rng, seq):
+    cash = rng.randint(20, 80)*100000; ar = rng.randint(30, 100)*100000; inv = rng.randint(40, 120)*100000
+    cl = rng.randint(80, 200)*100000
+    ca = cash+ar+inv; wc = ca-cl
+    q = "Cash $%s, AR $%s, Inv $%s, CL $%s. Working capital?" % (fmt(cash), fmt(ar), fmt(inv), fmt(cl))
+    tr = (_assume(["WC = CA - CL"]) + "Step 1. CA=%d. Step 2. WC=%d." % (ca, wc))
+    flaw = {"answer": fmt(ca), "pitfall": "CA vs WC",
+            "reasoning_trace": (_assume(["confused"]) + "Step 1. CA=%d but WC=%d." % (ca, wc))}
+    return {"meta": {"topic": "Financial Statement Analysis", "subtopic": "Financial Analysis Techniques",
+                     "difficulty": "L1_Easy", "question_type": "Calculation",
+                     "pitfalls": ["WC"]},
+            "question": q, "answer": "$%s" % fmt(wc),
+            "distractors": ["$%s" % fmt(ca), "$%s" % fmt(wc*2)],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"ca": ca, "wc": wc}}
+
+def int_taxes_deferred_calc(rng, seq):
+    book = rng.randint(200, 800)*10000; taxbase = rng.randint(180, 750)*10000
+    rate = rng.choice([0.21, 0.25, 0.30, 0.35])
+    bt = book*rate; ct = taxbase*rate; dt = bt - ct
+    q = "Book $%s, Taxable $%s, rate %s. Current, book, deferred tax?" % (fmt(book), fmt(taxbase), pct(rate))
+    tr = (_assume(["book tax = book * rate"]) + "Step 1. Current=%s. Step 2. Book=%s. Step 3. Deferred=%s." % (fmt(ct), fmt(bt), fmt(dt)))
+    flaw = {"answer": "def=$%s" % fmt(bt+ct), "pitfall": "adding not subtracting",
+            "reasoning_trace": (_assume(["wrong sign"]) + "Step 1. Deferred = book - current = %s." % fmt(dt))}
+    return {"meta": {"topic": "Financial Statement Analysis", "subtopic": "Income Taxes",
+                     "difficulty": "L1_Medium", "question_type": "Calculation",
+                     "pitfalls": ["deferred tax sign"]},
+            "question": q, "answer": "cur=$%s, book=$%s, deferred=$%s" % (fmt(ct), fmt(bt), fmt(dt)),
+            "distractors": ["cur=$%s; deferred=$%s" % (fmt(ct), fmt(bt+ct))],
+            "reasoning_trace": tr, "flawed": flaw, "params": {"book": book, "rate": rate, "ct": ct, "dt": dt}}
+
+
 TEMPLATES = {
     "tvm_annuity_fv": tvm_annuity_fv, "tvm_pv_lump": tvm_pv_lump,
     "tvm_eay": tvm_eay, "tvm_npv_irr": tvm_npv_irr,
@@ -750,4 +962,18 @@ TEMPLATES = {
     "deriv_forward_payoff": deriv_forward_payoff,
     "econ_cross_rate": econ_cross_rate,
     "m_corp_wacc": m_corp_wacc,
+    "corr_regression": corr_regression,
+    "ts_ar1": ts_ar1,
+    "econ_money_mult": econ_money_mult,
+    "econ_gdp_defl": econ_gdp_defl,
+    "deriv_fmark": deriv_fmark,
+    "alt_reit_val": alt_reit_val,
+    "alt_pe_moic_calc": alt_pe_moic_calc,
+    "deriv_straddle_calc": deriv_straddle_calc,
+    "corp_board_indep": corp_board_indep,
+    "eq_pb_calc": eq_pb_calc,
+    "fi_yield_fwd": fi_yield_fwd,
+    "fsa_cogs_calc": fsa_cogs_calc,
+    "fsa_working_capital_calc": fsa_working_capital_calc,
+    "int_taxes_deferred_calc": int_taxes_deferred_calc,
 }
