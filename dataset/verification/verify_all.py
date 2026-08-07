@@ -9,8 +9,10 @@ Composes every gate over the whole corpus:
   5. agentic            tool calls valid, results present, answer uses them
   6. preference         chosen != rejected, disjoint id space, mode tagged
   7. terminology        eponym/concept collocations (verification/terms.py)
-  8. length             mixed-set p95 floor (verification/length_gate.py)
-  9. suite overlap      no near-duplicate of a held-out eval prompt
+  8. artifacts          no unrendered {placeholder} or literal escape in a target
+  9. duplication        distinct-question ratio, per type and per generator
+ 10. length             mixed-set p95 floor (verification/length_gate.py)
+ 11. suite overlap      no near-duplicate of a held-out eval prompt
 
 The first version of this file checked four numeric axes and **skipped every
 non-exam record** (`if not v.get('template'): skipped`), which is why a corpus
@@ -29,6 +31,8 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import artifacts  # noqa: E402
+import duplication  # noqa: E402
 import length_gate  # noqa: E402
 import suite_overlap  # noqa: E402
 import terms  # noqa: E402
@@ -64,6 +68,12 @@ def gate_structure(records):
         if rid in seen:
             result.fail(rid, f"duplicate id (also in {seen[rid]})")
         seen[rid] = rec.get("_source", "?")
+        if "record_type" not in rec:
+            # The helper defaults missing record_type to "exam", which let 24,360
+            # rows ship without the discriminator FORMAT.md requires -- invisible
+            # until the publish normaliser rendered them as record_type "".
+            result.fail(rid, "record_type field is missing (FORMAT.md requires "
+                             "the discriminator on every record)")
         if rtype not in REQUIRED_FIELDS:
             result.fail(rid, f"unknown record_type {rtype!r}")
             continue
@@ -286,8 +296,17 @@ def main():
     results.append(gate_agentic(records))
     results.append(gate_preference(records))
     results.append(terms.run(records))
+    results.append(artifacts.run(records))
 
-    length_result, length_stats = length_gate.run(records)
+    # Corpus-level, not per-record: every other gate inspects one row at a time,
+    # which is how 52% duplicate questions passed a fully green board.
+    duplication_result, duplication_stats = duplication.run(records)
+    results.append(duplication_result)
+
+    # The mixed-set floor is a property of the shipped composition; the smoke
+    # corpus (one variant per generator) has a different type mix by design.
+    scratch = bool(os.environ.get("COSIMO_SHARDS_DIR"))
+    length_result, length_stats = length_gate.run(records, enforce_mixed=not scratch)
     results.append(length_result)
 
     if not quick:
@@ -298,6 +317,8 @@ def main():
     for result in results:
         ok = result.report() and ok
 
+    print()
+    duplication.print_table(duplication_stats)
     print()
     length_gate.print_table(length_stats)
 

@@ -23,6 +23,10 @@ eval/ab_results.json
 # verification/suite_overlap.py report, regenerated on every run
 verification/suite_overlap.json
 
+# publish/push_to_hub.py renders this from the corpus on every run; the template
+# it is rendered from (dataset_card.md) is the tracked artifact.
+publish/dataset_card_generated.md
+
 # smoke-run scratch output
 .smoke/
 

@@ -177,7 +177,7 @@ def build_preference(program, tpl_name, rng, seq, tpl_fn):
         qtype=meta["question_type"], question=rich["question"], answer=rich["answer"],
         distractors=rich["distractors"], trace=rich["reasoning_trace"],
         metadata={"pitfalls": meta["pitfalls"], "generator": f"{tpl_name}", "source": "synthetic_template"},
-        preference_pair=pair, seq=seq, seed=rng.seed,
+        preference_pair=pair, seq=seq, seed=rng.seed, record_type="exam",
         verification={
             "method": "reference_code_exec",
             "template": tpl_name,
@@ -216,6 +216,7 @@ def build_new_record_type(program, tpl_name, rng, seq, tpl_fn, record_type):
 
     # ---- v2_analysis: topic/subtopic are nested inside "meta" ----
     if record_type == "analysis":
+        from pipelines.templates import analysis_depth
         meta = rec_dict.get("meta", {})
         topic = meta.get("topic", "")
         subtopic = meta.get("subtopic", "")
@@ -225,10 +226,17 @@ def build_new_record_type(program, tpl_name, rng, seq, tpl_fn, record_type):
             "generator": tpl_name, "source": "synthetic_template",
             "record_type": "analysis", "pitfalls": meta.get("pitfalls", []),
         }
+        # The long-form tail is composed here, centrally, from the record's own
+        # RNG -- topic-keyed paragraphs that each compute their own numbers. Its
+        # predecessor was one identical 819-token essay pasted into all 8,084
+        # analysis rows (88% of every answer, topically wrong for most of them).
+        answer = analysis_depth.deepen(
+            rng, topic, subtopic, rec_dict.get("answer", "")
+        )
         return record(
             program=program, topic=topic, subtopic=subtopic, difficulty=difficulty,
             qtype=meta.get("question_type", "Analysis"),
-            question=rec_dict.get("question", ""), answer=rec_dict.get("answer", ""),
+            question=rec_dict.get("question", ""), answer=answer,
             distractors=[], trace="",
             verified=rec_dict.get("verified", True),
             verification=rec_dict.get("verification") or {},

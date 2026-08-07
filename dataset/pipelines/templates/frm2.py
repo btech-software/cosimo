@@ -3,6 +3,7 @@ FRM Part 2 templates (credit, operational, liquidity, Basel).
 """
 import math
 from pipelines.core import fmt, pct, render_trace
+from pipelines.core import scenario_clause as _ctx
 from pipelines.templates.wrappers import wrap_mcq, wrap_cr, wrap_vignette
 
 PROG = "FRM_Part_2"
@@ -18,14 +19,14 @@ def credit_el(rng, seq):
     q = (f"Credit exposure (EAD) {fmt(ead)}, PD {pct(pd,1)}, LGD {pct(lgd,1)}. "
          f"Compute expected loss = PD × LGD × EAD.")
     steps = [
-        ("Step 1.", 'PD×LGD = {pct(pd,1)}×{pct(lgd,1)} = {pct(pd*lgd,1)}.\\n'),
-        ("Step 2.", 'EL = {pct(pd*lgd,1)}×{fmt(ead)} = {fmt(el)}.\\n'),
-        ("Step 3.", 'Trap: using EAD without LGD ({fmt(pd*ead)}) overstates expected loss'),
+        ("Step 1.", f'PD×LGD = {pct(pd,1)}×{pct(lgd,1)} = {pct(pd*lgd,1)}.\n'),
+        ("Step 2.", f'EL = {pct(pd*lgd,1)}×{fmt(ead)} = {fmt(el)}.\n'),
+        ("Step 3.", f'Trap: using EAD without LGD ({fmt(pd*ead)}) overstates expected loss'),
     ]
-    tr = render_trace(rng, ['EL = PD × LGD × EAD'], steps, conclusion='Trap: using EAD without LGD ({fmt(pd*ead)}) overstates expected loss')
+    tr = render_trace(rng, ['EL = PD × LGD × EAD'], steps, conclusion=f'Trap: using EAD without LGD ({fmt(pd*ead)}) overstates expected loss')
     flaw = {"answer": f"{fmt(pd*ead)}", "pitfall": "omitting LGD",
             "reasoning_trace": render_trace(rng, ['EL = PD × EAD'], [
-                ("Step 1.", 'Multiplying PD {pct(pd,1)} by EAD {fmt(ead)} = {fmt(pd*ead)} skips the loss-given-\ndefault {pct(lgd,1)}; EL = PD×LGD×EAD = {pct(pd,1)}×{pct(lgd,1)}×{fmt(ead)} = {fmt(el)}'),
+                ("Step 1.", f'Multiplying PD {pct(pd,1)} by EAD {fmt(ead)} = {fmt(pd*ead)} skips the loss-given-\ndefault {pct(lgd,1)}; EL = PD×LGD×EAD = {pct(pd,1)}×{pct(lgd,1)}×{fmt(ead)} = {fmt(el)}'),
             ]),
                    }
     return {"meta":{"topic":"Credit Risk","subtopic":"Expected Loss","difficulty":"FRM2_Medium",
@@ -46,16 +47,16 @@ def credit_var_vasicek(rng, seq):
     # conditional PD approx via Vasicek formula (simplified)
     cpd = _m.erf((th - rho*2)/(_m.sqrt(1-rho**2)*_m.sqrt(2)))*0.5+0.5
     steps = [
-        ("Step 1.", 'N⁻¹(PD) ≈ {th:.3f} (from {pct(pd,1)}).\\n'),
-        ("Step 2.", 'Systemic factor Z = −2 (tail stress): numerator {th:.3f} − {rho:.2f}×(−2) = {th + 2*rho:.3f}.\\n'),
-        ("Step 3.", 'Denominator √(1−ρ²) = √(1−{rho:.2f}²) = {_m.sqrt(1-rho**2):.3f}.\\n'),
-        ("Step 4.", 'Conditional PD = {pct(cpd)} vs unconditional {pct(pd,1)} — the systemic tail multiplies default probability.\\n'),
+        ("Step 1.", f'N⁻¹(PD) ≈ {th:.3f} (from {pct(pd,1)}).\n'),
+        ("Step 2.", f'Systemic factor Z = −2 (tail stress): numerator {th:.3f} − {rho:.2f}×(−2) = {th + 2*rho:.3f}.\n'),
+        ("Step 3.", f'Denominator √(1−ρ²) = √(1−{rho:.2f}²) = {_m.sqrt(1-rho**2):.3f}.\n'),
+        ("Step 4.", f'Conditional PD = {pct(cpd)} vs unconditional {pct(pd,1)} — the systemic tail multiplies default probability.\n'),
         ("Step 5.", 'Trap: quoting unconditional PD ignores the correlation-driven systemic tail'),
     ]
     tr = render_trace(rng, ['Vasicek conditional PD = N[(N⁻¹(PD) − ρ·Z)/√(1−ρ²)]'], steps, conclusion='Trap: quoting unconditional PD ignores the correlation-driven systemic tail')
     flaw = {"answer": f"{pct(pd)}", "pitfall": "unconditional vs conditional PD",
             "reasoning_trace": render_trace(rng, ['using unconditional PD'], [
-                ("Step 1.", 'Reporting unconditional PD {pct(pd,1)} in a −2σ systemic stress ignores asset \ncorrelation {rho:.2f}; Vasicek conditional PD rises to {pct(cpd)}'),
+                ("Step 1.", f'Reporting unconditional PD {pct(pd,1)} in a −2σ systemic stress ignores asset \ncorrelation {rho:.2f}; Vasicek conditional PD rises to {pct(cpd)}'),
             ]),
                    }
     return {"meta":{"topic":"Credit Risk","subtopic":"Vasicek Model","difficulty":"FRM2_Hard",
@@ -70,15 +71,16 @@ def op_risk_basel(rng, seq):
     q = (f"Basel II Basic Indicator Approach: alpha = {alpha:.2f}, average gross income {fmt(gross_income)} "
          f"over 3 yrs. Compute the operational risk capital charge = α × gross income.")
     steps = [
-        ("Step 1.", 'Charge = {alpha:.2f}×{fmt(gross_income)} = {fmt(op_charge)} per year.\\n'),
+        ("Step 1.", f'Charge = {alpha:.2f}×{fmt(gross_income)} = {fmt(op_charge)} per year.\n'),
         ("Step 2.", 'Trap: using total income over the 3-yr window (not the average) overstates the charge'),
     ]
     tr = render_trace(rng, ['BIA charge = α × gross income (annualized)'], steps, conclusion='Trap: using total income over the 3-yr window (not the average) overstates the charge')
     flaw = {"answer": f"{fmt(alpha*gross_income*3)}", "pitfall": "average vs total income",
             "reasoning_trace": render_trace(rng, ['total 3-yr income'], [
-                ("Step 1.", 'Multiplying 3-yr total income × alpha = {fmt(alpha*gross_income*3)} instead of \nthe AVERAGE gross income × alpha = {fmt(op_charge)}. The BIA uses average gross income over 3 years'),
+                ("Step 1.", f'Multiplying 3-yr total income × alpha = {fmt(alpha*gross_income*3)} instead of \nthe AVERAGE gross income × alpha = {fmt(op_charge)}. The BIA uses average gross income over 3 years'),
             ]),
                    }
+    q = _ctx(rng, q)
     return {"meta":{"topic":"Operational Risk","subtopic":"Basel Approaches","difficulty":"FRM2_Medium",
                     "question_type":"Calculation","pitfalls":["average gross income","BIA formula"]},
             "question":q, "answer":f"{fmt(op_charge)}", "distractors":[f"{fmt(alpha*gross_income*3)}", f"{fmt(gross_income)}", f"{fmt(op_charge*2)}"],
@@ -94,14 +96,14 @@ def liq_lcad(rng, seq):
     q = (f"LCR: HQLA {fmt(hqla)}, 30-day gross outflows {fmt(outflow)}, inflows {fmt(inflow)}. "
          f"Compute LCR = HQLA / (outflows − inflows).")
     steps = [
-        ("Step 1.", 'Net outflows = {fmt(outflow)} − {fmt(inflow)} = {fmt(n_outflow)}.\\n'),
-        ("Step 2.", 'LCR = {fmt(hqla)}/{fmt(n_outflow)} = {lcr:.2f} ({pct(lcr)}).\\n'),
+        ("Step 1.", f'Net outflows = {fmt(outflow)} − {fmt(inflow)} = {fmt(n_outflow)}.\n'),
+        ("Step 2.", f'LCR = {fmt(hqla)}/{fmt(n_outflow)} = {lcr:.2f} ({pct(lcr)}).\n'),
         ("Step 3.", 'Trap: dividing by gross outflows (no inflow offset) understates the ratio'),
     ]
     tr = render_trace(rng, ['LCR = HQLA / net cash outflows'], steps, conclusion='Trap: dividing by gross outflows (no inflow offset) understates the ratio')
     flaw = {"answer": f"{fmt(hqla/outflow)}", "pitfall": "net vs gross outflows",
             "reasoning_trace": render_trace(rng, ['gross outflows'], [
-                ("Step 1.", 'LCR = HQLA/gross outflows = {fmt(hqla)}/{fmt(outflow)} = {fmt(hqla/outflow)} \ninstead of HQLA/net outflows = {fmt(hqla)}/{fmt(n_outflow)} = {lcr:.2f}. \nBasel nets inflows against outflows in the denominator'),
+                ("Step 1.", f'LCR = HQLA/gross outflows = {fmt(hqla)}/{fmt(outflow)} = {fmt(hqla/outflow)} \ninstead of HQLA/net outflows = {fmt(hqla)}/{fmt(n_outflow)} = {lcr:.2f}. \nBasel nets inflows against outflows in the denominator'),
             ]),
                    }
     return {"meta":{"topic":"Liquidity Risk","subtopic":"LCR","difficulty":"FRM2_Medium",
@@ -120,14 +122,14 @@ def liq_ws_avg(rng, seq):
     q = (f"Funding: {fmt(amt1)} at {pct(rate1,1)} and {fmt(amt2)} at {pct(rate2,1)}. "
          f"Compute the weighted average cost of funds.")
     steps = [
-        ("Step 1.", 'Total = {fmt(amt1)} + {fmt(amt2)} = {fmt(total)}.\\n'),
-        ("Step 2.", 'Weighted cost = ({fmt(amt1)}×{pct(rate1,1)} + {fmt(amt2)}×{pct(rate2,1)})/{fmt(total)} = {pct(avg_cost)}.\\n'),
-        ("Step 3.", 'Trap: unweighted average ({pct((rate1+rate2)/2)}) misstates funding cost when amounts differ'),
+        ("Step 1.", f'Total = {fmt(amt1)} + {fmt(amt2)} = {fmt(total)}.\n'),
+        ("Step 2.", f'Weighted cost = ({fmt(amt1)}×{pct(rate1,1)} + {fmt(amt2)}×{pct(rate2,1)})/{fmt(total)} = {pct(avg_cost)}.\n'),
+        ("Step 3.", f'Trap: unweighted average ({pct((rate1+rate2)/2)}) misstates funding cost when amounts differ'),
     ]
-    tr = render_trace(rng, ['WACF = Σ(amount×rate)/Σ amount'], steps, conclusion='Trap: unweighted average ({pct((rate1+rate2)/2)}) misstates funding cost when amounts differ')
+    tr = render_trace(rng, ['WACF = Σ(amount×rate)/Σ amount'], steps, conclusion=f'Trap: unweighted average ({pct((rate1+rate2)/2)}) misstates funding cost when amounts differ')
     flaw = {"answer": f"{fmt(amt1*rate1+amt2*rate2)}", "pitfall": "weighted vs simple average",
             "reasoning_trace": render_trace(rng, ['simple average'], [
-                ("Step 1.", 'Averaging rates {pct(rate1,1)} and {pct(rate2,1)} = {pct((rate1+rate2)/2)} \nignores the amounts {fmt(amt1)} vs {fmt(amt2)}; weighted cost = {pct(avg_cost)}'),
+                ("Step 1.", f'Averaging rates {pct(rate1,1)} and {pct(rate2,1)} = {pct((rate1+rate2)/2)} \nignores the amounts {fmt(amt1)} vs {fmt(amt2)}; weighted cost = {pct(avg_cost)}'),
             ]),
                    }
     return {"meta":{"topic":"Liquidity Risk","subtopic":"Funding Cost","difficulty":"FRM2_Easy",
@@ -144,13 +146,13 @@ def credit_var(rng, seq):
     q = (f"Loan {fmt(pv)}, default probability {pct(pd)}, loss-given-default {lgd:.0%}. "
          f"Compute 1-day 99% credit VaR.")
     steps = [
-        ("Step 1.", 'CVaR = {fmt(pv)} × {pct(pd)} × {lgd:.0%} × 2.326 = {fmt(var99)}.\\n'),
-        ("Step 2.", 'Trap: dropping LGD gives {fmt(pv*pd*2.326)}'),
+        ("Step 1.", f'CVaR = {fmt(pv)} × {pct(pd)} × {lgd:.0%} × 2.326 = {fmt(var99)}.\n'),
+        ("Step 2.", f'Trap: dropping LGD gives {fmt(pv*pd*2.326)}'),
     ]
-    tr = render_trace(rng, ['credit VaR ≈ V × PD × LGD × z(99%)'], steps, conclusion='Trap: dropping LGD gives {fmt(pv*pd*2.326)}')
+    tr = render_trace(rng, ['credit VaR ≈ V × PD × LGD × z(99%)'], steps, conclusion=f'Trap: dropping LGD gives {fmt(pv*pd*2.326)}')
     flaw = {"answer": f"{fmt(pv*pd*2.326)}", "pitfall": "LGD omitted",
             "reasoning_trace": render_trace(rng, ['LGD omitted'], [
-                ("Step 1.", 'CVaR = {fmt(pv)} × {pct(pd)} × 2.326 = {fmt(pv*pd*2.326)}'),
+                ("Step 1.", f'CVaR = {fmt(pv)} × {pct(pd)} × 2.326 = {fmt(pv*pd*2.326)}'),
             ]),
                    }
     return {"meta": {"topic":"Credit Risk","subtopic":"Credit VaR","difficulty":"FRM2_Medium",
@@ -171,7 +173,7 @@ def v2_cr_counterparty(rng, seq):
     t = rng.choice([3.0, 5.0, 7.0])
     cva = exp * (1 - lgd_cp) * pd_cp * math.exp(-r * t)
     steps = [
-        ("Step 4.", 'DVA is the symmetric amount when we are the counterparty: DVA = our_PD × our_LGD × E × discount.\\n'),
+        ("Step 4.", 'DVA is the symmetric amount when we are the counterparty: DVA = our_PD × our_LGD × E × discount.\n'),
         ("Step 5.", 'Wrong-way risk: correlation between E and PD pushes actual CVA above the calculated value'),
     ]
     tr = render_trace(rng, ['CVA = E × (1 − R) × PD × exp(−rT)'], steps)
@@ -227,10 +229,10 @@ def v2_cr_securitization(rng, seq):
 
     wt_yld = (a_princ * a_cpn + b_princ * b_cpn + c_princ * c_cpn) / (a_princ + b_princ + c_princ)
     steps = [
-        ("Step 1.", 'Compute interest per tranche:\\n\n  A_int = {fmt(a_princ)} × {pct(a_cpn)} = {fmt(a_int)}\\n\n  B_int = {fmt(b_princ)} × {pct(b_cpn)} = {fmt(b_int)}\\n\n  C_int = {fmt(c_princ)} × {pct(c_cpn)} = {fmt(c_int)}\\n\n  Total interest = {fmt(total_int)}\\n\\n'),
-        ("Step 2.", 'Available for principal = {fmt(avail_pool)} − {fmt(total_int)} = {fmt(avail_principal)}\\n\\n'),
-        ("Step 3.", 'Waterfall: A gets {fmt(a_paid)}, B gets {fmt(b_paid)}, C gets {fmt(c_paid)}\\n\\n'),
-        ("Step 4.", 'The portfolio weighted-yield = {pct(wt_yld)}.\\n'),
+        ("Step 1.", f'Compute interest per tranche:\n\n  A_int = {fmt(a_princ)} × {pct(a_cpn)} = {fmt(a_int)}\n\n  B_int = {fmt(b_princ)} × {pct(b_cpn)} = {fmt(b_int)}\n\n  C_int = {fmt(c_princ)} × {pct(c_cpn)} = {fmt(c_int)}\n\n  Total interest = {fmt(total_int)}\n\n'),
+        ("Step 2.", f'Available for principal = {fmt(avail_pool)} − {fmt(total_int)} = {fmt(avail_principal)}\n\n'),
+        ("Step 3.", f'Waterfall: A gets {fmt(a_paid)}, B gets {fmt(b_paid)}, C gets {fmt(c_paid)}\n\n'),
+        ("Step 4.", f'The portfolio weighted-yield = {pct(wt_yld)}.\n'),
         ("Step 5.", 'Trap: allocating principal pro-rata across tranches ignores the legal waterfall'),
     ]
     tr = render_trace(rng, ['Waterfall: interest first, then principal down the seniority chain'], steps, conclusion='Trap: allocating principal pro-rata across tranches ignores the legal waterfall')
@@ -270,17 +272,17 @@ def v2_op_loss_dist(rng, seq):
     var995 = exp_loss + 2.326 * std_loss
     eco_cap = var995 - exp_loss
     steps = [
-        ("Step 1.", 'Expected loss = λ × E[X] = {lam:.1f} × {fmt(math.exp(mu_s + 0.5 * sigma_s**2))} = {fmt(exp_loss)}\\n'),
-        ("Step 2.", 'Std loss = √λ × σ = {math.sqrt(lam):.2f} × {fmt(std_sev)} = {fmt(std_loss)}\\n'),
-        ("Step 3.", '99.5th-percentile ≈ {fmt(exp_loss)} + 2.326 × {fmt(std_loss)} = {fmt(var995)}\\n'),
-        ("Step 4.", 'Economic capital = {fmt(var995)} − {fmt(exp_loss)} = {fmt(eco_cap)}\\n\\n'),
+        ("Step 1.", f'Expected loss = λ × E[X] = {lam:.1f} × {fmt(math.exp(mu_s + 0.5 * sigma_s**2))} = {fmt(exp_loss)}\n'),
+        ("Step 2.", f'Std loss = √λ × σ = {math.sqrt(lam):.2f} × {fmt(std_sev)} = {fmt(std_loss)}\n'),
+        ("Step 3.", f'99.5th-percentile ≈ {fmt(exp_loss)} + 2.326 × {fmt(std_loss)} = {fmt(var995)}\n'),
+        ("Step 4.", f'Economic capital = {fmt(var995)} − {fmt(exp_loss)} = {fmt(eco_cap)}\n\n'),
         ("Step 5.", 'Trap: quoting 99.5th percentile VaR itself as economic capital. \nEC = VaR − EL; VaR already includes expected loss'),
     ]
     tr = render_trace(rng, ['Severity ~ lognormal(μ,σ); Loss L = Σ Xi ≈ Normal(λ·m, λ·s²)'], steps, conclusion='Trap: quoting 99.5th percentile VaR itself as economic capital. \nEC = VaR − EL; VaR already includes expected loss')
     flaw = {"answer": f"{fmt(var995)}",
             "pitfall": "quoting VaR instead of EC (VaR − EL)",
             "reasoning_trace": render_trace(rng, ['EC = 99.5th %ile'], [
-                ("Step 1.", 'Quoting the 99.5% VaR = {fmt(var995)} as economic capital is incorrect. \nEconomic capital = VaR − EL = {fmt(var995)} − {fmt(exp_loss)} = {fmt(eco_cap)}. \nExpected loss is reserved for; EC covers unexpected loss only'),
+                ("Step 1.", f'Quoting the 99.5% VaR = {fmt(var995)} as economic capital is incorrect. \nEconomic capital = VaR − EL = {fmt(var995)} − {fmt(exp_loss)} = {fmt(eco_cap)}. \nExpected loss is reserved for; EC covers unexpected loss only'),
             ]),
                    }
     return {"meta": {"topic": "Operational Risk", "subtopic": "Loss Distribution",
@@ -341,6 +343,7 @@ def v2_op_model_risk(rng, seq):
                                 "(III) outcome risk (validated by backtesting, benchmarking, and P&L attribution). "
                                 "Outcome risk is confirmed when actual model outputs deviate from observed values.")
                        }
+    q = _ctx(rng, q)
     return {"meta": {"topic": "Operational Risk", "subtopic": "Model Risk", "difficulty": "v2_FRM2_Medium",
                      "question_type": "Constructed Response",
                      "pitfalls": ["conceptual model risk", "implementation risk", "outcome risk"]},

@@ -3,6 +3,7 @@ CFA Level III templates.
 """
 import math
 from pipelines.core import fmt, pct, render_trace
+from pipelines.core import scenario_clause as _ctx
 
 
 PROG = "CFA_Level_III"
@@ -161,6 +162,7 @@ def tax_taxable_equiv(rng, seq):
                 ], [
                     (f"Step 1", f"Adding the tax rate to the yield: {pct(taxfree,1)} + {pct(tax,1)} = {pct(taxfree+tax,1)}. Correct: tax-free / (1−tax) = {pct(taxfree,1)}/{1-tax:.2f} = {pct(equiv)}."),
                 ])}
+    q = _ctx(rng, q)
     return {"meta":{"topic":"Private Wealth","subtopic":"Tax-Aware Investing","difficulty":"L3_Easy",
                     "question_type":"Calculation","pitfalls":["taxable-equivalent yield","after-tax retention"]},
             "question":q, "answer":f"{pct(equiv)}", "distractors":[f"{pct(taxfree+tax)}", f"{pct(taxfree)}", f"{pct(equiv*2)}"],
@@ -218,6 +220,7 @@ def alloc_rebalancing(rng, seq):
                 ], [
                     (f"Step 1", f"Actual weight {pct(current)} ≈ target {pct(target)}; {ans}."),
                 ])}
+    q = _ctx(rng, q)
     return {"meta": {"topic":"Asset Allocation","subtopic":"Rebalancing","difficulty":"L3_Medium",
                      "question_type":"Calculation","pitfalls":["drift magnitude"]},
             "question":q, "answer":ans,
@@ -380,7 +383,7 @@ def inst_endowment(rng, seq):
             (f"Step 6", f"Trap: comparing spending rate to total return (ignoring expenses) is misleading."),
         ])
     flaw_ans = "sustainable" if surpl <= 0 else "not sustainable"
-    flaw_ans2 = 'ignores expenses—compares {pct(spend_rate,1)} < {pct(total_ret,1)}'
+    flaw_ans2 = f'ignores expenses—compares {pct(spend_rate,1)} < {pct(total_ret,1)}'
     flaw = {"answer": flaw_ans, "pitfall": "ignoring investment expenses",
             "reasoning_trace": render_trace(rng, [
                     "comparing spend rate to gross return",

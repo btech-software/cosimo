@@ -10,6 +10,7 @@ land on a concrete wrong number, internally consistent with their own arithmetic
 """
 import math
 from pipelines.core import fmt, pct
+from pipelines.core import scenario_clause as _ctx
 from pipelines.templates.wrappers import wrap_vignette, wrap_cr, wrap_mcq
 
 PROG = "CFA_Level_I"
@@ -68,8 +69,9 @@ def tvm_pv_lump(rng, seq):
             "reasoning_trace":tr, "flawed":flaw, "params":{"fv":fv,"n":n,"r":r}}
 
 def tvm_eay(rng, seq):
-    nominal = rng.choice([0.05, 0.06, 0.08, 0.10, 0.12])
-    m = rng.choice([2, 4, 12, 52])
+    # Continuous rate: the old 5x4 pool capped this generator at 20 questions.
+    nominal = rng.uniform(0.03, 0.14, 4)
+    m = rng.choice([2, 4, 6, 12, 24, 52, 365])
     eay = (1 + nominal / m) ** m - 1
     q = (f"A nominal annual rate of {nominal*100:.0f}% is compounded {m} times per year. "
          f"Compute the effective annual rate (EAR).")
@@ -81,6 +83,7 @@ def tvm_eay(rng, seq):
             "reasoning_trace": (_assume([f"treating nominal as effective"]) +
             f"Step 1. Quoting the nominal rate {pct(nominal)} directly as the effective rate ignores "
             f"{m} compounding sub-periods per year, which raise the true annual return.")}
+    q = _ctx(rng, q)
     return {"meta": {"topic":"Quantitative Methods","subtopic":"Time Value of Money",
                      "difficulty":"L1_Medium","question_type":"Calculation","pitfalls":["nominal vs effective rate","compounding frequency"]},
             "question":q, "answer":f"{pct(eay)}", "distractors":[f"{pct(nominal)}", f"{pct(eay+0.01)}", f"{pct((1+nominal/m)**m)}"],
@@ -202,6 +205,7 @@ def stats_tstat(rng, seq):
             "reasoning_trace": (_assume([f"using SD instead of SE"]) +
             f"Step 1. Computing t = (x̄−μ0)/s = ({xbar}-{mu0})/{sd} = {fmt((xbar-mu0)/sd)} "
             f"instead of dividing by s/√n. The test statistic must standardize by the standard error.")}
+    q = _ctx(rng, q)
     return {"meta": {"topic":"Quantitative Methods","subtopic":"Hypothesis Testing",
                      "difficulty":"L1_Medium","question_type":"Calculation","pitfalls":["SE vs SD","one vs two-tailed"]},
             "question":q, "answer":f"t = {t:.3f}; reject H0" if t>crit else f"t = {t:.3f}; cannot reject H0",
@@ -234,8 +238,10 @@ def econ_elasticity(rng, seq):
             "reasoning_trace":tr, "flawed":flaw, "params":{"q0":q0,"q1":q1,"p0":p0,"p1":p1}}
 
 def econ_fisher(rng, seq):
-    rnom = rng.choice([0.06, 0.08, 0.10, 0.12])
-    rinf = rng.choice([0.02, 0.03, 0.04])
+    # Continuous draws: the old 4x3 choice pool gave 12 possible questions, so
+    # 250 variants collapsed to 12 distinct rows.
+    rnom = rng.uniform(0.045, 0.13, 4)
+    rinf = rng.uniform(0.015, 0.048, 4)
     rreal = (1 + rnom)/(1 + rinf) - 1
     q = (f"Nominal rate {pct(rnom,1)} and inflation {pct(rinf,1)}. Compute the exact real rate "
          f"of return (Fisher exact).")
@@ -248,6 +254,7 @@ def econ_fisher(rng, seq):
             "reasoning_trace": (_assume([f"additive approximation"]) +
             f"Step 1. Using r_real ≈ {pct(rnom,1)} − {pct(rinf,1)} = {pct(rnom-rinf,1)} "
             f"ignores the cross term; exact requires (1+r_nom)/(1+π)−1 = {pct(rreal)}.")}
+    q = _ctx(rng, q)
     return {"meta": {"topic":"Economics","subtopic":"Interest Rates",
                      "difficulty":"L1_Easy","question_type":"Calculation","pitfalls":["Fisher exact vs approximation"]},
             "question":q, "answer":f"{pct(rreal)}", "distractors":[f"{pct(rnom-rinf,1)}", f"{pct(rnom+rinf)}", f"{pct(rinf-rnom)}"],
@@ -361,6 +368,7 @@ def fi_current_yield(rng, seq):
             "reasoning_trace": (_assume([f"using YTM instead of CY"]) +
             f"Step 1. Reporting the yield-to-maturity {fmt(ytm*100)}% as the current yield ignores the "
             f"cash-flow coupon ${coupon:.0f} on price ${price:.0f}. CY = coupon/price = {cy:.2f}%.")}
+    q = _ctx(rng, q)
     return {"meta": {"topic":"Fixed Income","subtopic":"Yield Measures",
                      "difficulty":"L1_Easy","question_type":"Calculation","pitfalls":["current yield vs YTM"]},
             "question":q, "answer":f"{cy:.2f}%", "distractors":[f"{fmt(ytm*100)}%", f"{fmt(coupon)}%", f"{fmt(cy*2)}%"],
@@ -390,8 +398,8 @@ def fi_modified_duration(rng, seq):
             "reasoning_trace":tr, "flawed":flaw, "params":{"mac":mac,"y":y,"dy":dy}}
 
 def fi_zero_duration(rng, seq):
-    y = rng.choice([0.06, 0.08, 0.10])
-    m = rng.randint(5, 20)
+    y = rng.uniform(0.02, 0.11, 4)   # was choice of 3 -- 48 possible questions
+    m = rng.randint(2, 30)
     mod = m/(1+y)
     q = (f"A zero-coupon bond matures in {m} years, yield {pct(y,1)}. Compute its modified duration.")
     tr = (_assume([f"zero-coupon: Macaulay duration = maturity"]) +
@@ -402,6 +410,7 @@ def fi_zero_duration(rng, seq):
             "reasoning_trace": (_assume([f"using Macaulay as modified"]) +
             f"Step 1. Reporting Macaulay duration = {m} as modified duration omits the (1+y) "
             f"scaling; modified duration = {m}/(1+{y:.2f}) = {mod:.2f}.")}
+    q = _ctx(rng, q)
     return {"meta": {"topic":"Fixed Income","subtopic":"Duration",
                      "difficulty":"L1_Medium","question_type":"Calculation","pitfalls":["zero-coupon duration","modified scaling"]},
             "question":q, "answer":f"{mod:.2f} yrs", "distractors":[f"{fmt(m)} yrs", f"{fmt(mod*2)} yrs", f"{fmt(m*(1+y))} yrs"],
@@ -606,10 +615,11 @@ def fi_ytm_approx(rng, seq):
 
 
 def port_alpha(rng, seq):
-    rf = rng.choice([0.03, 0.04, 0.05])
-    beta = rng.choice([0.8, 1.2, 1.5])
-    rm = rng.choice([0.08, 0.10, 0.12])
-    ra = rng.choice([0.06, 0.09, 0.12, 0.14])
+    # Continuous draws: the old choice pools allowed only 108 questions.
+    rf = rng.uniform(0.02, 0.055, 3)
+    beta = rng.uniform(0.6, 1.7, 2)
+    rm = rng.uniform(0.07, 0.13, 3)
+    ra = rng.uniform(0.05, 0.16, 3)
     expected = rf + beta * (rm - rf)
     alpha = ra - expected
     q = (f"An asset has a CAPM required return of rf={fmt(rf)}, β={beta:.1f}, "
@@ -624,6 +634,7 @@ def port_alpha(rng, seq):
             "reasoning_trace": (_assume([f"CAPM-expected shortcut"]) +
               f"Step 1. Reporting the CAPM expected return {fmt(expected)} as if it were alpha "
               f"ignores Jensen's definition α = Actual − Expected.")}
+    q = _ctx(rng, q)
     return {"meta": {"topic": "Portfolio Management", "subtopic": "Performance Evaluation",
                      "difficulty": "L1_Medium", "question_type": "Calculation",
                      "pitfalls": ["alpha vs CAPM expected return", "sign convention"]},
@@ -699,6 +710,7 @@ def deriv_forward_payoff(rng, seq):
     flaw = {"answer": f"{fmt(f0-st)}", "pitfall": "long vs short direction",
             "reasoning_trace": (_assume([f"short forward payoff used"]) +
             f"Step 1. Short payoff = F_0 − S_T = {fmt(f0)} − {fmt(st)} = {fmt(f0-st)}.")}
+    q = _ctx(rng, q)
     return {"meta": {"topic":"Derivatives","subtopic":"Forward Commitments","difficulty":"L1_Easy",
                      "question_type":"Calculation","pitfalls":["long vs short direction"]},
             "question":q, "answer":f"{fmt(payoff)}",
@@ -731,25 +743,47 @@ m_corp_wacc = wrap_mcq(corp_wacc)
 # New generators for uncovered subtopics
 
 def corr_regression(rng, seq):
-    n = 12
-    x = [rng.uniform(1, 10) for _ in range(n)]
-    y = [rng.uniform(5, 20) for _ in range(n)]
-    xm = sum(x) / n; ym = sum(y) / n
-    sxy = sum((a-xm)*(b-ym) for a,b in zip(x,y)) / (n-1)
-    sx = sum((a-xm)**2 for a in x) / (n-1)
-    sy = sum((b-ym)**2 for b in y) / (n-1)
-    r = sxy / (sx * sy) if sx*sy > 0 else 0; r2 = r**2
-    q = "Sample data: n=%d. Compute Pearson r and R-squared." % n
-    tr = (_assume(["r measures linearity"]) + "Step 1. Mean x=%0.2f, y=%0.2f.\n" % (xm,ym) +
-          "Step 2. Cov=%0.3f. Step 3. r=%0.3f. Step 4. R^2=%0.3f." % (sxy, r, r2))
-    flaw = {"answer": "r=%0.3f" % r, "pitfall": "no covariance", 
-            "reasoning_trace": (_assume(["skip cov"]) + "Step 1. Need cov=%0.3f then r=%0.3f." % (sxy, r))}
+    # Summary statistics are given directly rather than raw pairs. The question
+    # used to say only "Sample data: n=12. Compute Pearson r" while the twelve
+    # x/y draws were never rendered, so every one of these items was
+    # unanswerable from its own prompt -- it could only be guessed.
+    n = rng.randint(10, 40)
+    sx = rng.uniform(1.5, 9.0, 3)          # sample std dev of x
+    sy = rng.uniform(2.0, 12.0, 3)         # sample std dev of y
+    r = rng.uniform(-0.85, 0.95, 3)        # target correlation
+    sxy = r * sx * sy                      # covariance consistent with it
+    r2 = r ** 2
+    # r = cov / (sd_x * sd_y). The previous code divided by the product of the
+    # VARIANCES, which put every reported correlation off by sqrt(var_x*var_y)
+    # and produced values like r=0.009 that are not correlations at all.
+    r_check = sxy / (sx * sy)
+    slope = sxy / (sx ** 2)
+    q = ("A sample of n=%d paired observations has sample standard deviations "
+         "s_x=%0.3f and s_y=%0.3f, with sample covariance s_xy=%0.3f. "
+         "Compute the Pearson correlation and R-squared." % (n, sx, sy, sxy))
+    tr = (_assume(["r = s_xy / (s_x * s_y)", "R^2 = r^2 for a simple linear regression"]) +
+          "Step 1. Denominator s_x * s_y = %0.3f * %0.3f = %0.3f.\n" % (sx, sy, sx*sy) +
+          "Step 2. r = %0.3f / %0.3f = %0.3f.\n" % (sxy, sx*sy, r_check) +
+          "Step 3. R^2 = r^2 = %0.3f, so %0.1f%% of the variance in y is explained.\n" % (r2, r2*100) +
+          "Step 4. Trap: dividing by the product of the VARIANCES (%0.3f) instead of "
+          "the standard deviations gives %0.4f, which is not a correlation at all — "
+          "r must lie in [-1, 1]." % (sx**2 * sy**2, sxy / (sx**2 * sy**2)))
+    wrong = sxy / (sx**2 * sy**2)
+    flaw = {"answer": "r=%0.3f" % wrong, "pitfall": "variance vs standard deviation in the denominator",
+            "reasoning_trace": (_assume(["r = s_xy / (var_x * var_y)"]) +
+                "Step 1. Using variances: %0.3f / (%0.3f * %0.3f) = %0.4f.\n"
+                "Step 2. This is dimensionally wrong — the denominator must carry the same "
+                "units as the covariance, so it is s_x * s_y, giving r=%0.3f."
+                % (sxy, sx**2, sy**2, wrong, r_check))}
     return {"meta": {"topic": "Quantitative Methods", "subtopic": "Correlation and Regression",
                      "difficulty": "L1_Medium", "question_type": "Calculation",
-                     "pitfalls": ["covariance sign"]},
-            "question": q, "answer": "cov=%0.3f, r=%0.3f, R^2=%0.3f" % (sxy, r, r2),
-            "distractors": ["cov=0, r=0", "cov=%0.3f, r=%0.3f" % (sxy*2, r*2)],
-            "reasoning_trace": tr, "flawed": flaw, "params": {"n": n, "r": r, "r2": r2, "cov": sxy}}
+                     "pitfalls": ["variance vs standard deviation", "R-squared interpretation"]},
+            "question": q, "answer": "r=%0.3f, R^2=%0.3f" % (r_check, r2),
+            "distractors": ["r=%0.4f, R^2=%0.4f" % (wrong, wrong**2),
+                            "r=%0.3f, R^2=%0.3f" % (r_check, r_check),
+                            "r=%0.3f, R^2=%0.3f" % (slope, slope**2)],
+            "reasoning_trace": tr, "flawed": flaw,
+            "params": {"n": n, "sx": sx, "sy": sy, "cov": sxy, "r": r_check, "r2": r2}}
 
 def ts_ar1(rng, seq):
     phi = rng.uniform(0.5, 0.92, 3); eps = rng.uniform(-3, 3, 2); yprev = rng.uniform(-2, 2, 2)
@@ -857,6 +891,7 @@ def corp_board_indep(rng, seq):
     tr = (_assume(["indep = indep/total"]) + "Step 1. %d/%d = %0.1f%%." % (indep, total, p))
     flaw = {"answer": "%0.1f%%" % (100-p), "pitfall": "inverted",
             "reasoning_trace": (_assume(["wrong"]) + "Step 1. %d/%d = %0.1f%%." % (indep, total, p))}
+    q = _ctx(rng, q)
     return {"meta": {"topic": "Corporate Issuers", "subtopic": "Corporate Governance",
                      "difficulty": "L1_Easy", "question_type": "Calculation",
                      "pitfalls": ["board comp"]},

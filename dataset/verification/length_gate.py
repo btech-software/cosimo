@@ -42,7 +42,16 @@ PER_TYPE_P50_FLOOR = {
 }
 
 
-def run(records=None, mixed_p95_floor=MIXED_P95_FLOOR):
+def run(records=None, mixed_p95_floor=MIXED_P95_FLOOR, enforce_mixed=True):
+    """Measure the length distribution; enforce the mixed-set floor when asked.
+
+    `enforce_mixed=False` is for the smoke corpus, which generates exactly one
+    variant per generator and therefore carries a deliberately unrepresentative
+    type mix (38% abstention against a shipped 13%). The mixed-set p95 floor is
+    a property of the *shipped* composition, so applying it to a corpus built
+    under different weights measures the sampling, not the data. Per-type floors
+    still apply there -- those are composition-independent.
+    """
     result = Result("response length")
     records = load_records() if records is None else records
     if not records:
@@ -59,7 +68,7 @@ def run(records=None, mixed_p95_floor=MIXED_P95_FLOOR):
     stats["_mixed"] = percentiles(mixed)
     result.checked = len(records)
 
-    if stats["_mixed"]["p95"] < mixed_p95_floor:
+    if enforce_mixed and stats["_mixed"]["p95"] < mixed_p95_floor:
         result.fail(
             "corpus",
             f"mixed-set p95 is {stats['_mixed']['p95']} approx tokens, below the "
