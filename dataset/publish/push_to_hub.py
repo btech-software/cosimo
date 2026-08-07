@@ -180,7 +180,15 @@ def corpus_stats(splits, pref_rows):
     }
 
 
+def _cite_key(repo_id):
+    """A BibTeX-safe key from the repo id: no slashes, dots or hyphens."""
+    name = repo_id.split("/")[-1]
+    return "".join(c if c.isalnum() else "_" for c in name).strip("_").lower()
+
+
 def render_card(stats, repo_id):
+    import datetime
+
     with open(CARD_TEMPLATE) as f:
         card = f.read()
     type_rows = "\n".join(
@@ -203,6 +211,8 @@ def render_card(stats, repo_id):
         .replace("{{GENERATORS}}", str(stats["generators"]))
         .replace("{{COVERAGE}}", stats["coverage"])
         .replace("{{COVERAGE_PCT}}", str(stats["coverage_pct"]))
+        .replace("{{CITE_KEY}}", _cite_key(repo_id))
+        .replace("{{YEAR}}", str(datetime.date.today().year))
     )
 
 

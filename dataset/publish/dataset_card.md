@@ -1,7 +1,8 @@
 # Cosimo v2 — synthetic financial reasoning corpus
 
-`{{REPO_ID}}` — **{{TOTAL}}** records across six record types, generated and
-verified by code. Built as a **complement** to
+`{{REPO_ID}}` — **{{TOTAL}}** supervised records across five record types, plus
+**{{PREF_ROWS}}** standalone preference pairs, generated and verified by code.
+Built as a **complement** to
 [`btech-software/cosimo-cfa-frm-71k`](https://huggingface.co/datasets/btech-software/cosimo-cfa-frm-71k),
 designed to be mixed with it (the composition targets below are shares of the
 *mixed* set, in which the 71k corpus is capped at ~30%).
@@ -97,6 +98,34 @@ shares.
    them, ask) with varied framing. That is partly inherent to the type.
 5. **Original content only.** Inspired by public Learning Outcome Statements;
    no proprietary exam material is reproduced.
+
+## Citation
+
+```bibtex
+@misc{{{CITE_KEY}},
+  title        = {Cosimo v2: A Verified Synthetic Corpus for Quantitative
+                  Financial Reasoning},
+  author       = {Sant'Anna, Bruno},
+  year         = {{{YEAR}}},
+  publisher    = {Hugging Face},
+  howpublished = {\url{https://huggingface.co/datasets/{{REPO_ID}}}},
+  note         = {{{TOTAL}} supervised records plus {{PREF_ROWS}} preference
+                  pairs; every numeric answer computed and verified by
+                  re-execution from a stored seed. Coverage {{COVERAGE}} subtopics.}
+}
+```
+
+If you use the mixed corpus, cite the first-generation dataset as well:
+
+```bibtex
+@misc{cosimo_cfa_frm_71k,
+  title        = {Cosimo: Synthetic CFA/FRM Reasoning Corpus},
+  author       = {Sant'Anna, Bruno},
+  year         = {2026},
+  publisher    = {Hugging Face},
+  howpublished = {\url{https://huggingface.co/datasets/btech-software/cosimo-cfa-frm-71k}}
+}
+```
 
 ## License
 
