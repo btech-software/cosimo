@@ -64,16 +64,21 @@ def id_fraction(record_id: str, salt: str = "") -> float:
     return int(digest, 16) / _HASH_SPACE
 
 
-def system_for_record(cfg: dict, record_id: str) -> str:
+def system_for_record(cfg: dict, record_id: str, *, exam: bool = True) -> str:
     """The system message for one *training* example.
 
     A deterministic ``prompt.variation_rate`` fraction of ids gets the short
     identity, so the model does not become brittle to one exact ~600-token
     string. Evaluation never calls this: it always uses the full identity via
     ``compose_system(cfg)``.
+
+    ``exam`` appends the ``FINAL ANSWER:`` protocol. It is False for every
+    non-exam record type: attaching the grading contract to an open-ended
+    analysis or a tool conversation is precisely how a model learns that being
+    Cosimo *means* answering in five formulaic steps.
     """
     rate = float(config_mod.get(cfg, "prompt.variation_rate", 0.0) or 0.0)
-    return compose_system(cfg, short=id_fraction(record_id) < rate, exam=True)
+    return compose_system(cfg, short=id_fraction(record_id) < rate, exam=exam)
 
 
 def load_chat_template(cfg: dict) -> str | None:

@@ -206,6 +206,7 @@ def resolve_masking_report(
     questions: list[str],
     instruction_part: str,
     response_part: str,
+    tag: str,
     index: int = 0,
 ) -> dict:
     """Decode the supervised and unsupervised spans of one training example.
@@ -273,10 +274,17 @@ def resolve_masking_report(
         "instruction_marker_in_supervised": instruction_in_supervised,
         "response_part": response_part,
         "instruction_part": instruction_part,
-        # A synthetic tool row from 02_prepare_tool_data.py. Identified by the
-        # schema markers in the prompt, which every tool row carries -- unlike
-        # <tool_call>, which the tools.no_call_rate rows deliberately lack.
+        # A tool-calling row: either a synthetic one from 02_prepare_tool_data.py
+        # or an `agentic` corpus record. Identified by the schema markers in the
+        # prompt, which every such row carries -- unlike <tool_call>, which the
+        # tools.no_call_rate rows deliberately lack.
         "is_tool_row": tools_mod.TOOL_SCHEMA_OPEN in tokenizer.decode(input_ids),
+        # Whether this row is under the FINAL ANSWER grading contract. The exam
+        # protocol lives in the system block and 01_prepare_data.py attaches it
+        # to exam rows only, so the tag appearing in the *masked* span is an
+        # exact test -- and it needs no column the trainer's text-only view of
+        # the dataset has already dropped.
+        "expects_final_answer": tag in masked,
     }
 
 
@@ -295,17 +303,31 @@ def check_masking(report: dict, tag: str) -> None:
             "survives truncation."
         )
 
-    # Tool rows are rendered with exam=False and carry no final-answer tag by
-    # design: the FINAL ANSWER contract is an exam-grading artefact and must not
-    # leak into a tool-mediated answer. Their supervised span is checked
-    # structurally below, like every other row.
-    if not report["is_tool_row"] and tag not in supervised:
+    # Only exam rows are under the final-answer contract. Analysis, abstention,
+    # agentic and implementation records -- and the synthetic tool rows -- render
+    # with exam=False and carry no tag by design: it is an exam-grading artefact
+    # and letting it leak into an open-ended answer is the style collapse this
+    # corpus was rebuilt to avoid. Their supervised span is checked structurally
+    # below, like every other row.
+    if report["expects_final_answer"] and tag not in supervised:
         raise RuntimeError(
             f"the supervised span does not contain the final-answer tag {tag!r}.\n"
             "Either the completion was truncated before its last line (raise "
             "model.max_seq_length), or chat.response_part points at the wrong "
             "marker so the mask starts in the middle of the answer.\n"
             f"supervised span was: {supervised!r}"
+        )
+
+    if not report["expects_final_answer"] and tag in supervised:
+        raise RuntimeError(
+            f"a non-exam row is being trained to emit {tag!r}. Its system block "
+            "carries no exam protocol, so the tag in its target can only have "
+            "come from the supervised text itself.\n"
+            "That contract belongs to exam records alone; training it onto "
+            "analysis, abstention, agentic or implementation rows is how the "
+            "model learns that every answer is a five-step exam trace.\n"
+            "Re-run scripts/01_prepare_data.py, whose validation gate checks "
+            f"this for every row.\nsupervised span was: {supervised!r}"
         )
 
     # The prompt-exclusion assertion is structural, not textual. Matching question
@@ -354,26 +376,29 @@ def truncation_report(trainer: Any, tokenizer: Any, max_length: int, tag: str) -
     n = min(TRUNCATION_SAMPLE, len(dataset))
     at_cap = 0
     missing_tag = 0
-    tool_rows = 0
+    non_exam_rows = 0
     for i in range(n):
         row = dataset[i]
         input_ids = as_int_list(row["input_ids"])
         labels = as_int_list(row["labels"])
         if len(input_ids) >= max_length:
             at_cap += 1
-        # Tool rows carry no final-answer tag by design, so counting them as
-        # truncated would report a fabricated truncation rate.
-        if tools_mod.TOOL_SCHEMA_OPEN in tokenizer.decode(input_ids):
-            tool_rows += 1
-            continue
         supervised = [t for t, lab in zip(input_ids, labels) if lab != -100]
+        masked = [t for t, lab in zip(input_ids, labels) if lab == -100]
+        # Only exam rows carry the final-answer tag, and their system block is
+        # the only one carrying the exam protocol -- so the tag in the masked
+        # (prompt) span identifies them. Scoring the other four record types
+        # here would report a fabricated truncation rate of ~78%.
+        if tag not in tokenizer.decode(masked):
+            non_exam_rows += 1
+            continue
         if tag not in tokenizer.decode(supervised):
             missing_tag += 1
-    scored = n - tool_rows
+    scored = n - non_exam_rows
     return {
         "sampled": n,
         "at_length_cap": at_cap,
-        "tool_rows": tool_rows,
+        "non_exam_rows": non_exam_rows,
         "missing_final_answer": missing_tag,
         "missing_rate": (missing_tag / scored) if scored else 0.0,
     }
@@ -384,7 +409,8 @@ def print_truncation_report(report: dict, max_length: int) -> None:
         f"truncation scan: {report['at_length_cap']}/{report['sampled']} rows at the "
         f"{max_length}-token cap, {report['missing_final_answer']} without a "
         "final-answer tag in the supervised span "
-        f"({report['tool_rows']} tool rows excluded, they carry no tag by design)"
+        f"({report['non_exam_rows']} non-exam rows excluded, they carry no tag "
+        "by design)"
     )
     if report["missing_rate"] > TRUNCATION_WARN_RATE:
         logger.warning(
@@ -573,25 +599,27 @@ def main() -> None:
     )
 
     report = resolve_masking_report(
-        trainer, tokenizer, list(questions), instruction_part, response_part
+        trainer, tokenizer, list(questions), instruction_part, response_part, tag
     )
     print_masking_report(report)
     check_masking(report, tag)
     logger.info("response-only masking verified on the first training example")
 
-    # The tool rows are appended after the exam corpus (configs/sft.yaml lists
-    # them second), so the last row is one of them. Their masking is a different
-    # shape -- two assistant turns with a tool result between them -- and it is
+    # The tool rows are appended after the corpus (configs/sft.yaml lists them
+    # second), so the last row is one of them. Their masking is a different
+    # shape -- several assistant turns with tool results between them -- and it is
     # only correct because the chat template renders that tool result as a
     # <|user|> turn, which is what train_on_responses_only masks on. That is
     # load-bearing and unproven at this point in the run, so it is checked rather
-    # than assumed.
+    # than assumed. The corpus's own `agentic` records have the same shape and
+    # are checked by the same assertion when one is sampled.
     tail_report = resolve_masking_report(
         trainer,
         tokenizer,
         list(questions),
         instruction_part,
         response_part,
+        tag,
         index=len(trainer.train_dataset) - 1,
     )
     if tail_report["is_tool_row"]:

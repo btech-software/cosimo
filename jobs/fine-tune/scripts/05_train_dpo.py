@@ -100,9 +100,10 @@ def truncation_scan(
       persona-less prefix that does not match how the model is served;
     * the completion is truncated from the RIGHT
       (``dpo_trainer.py:740-742``), and the right of our completion is the
-      ``FINAL ANSWER:`` line -- so an over-long pair loses the very value that
-      distinguishes chosen from rejected, which can make the pair identical and
-      the preference gradient degenerate.
+      conclusion -- on an exam pair the ``FINAL ANSWER:`` line, which is the one
+      place chosen and rejected differ, and on a prose pair the resolution the
+      two sides were written to contrast. Either way an over-long pair can end
+      up identical and the preference gradient degenerate.
 
     Neither is detectable from the loss curve, so it is measured here.
     """
@@ -163,8 +164,9 @@ def print_truncation_scan(
     if scan["completion_at_cap"] / n > TRUNCATION_WARN_RATE:
         logger.warning(
             "%d/%d completions hit max_completion_length=%d. Completions are "
-            "truncated from the RIGHT, so those rows lost their FINAL ANSWER line "
-            "-- the one place chosen and rejected differ. Raise "
+            "truncated from the RIGHT, so those rows lost their conclusion -- the "
+            "FINAL ANSWER line on an exam pair, the contrasting resolution on a "
+            "prose pair. Raise "
             "max_completion_length (and max_length with it).",
             scan["completion_at_cap"],
             n,
