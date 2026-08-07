@@ -14,8 +14,76 @@ abstention record schema defined in FORMAT.md lines 111-150.
 """
 
 
+# Set by _pick, consumed by _make_abstention. Every generator calls _pick first,
+# so this threads the drawn scenario and RNG through without touching 62 call
+# sites. Same idiom as _bind in v2_implementation / v2_agentic.
+_CURRENT = None
+
+_ANSWER_LEADS = [
+    "Before I can answer that, I need a few things pinned down.",
+    "I can't give you a number on this yet — here's what's missing.",
+    "There's not enough here to answer responsibly. What I'd need:",
+    "Happy to work this up, but the inputs aren't specified.",
+    "This is answerable, but not as posed. The gaps:",
+    "I'd be guessing if I answered this. What's undetermined:",
+    "Let me flag what's missing before we go further.",
+    "The question is well-formed but underdetermined. Specifically:",
+]
+
+_ANSWER_CLOSERS = [
+    "Send those over and I'll work it up properly.",
+    "Once you've confirmed those, this becomes straightforward.",
+    "Give me those and I can give you a defensible number.",
+    "With those pinned down I can turn this around quickly.",
+    "Let me know on each of those and I'll take it from there.",
+    "Confirm those and I'll put the numbers together.",
+]
+
+
+def _restyle(rng, answer, desk):
+    """Vary the answer's framing without touching what it says.
+
+    The body -- which gap is missing and why it matters -- is the training signal
+    and stays intact. Only the lead-in, the enumeration style and the closing ask
+    vary. Without this every abstention row shares one answer string, and the
+    supervised target is what the model actually memorises.
+    """
+    body = answer.strip()
+    # Drop an existing lead-in sentence if the body has an enumerated section,
+    # so the drawn lead does not sit on top of a second one.
+    lines = body.split("\n")
+    if len(lines) > 2 and lines[0].rstrip().endswith((":", ".")) and any(
+        l.strip()[:2] in ("1.", "1)") for l in lines
+    ):
+        body = "\n".join(lines[1:]).strip()
+
+    style = rng.randint(0, 2)
+    if style == 1:
+        # numbered -> dashed
+        body = "\n".join(
+            ("- " + l.strip()[2:].strip()) if l.strip()[:2].rstrip(".)").isdigit()
+            and l.strip()[1] in ".)" else l
+            for l in body.split("\n")
+        )
+    elif style == 2:
+        body = "\n".join(
+            (chr(97 + int(l.strip()[0]) - 1) + ") " + l.strip()[2:].strip())
+            if l.strip()[:1].isdigit() and l.strip()[1] in ".)" and l.strip()[0] != "0"
+            else l
+            for l in body.split("\n")
+        )
+
+    lead = rng.choice(_ANSWER_LEADS)
+    closer = rng.choice(_ANSWER_CLOSERS)
+    context = f" For {desk} in particular, the answer moves a lot with these."
+    return f"{lead}\n\n{body}\n\n{context.strip()} {closer}"
+
+
 def _make_abstention(program, topic, subtopic, difficulty, question, answer, defect):
     """Build an abstention record dict following FORMAT.md."""
+    if _CURRENT is not None:
+        rng, scenario = _CURRENT
+        answer = _restyle(rng, answer, scenario["desk"])
     return {
         "record_type": "abstention",
         "id": f"cosimo_abstention_{int(hash(question + str(0)) % 100000):06d}",
@@ -50,9 +118,71 @@ def _make_abstention(program, topic, subtopic, difficulty, question, answer, def
 # ====================================================================
 
 
+# Who is asking, and about what book. A defective question is defective in the
+# same way whoever asks it, so the scenario carries the variety while the defect
+# stays intact -- that is the point of the record type.
+_DESKS = [
+    "a UK DB pension scheme", "a multi-family office", "a university endowment",
+    "a UCITS long-only fund", "an insurance general account", "a sovereign wealth sleeve",
+    "a fund-of-funds mandate", "a corporate treasury", "a discretionary wealth book",
+    "a systematic macro sleeve", "a credit opportunities fund", "a defined-contribution default fund",
+    "a charity investment committee", "a family trust", "a seed-stage venture portfolio",
+    "an emerging-markets debt mandate", "a liability-matching portfolio",
+    "a market-neutral equity book", "a listed infrastructure fund", "a private credit vehicle",
+]
+
+_OPENERS = [
+    "Quick one before the IC meeting", "The trustees have asked", "Client just called",
+    "Prepping for the quarterly review", "Risk flagged this", "The board wants a view",
+    "Following up from yesterday", "Need this for the pack", "Portfolio manager asked",
+    "Compliance raised a query", "The consultant is pushing back", "Ahead of the rebalance",
+    "For the manager selection paper", "Auditors have queried this",
+    "The CIO wants this by Friday", "New mandate onboarding",
+]
+
+_CLOSERS = [
+    "Can you take a look?", "What's your read?", "How would you approach it?",
+    "Where would you start?", "Thoughts?", "Can you work this up?",
+    "What do you need from me?", "Is that something you can do?",
+    "How should I frame it?", "Give me your view.",
+]
+
+
+def _scenario(rng):
+    """One drawn asking-context. ~20 x 16 x 10 combinations before the base text."""
+    return {
+        "desk": rng.choice(_DESKS),
+        "opener": rng.choice(_OPENERS),
+        "closer": rng.choice(_CLOSERS),
+        "size": rng.randint(8, 940),
+    }
+
+
 def _pick(rng, seq, q_variants):
-    "Pick a question variation from the list using seq for deterministic spread across variants."
-    return q_variants[(seq % 5000) // 1000]
+    """Compose a scenario-grounded phrasing of the defective question.
+
+    `q_variants` used to be a pool of five near-identical strings -- the same
+    question with "Please explain your reasoning." style suffixes -- selected by
+    `(seq % 5000) // 1000`, which yields five values whatever the seed. Abstention
+    was therefore capped at five unique questions per generator, and 77,500 rows
+    shipped carrying 310 distinct questions.
+
+    Only the first entry is used now; it is the canonical question. Variety comes
+    from the drawn scenario, which changes who is asking and about what book
+    without touching the defect the record exists to teach.
+    """
+    global _CURRENT
+    base = (q_variants[0] if isinstance(q_variants, (list, tuple)) else str(q_variants)).strip()
+    s = _scenario(rng)
+    _CURRENT = (rng, s)
+    shape = rng.randint(0, 3)
+    if shape == 0:
+        return f"{s['opener']}: {base} This is for {s['desk']}. {s['closer']}"
+    if shape == 1:
+        return f"{s['opener']} — we run {s['desk']} (about £{s['size']}m). {base}"
+    if shape == 2:
+        return f"{base} Context: {s['desk']}, roughly £{s['size']}m. {s['closer']}"
+    return f"[{s['desk']}] {s['opener']}. {base} {s['closer']}"
 
 # 1. UNDERSPECIFIED -- 30 templates
 # ====================================================================

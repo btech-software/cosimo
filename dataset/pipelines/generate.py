@@ -369,9 +369,66 @@ def _variant_key(base, *parts):
     return (digest + variant * 7919) % (2**31), base + variant * 1000 + digest % 1000
 
 
+# Target share of the *mixed* corpus per record type, from the brief. Without
+# these, composition is an accident of how many programs each module happens to be
+# registered under: abstention has 62 generators across 5 programs = 310 instances,
+# so a flat PER_TEMPLATE put it at 40% of the corpus against a 10% target.
+#
+# These deliberately sum to 0.70, not 1.0. The remaining ~30% is the existing
+# btech-software/cosimo-cfa-frm-71k corpus, which this one is designed to be mixed
+# with rather than replace. So a share here of 0.25 is 25% of the mixed set and
+# 25/70 = 35.7% of what this pipeline emits -- both are correct, and the second is
+# what you see in the generated shards.
+COMPOSITION = {
+    "exam": 0.15,
+    "analysis": 0.25,
+    "abstention": 0.10,
+    "agentic": 0.12,
+    "implementation": 0.08,
+}
+
+
+def _instance_counts():
+    """Registered (generator, program) pairs per record type."""
+    counts = {"exam": 0}
+    for modname in PROGRAMS.values():
+        counts["exam"] += len(importlib.import_module(modname).TEMPLATES)
+    for type_map in NEW_RECORD_TYPES.values():
+        for record_type, modname in type_map.items():
+            n = len(getattr(importlib.import_module(modname), "TEMPLATES", {}))
+            counts[record_type] = counts.get(record_type, 0) + n
+    return counts
+
+
+def variant_budget(per_template):
+    """Variants per generator-instance per record type, honouring COMPOSITION.
+
+    `per_template` is the ceiling, not the setting: it caps variants per stem,
+    which is the memorisation control (v1 ran 71 stems x 1000 variants and opened
+    a 45-point generalisation gap). Within that cap the budget is scaled so the
+    resulting shares match COMPOSITION -- the type whose ceiling binds first
+    determines the corpus size, and every other type is scaled down to match.
+    """
+    instances = _instance_counts()
+    active = {t: n for t, n in instances.items() if n and t in COMPOSITION}
+    if not active:
+        return {t: per_template for t in instances}
+    total = min(per_template * n / COMPOSITION[t] for t, n in active.items())
+    budget = {}
+    for t, n in instances.items():
+        if t in active:
+            budget[t] = max(1, min(per_template, round(total * COMPOSITION[t] / n)))
+        else:
+            budget[t] = per_template
+    return budget
+
+
 def generate(per_template=50, program_filter=None, template_filter=None):
     from pipelines import progress as progress_mod
     produced = 0
+    budget = variant_budget(per_template)
+    print(f"[GEN] variant budget (cap {per_template}): "
+          + ", ".join(f"{t}={n}" for t, n in sorted(budget.items())))
     seen = core.existing_ids()
     skipped = 0
     # Per-program row counts, so a resumed run continues its own program's shards
@@ -399,7 +456,7 @@ def generate(per_template=50, program_filter=None, template_filter=None):
         for name, fn in mod.TEMPLATES.items():
             if template_filter and name != template_filter:
                 continue
-            for variant in range(per_template):
+            for variant in range(budget.get('exam', per_template)):
                 seed, seq = _variant_key(100000, prog, name, variant)
                 rng = core.RNG(seed)
                 try:
@@ -419,7 +476,7 @@ def generate(per_template=50, program_filter=None, template_filter=None):
             for name, fn in tpls.items():
                 if template_filter and name != template_filter:
                     continue
-                for variant in range(per_template):
+                for variant in range(budget.get(record_type, per_template)):
                     seed, seq = _variant_key(200000, prog, name, record_type, variant)
                     rng = core.RNG(seed)
                     try:

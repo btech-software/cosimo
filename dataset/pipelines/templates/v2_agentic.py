@@ -5,6 +5,7 @@ import json
 import math
 import random
 
+from pipelines import core
 from pipelines.core import fmt, pct
 
 
@@ -18,7 +19,12 @@ def _tool(name, description, params):
 
 
 def _rec(prog, topic, sub, diff, q, tools, conv, answer, seq):
-    seed = int(hash(q + str(seq)) % 100000)
+    # `q` is a short fixed label on most generators; the conversation varies but
+    # the question did not, so rows collapsed to a handful of distinct prompts.
+    _rng = core.bound_rng()
+    if _rng is not None:
+        q = core.scenario_clause(_rng, q)
+    seed = int(core.stable_hash(q, seq) % 100000)
     call_depth = sum(1 for t in conv if "tool_calls" in t)
     return {
         "record_type": "agentic",
@@ -584,46 +590,46 @@ def agentic_frm_credit_portfolio(rng, seq):
 TEMPLATES = {
 
     # Equity
-        "analyst_consensus": agentic_eq_analyst_consensus,
-        "bvps": agentic_eq_bvps,
-        "dcf_sensitivity": agentic_eq_dcf_sensitivity,
-        "dua": agentic_eq_dua,
-        "esg": agentic_eq_esg,
-        "mispricing": agentic_eq_mispricing,
-        "multipler_compare": agentic_eq_multipler_compare,
-        "portfolio_val": agentic_eq_portfolio_val,
-        "resid_income": agentic_eq_resid_income,
-        "risk_adjusted": agentic_eq_risk_adjusted,
-        "screening": agentic_eq_screening,
-        "tool_recovery": agentic_eq_tool_recovery,
+        "analyst_consensus": core.bind_rng(agentic_eq_analyst_consensus),
+        "bvps": core.bind_rng(agentic_eq_bvps),
+        "dcf_sensitivity": core.bind_rng(agentic_eq_dcf_sensitivity),
+        "dua": core.bind_rng(agentic_eq_dua),
+        "esg": core.bind_rng(agentic_eq_esg),
+        "mispricing": core.bind_rng(agentic_eq_mispricing),
+        "multipler_compare": core.bind_rng(agentic_eq_multipler_compare),
+        "portfolio_val": core.bind_rng(agentic_eq_portfolio_val),
+        "resid_income": core.bind_rng(agentic_eq_resid_income),
+        "risk_adjusted": core.bind_rng(agentic_eq_risk_adjusted),
+        "screening": core.bind_rng(agentic_eq_screening),
+        "tool_recovery": core.bind_rng(agentic_eq_tool_recovery),
 
     # FRM
-        "credit_portfolio": agentic_frm_credit_portfolio,
-        "credit_rv": agentic_frm_credit_rv,
-        "cva": agentic_frm_cva,
-        "liquidity": agentic_frm_liquidity,
-        "op_risk": agentic_frm_op_risk,
+        "credit_portfolio": core.bind_rng(agentic_frm_credit_portfolio),
+        "credit_rv": core.bind_rng(agentic_frm_credit_rv),
+        "cva": core.bind_rng(agentic_frm_cva),
+        "liquidity": core.bind_rng(agentic_frm_liquidity),
+        "op_risk": core.bind_rng(agentic_frm_op_risk),
 
     # Fixed Income
-        "bond_portfolio": agentic_fi_bond_portfolio,
-        "bond_pricing": agentic_fi_bond_pricing,
-        "convexity": agentic_fi_convexity,
-        "duration": agentic_fi_duration,
-        "yield_curve": agentic_fi_yield_curve,
-        "zero_coupon": agentic_fi_zero_coupon,
+        "bond_portfolio": core.bind_rng(agentic_fi_bond_portfolio),
+        "bond_pricing": core.bind_rng(agentic_fi_bond_pricing),
+        "convexity": core.bind_rng(agentic_fi_convexity),
+        "duration": core.bind_rng(agentic_fi_duration),
+        "yield_curve": core.bind_rng(agentic_fi_yield_curve),
+        "zero_coupon": core.bind_rng(agentic_fi_zero_coupon),
 
     # Portfolio Management
-        "factor_model": agentic_pm_factor_model,
-        "optimal_weight": agentic_pm_optimal_weight,
-        "risk_budget": agentic_pm_risk_budget,
-        "tracking": agentic_pm_tracking,
+        "factor_model": core.bind_rng(agentic_pm_factor_model),
+        "optimal_weight": core.bind_rng(agentic_pm_optimal_weight),
+        "risk_budget": core.bind_rng(agentic_pm_risk_budget),
+        "tracking": core.bind_rng(agentic_pm_tracking),
 
     # Risk Management
-        "cvar": agentic_risk_cvar,
-        "delta_hedge": agentic_risk_delta_hedge,
-        "greeks": agentic_risk_greeks,
-        "historical_var": agentic_risk_historical_var,
-        "stress_test": agentic_risk_stress_test,
-        "var_parametric": agentic_risk_var_parametric,
+        "cvar": core.bind_rng(agentic_risk_cvar),
+        "delta_hedge": core.bind_rng(agentic_risk_delta_hedge),
+        "greeks": core.bind_rng(agentic_risk_greeks),
+        "historical_var": core.bind_rng(agentic_risk_historical_var),
+        "stress_test": core.bind_rng(agentic_risk_stress_test),
+        "var_parametric": core.bind_rng(agentic_risk_var_parametric),
 
 }

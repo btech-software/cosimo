@@ -74,6 +74,90 @@ def load_seed_config():
 # be held out as a unit. Bump it in config/seed.json before each new round.
 ROUND = int(load_seed_config().get("round", 1))
 
+# Asking-context pools, shared by the record types whose question text is
+# otherwise a fixed literal. A generator that hardcodes its question contributes
+# exactly one unique row however many variants are requested, which is the
+# memorisation failure the corpus exists to avoid -- 77,500 abstention rows once
+# shipped carrying 310 distinct questions.
+DESKS = (
+    "a UK DB pension scheme", "a multi-family office", "a university endowment",
+    "a UCITS long-only fund", "an insurance general account", "a sovereign wealth sleeve",
+    "a fund-of-funds mandate", "a corporate treasury", "a discretionary wealth book",
+    "a systematic macro sleeve", "a credit opportunities fund", "a listed infrastructure fund",
+    "a charity investment committee", "a family trust", "a private credit vehicle",
+    "an emerging-markets debt mandate", "a liability-matching portfolio",
+    "a market-neutral equity book", "a defined-contribution default fund",
+    "a multi-asset growth mandate",
+)
+
+ASK_OPENERS = (
+    "Quick one before the IC meeting", "The trustees have asked", "Client just called",
+    "Prepping for the quarterly review", "Risk flagged this", "The board wants a view",
+    "Following up from yesterday", "Need this for the pack", "Portfolio manager asked",
+    "Compliance raised a query", "The consultant is pushing back", "Ahead of the rebalance",
+    "For the manager selection paper", "Auditors have queried this",
+    "The CIO wants this by Friday", "New mandate onboarding",
+)
+
+ASK_CLOSERS = (
+    "Can you take a look?", "What's your read?", "How would you approach it?",
+    "Where would you start?", "Thoughts?", "Can you work this up?",
+    "What do you need from me?", "How should I frame it?", "Give me your view.",
+)
+
+
+_BOUND_RNG = None
+
+
+def bind_rng(fn):
+    """Wrap a generator so its module's record helper can reach the seeded RNG.
+
+    The helpers that build a record (`_pref`, `_rec`, `_impl`) do not receive the
+    RNG, and threading it would mean editing every generator. Bound per call and
+    restored afterwards, so nested generators cannot read each other's RNG.
+    """
+    def wrapped(rng, seq):
+        global _BOUND_RNG
+        previous = _BOUND_RNG
+        _BOUND_RNG = rng
+        try:
+            return fn(rng, seq)
+        finally:
+            _BOUND_RNG = previous
+
+    wrapped.__name__ = getattr(fn, "__name__", "generator")
+    wrapped.__doc__ = getattr(fn, "__doc__", None)
+    return wrapped
+
+
+def bound_rng():
+    """The RNG of the generator currently executing, or None outside one."""
+    return _BOUND_RNG
+
+
+def scenario_clause(rng, base):
+    """Wrap a fixed question in a drawn asking context.
+
+    Roughly 20 x 16 x 9 x 4 shapes before the base text, which is enough that a
+    generator with a hardcoded question still yields distinct rows at the variant
+    counts bulk generation uses. The base text -- and therefore whatever the
+    record is meant to teach -- is untouched.
+    """
+    base = str(base).strip()
+    desk = rng.choice(list(DESKS))
+    opener = rng.choice(list(ASK_OPENERS))
+    closer = rng.choice(list(ASK_CLOSERS))
+    size = rng.randint(8, 940)
+    shape = rng.randint(0, 3)
+    if shape == 0:
+        return f"{opener}: {base} This is for {desk}. {closer}"
+    if shape == 1:
+        return f"{opener} — we run {desk} (about ${size}m). {base}"
+    if shape == 2:
+        return f"{base} Context: {desk}, roughly ${size}m. {closer}"
+    return f"[{desk}] {opener}. {base} {closer}"
+
+
 TRACE_STYLES = ("assumptions_steps", "prose", "table", "backward")
 
 

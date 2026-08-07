@@ -1,3 +1,4 @@
+from pipelines import core
 from pipelines.core import fmt, pct
 import json, math, textwrap
 
@@ -8,6 +9,11 @@ def _rnd(rng, lo, hi):
 
 def _impl(code, docstring, test_code, answer):
     """Create an implementation record."""
+    # The docstring becomes the record's question. Drawn parameters alone gave it
+    # too little entropy at 250 variants, so it carries an asking context too.
+    _rng = core.bound_rng()
+    if _rng is not None:
+        docstring = core.scenario_clause(_rng, docstring)
     return {
         "record_type": "implementation",
         "code": textwrap.dedent(code),
@@ -614,38 +620,38 @@ def loss_distribution_params(freq_mu, freq_sd, sev_mu, sev_sd):
     return _impl(code, docstring, test_code, answer)
 
 TEMPLATES = {    # Equity (6)
-    "equity_dcf": _impl_equity_dcf,
-    "equity_multiples": _impl_equity_multiples,
-    "equity_black_scholes": _impl_equity_black_scholes,
-    "equity_capm": _impl_equity_capm,
-    "equity_black_scholes_put": _impl_equity_black_scholes_put,
-    "equity_fcf_growth": _impl_equity_fcf_growth,
+    "equity_dcf": core.bind_rng(_impl_equity_dcf),
+    "equity_multiples": core.bind_rng(_impl_equity_multiples),
+    "equity_black_scholes": core.bind_rng(_impl_equity_black_scholes),
+    "equity_capm": core.bind_rng(_impl_equity_capm),
+    "equity_black_scholes_put": core.bind_rng(_impl_equity_black_scholes_put),
+    "equity_fcf_growth": core.bind_rng(_impl_equity_fcf_growth),
 
     # Fixed Income (6)
-    "fi_bond_pricing": _impl_fi_bond_pricing,
-    "fi_duration_convexity": _impl_fi_duration_convexity,
-    "fi_yield_curve": _impl_fi_yield_curve,
-    "fi_convertible_bonds": _impl_fi_convertible_bonds,
-    "fi_mbs_pricing": _impl_fi_mbs_pricing,
-    "fi_zspread": _impl_fi_zspread,
+    "fi_bond_pricing": core.bind_rng(_impl_fi_bond_pricing),
+    "fi_duration_convexity": core.bind_rng(_impl_fi_duration_convexity),
+    "fi_yield_curve": core.bind_rng(_impl_fi_yield_curve),
+    "fi_convertible_bonds": core.bind_rng(_impl_fi_convertible_bonds),
+    "fi_mbs_pricing": core.bind_rng(_impl_fi_mbs_pricing),
+    "fi_zspread": core.bind_rng(_impl_fi_zspread),
 
     # Risk Management (6)
-    "risk_par_var": _impl_risk_par_var,
-    "risk_historical_var": _impl_risk_historical_var,
-    "risk_cvar": _impl_risk_cvar,
-    "risk_greeks_delta_gamma": _impl_risk_greeks_delta_gamma,
-    "risk_sharpe_sortino": _impl_risk_sharpe_sortino,
-    "risk_monte_carlo_opa": _impl_risk_monte_carlo_opa,
+    "risk_par_var": core.bind_rng(_impl_risk_par_var),
+    "risk_historical_var": core.bind_rng(_impl_risk_historical_var),
+    "risk_cvar": core.bind_rng(_impl_risk_cvar),
+    "risk_greeks_delta_gamma": core.bind_rng(_impl_risk_greeks_delta_gamma),
+    "risk_sharpe_sortino": core.bind_rng(_impl_risk_sharpe_sortino),
+    "risk_monte_carlo_opa": core.bind_rng(_impl_risk_monte_carlo_opa),
 
     # Portfolio Management (4)
-    "port_risk_parity": _impl_port_risk_parity,
-    "port_efficient_frontier": _impl_port_efficient_frontier,
-    "port_track_error": _impl_port_track_error,
-    "port_blume": _impl_port_blume,
+    "port_risk_parity": core.bind_rng(_impl_port_risk_parity),
+    "port_efficient_frontier": core.bind_rng(_impl_port_efficient_frontier),
+    "port_track_error": core.bind_rng(_impl_port_track_error),
+    "port_blume": core.bind_rng(_impl_port_blume),
 
     # FRM (4)
-    "frm_cvar_calc": _impl_frm_cvar_calc,
-    "frm_ivr": _impl_frm_ivr,
-    "frm_fraud_detection": _impl_frm_fraud_detection,
-    "frm_loss_distribution": _impl_frm_loss_distribution,
+    "frm_cvar_calc": core.bind_rng(_impl_frm_cvar_calc),
+    "frm_ivr": core.bind_rng(_impl_frm_ivr),
+    "frm_fraud_detection": core.bind_rng(_impl_frm_fraud_detection),
+    "frm_loss_distribution": core.bind_rng(_impl_frm_loss_distribution),
 }

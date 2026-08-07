@@ -50,6 +50,11 @@ REQUIRED = {
     "implementation": ("question", "answer", "code"),
 }
 
+# Variety is measured at the variant count bulk generation actually uses, because
+# a pool of N question strings looks perfect at N seeds and collapses at N+1.
+VARIETY_SEEDS = 250
+VARIETY_FLOOR = 0.90
+
 failures = []
 notes = []
 
@@ -240,35 +245,41 @@ def main():
     again, _ = run_generation()
     check(again == 0, f"second run produced {again} new records (expected 0)")
 
-    # Reported, not enforced: Phase A's contract is one variant per generator, and
-    # at one variant this is always 1.0. It is measured here because it is the gate
-    # on bulk generation -- a generator whose question does not vary with the seed
-    # contributes exactly one unique row however many variants are asked for, and
-    # re-randomising a fixed stem is the memorisation failure the corpus exists to
-    # avoid. Fixing it is Phase B (parameter variety).
-    print("\n8. parameter variety across seeds (Phase B gate, reported only)")
+    # Measured at VARIETY_SEEDS, the real per-generator variant count, using the
+    # same _variant_key the generator driver uses. An earlier version drew five
+    # seeds and passed anything above 90%: a generator with a pool of exactly five
+    # question strings scored 100% and was declared fixed, then produced five
+    # unique rows out of 250 in the real corpus. 77,500 abstention rows shipped
+    # carrying 310 distinct questions before this check could see it.
+    #
+    # Enforced per generator, not per module: a module average hides one dead
+    # generator behind forty good ones.
+    print(f"\n8. parameter variety at {VARIETY_SEEDS} seeds (per generator)")
     for record_type, modname in sorted(
         {rt: mn for tm in gen.NEW_RECORD_TYPES.values() for rt, mn in tm.items()}.items()
     ):
         mod = importlib.import_module(modname)
-        questions, total = set(), 0
-        for fn in mod.TEMPLATES.values():
-            for v in range(5):
+        worst, ratios = None, []
+        for name, fn in mod.TEMPLATES.items():
+            questions = set()
+            for v in range(VARIETY_SEEDS):
+                seed, seq = gen._variant_key(200000, "CFA_Level_II", name, record_type, v)
                 with contextlib.redirect_stdout(io.StringIO()):
-                    d = fn(core.RNG(1000 + v * 7919), 200000 + v * 1000)
-                questions.add(d.get("question") or d.get("docstring") or "")
-                total += 1
-        ratio = len(questions) / total
-        flag = "ok  " if ratio > 0.9 else "WARN"
-        print(
-            f"  {flag} {record_type:15s} {len(questions):4d} distinct questions "
-            f"of {total:4d} draws ({ratio:.0%})"
+                    d = fn(core.RNG(seed), seq)
+                questions.add(
+                    d.get("question") or d.get("prompt") or d.get("docstring") or ""
+                )
+            ratio = len(questions) / VARIETY_SEEDS
+            ratios.append(ratio)
+            if worst is None or ratio < worst[1]:
+                worst = (name, ratio, len(questions))
+        mean = sum(ratios) / len(ratios) if ratios else 0.0
+        check(
+            worst[1] >= VARIETY_FLOOR,
+            f"{record_type:15s} worst generator {worst[0]} {worst[2]}/{VARIETY_SEEDS} "
+            f"({worst[1]:.0%}), module mean {mean:.0%} "
+            f"(floor {VARIETY_FLOOR:.0%})",
         )
-        if ratio <= 0.9:
-            notes.append(
-                f"{record_type}: only {len(questions)} unique questions across "
-                f"{len(mod.TEMPLATES)} generators - blocks bulk generation"
-            )
 
     print(f"\n{'=' * 60}")
     print(f"{len(records)} records from {len(expected)} generators")
