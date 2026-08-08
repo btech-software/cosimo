@@ -9,10 +9,16 @@ data:
   val_frac: 0.01
 
   # Fraction reserved for the IID test slice reported as the headline in-domain
-  # accuracy. Kept at 1% for the same reason: ~650 items at 768 new tokens each
-  # is a tolerable evaluation wall clock, and the Wilson interval at that n is
-  # narrow enough to resolve the effect sizes we expect.
-  test_frac: 0.01
+  # accuracy. ~650 items is the target: a tolerable evaluation wall clock, and a
+  # Wilson interval narrow enough to resolve the effect sizes we expect.
+  #
+  # 1.7%, not the 1% of val_frac, because this fraction is taken from the *exam*
+  # records alone -- the other four record types have no final-answer value for
+  # the grader to read, so they get test_frac 0 and never reach an eval slice.
+  # Exam is ~30% of the mixed corpus (see dataset.mix in base.yaml), so 1% would
+  # yield ~390 items and widen the headline confidence interval as a side effect
+  # of a training-mix decision. Retune this if that share changes materially.
+  test_frac: 0.017
 
   # Cap on the number of SFT training rows written to sft_train.jsonl.
   # null = use every train-split record. Set it to shorten an epoch without

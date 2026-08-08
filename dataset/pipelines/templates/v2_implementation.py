@@ -14,11 +14,16 @@ def _impl(code, docstring, test_code, answer):
     _rng = core.bound_rng()
     if _rng is not None:
         docstring = core.scenario_clause(_rng, docstring)
+    # dedent THEN strip, never the other way round. `.strip()` first removes the
+    # leading indent of the first line only; textwrap.dedent then measures a
+    # common prefix of "" across the block, does nothing, and every continuation
+    # line stays indented -- a SyntaxError in 15 of the 26 generators below. The
+    # call sites pass their literals unstripped for exactly this reason.
     return {
         "record_type": "implementation",
-        "code": textwrap.dedent(code),
+        "code": textwrap.dedent(code).strip(),
         "docstring": docstring,
-        "test_code": textwrap.dedent(test_code),
+        "test_code": textwrap.dedent(test_code).strip(),
         "answer": answer,
         "language": "python",
         "verified": True,
@@ -220,7 +225,7 @@ def bootstrapped_yield(zero_rates):
     test_code = """
     forwards = bootstrapped_yield([0.02, 0.03, 0.04])
     assert len(forwards) == 4
-""".strip()
+"""
     answer = "Zero curve: [%.2f%%, %.2f%%, %.2f%%]" % (zero_rates[0]*100, zero_rates[1]*100, zero_rates[2]*100)
     return _impl(code, docstring, test_code, answer)
 
@@ -242,7 +247,7 @@ def convertible_bond_metrics(stock_price, conv_ratio, par, market_price):
     test_code = """
     metrics = convertible_bond_metrics(75, 10, 1000, 1050)
     assert 0 < metrics['conversion_value'] < 20000
-""".strip()
+"""
     answer = "Conv Value=${:.0f}, Premium={:.1%}".format(conv_value, conv_premium)
     return _impl(code, docstring, test_code, answer)
 
@@ -288,7 +293,7 @@ def z_spread_approx(bond_price, coupon_pct, par, nper, riskfree_rates):
     rfs = [0.02, 0.03, 0.04]
     zs = z_spread_approx(100, 5, 100, 5, rfs)
     assert -100 < zs < 2000
-""".strip()
+"""
     answer = "ZSpread ≈ {:.0f} bps".format((bond_price - par) / par * 200)
     return _impl(code, docstring, test_code, answer)
 
@@ -336,7 +341,7 @@ def historical_var(returns_1d, conf=0.95):
     returns_hists = [-0.02, -0.01, 0.005, 0.01, 0.02]
     result = historical_var(returns_hists, 0.95)
     assert 0 < result['var_pct'] < 1
-""".strip()
+"""
     answer = "Hist VaR={:.2%} at {:.0f}% conf".format(var, conf * 100)
     return _impl(code, docstring, test_code, answer)
 
@@ -361,7 +366,7 @@ def conditional_var(returns_1d, conf=0.95):
     test_code = """
     tails = [-0.05, -0.03, -0.02]
     assert 0 < conditional_var(tails, 0.95) < 1.0
-""".strip()
+"""
     answer = "CVaR({:.0f}%)={:.2%}".format(conf_level * 100, cvar)
     return _impl(code, docstring, test_code, answer)
 
@@ -404,7 +409,7 @@ def risk_adjusted_returns(mu, rf, vol, downside_vol):
     result = risk_adjusted_returns(0.15, 0.03, 0.20, 0.10)
     assert 0 < result['sharpe'] < 10
     assert 0 < result['sortino'] < 20
-""".strip()
+"""
     answer = "Sharpe={:.2f}, Sortino={:.2f}".format(sharpe, sortino)
     return _impl(code, docstring, test_code, answer)
 
@@ -436,7 +441,7 @@ def monte_carlo_call(s0, x, t, r, vol, n_sims=1000):
     test_code = """
     result = monte_carlo_call(100, 100, 1, 0.05, 0.20)
     assert 0 < result['price'] < 50
-""".strip()
+"""
     answer = "MC Price=${:.2f}".format(price)
     return _impl(code, docstring, test_code, answer)
 
@@ -460,7 +465,7 @@ def risk_parity_weights(cov_matrix, n_assets):
     covs = np.array([[0.04, 0.005], [0.005, 0.09]])
     w = risk_parity_weights(covs, 2)
     assert abs(sum(w) - 1.0) < 0.01
-""".strip()
+"""
     answer = "Risk Parity: [%.0f%%, %.0f%%, %.0f%%]" % (weights[0]*100, weights[1]*100, weights[2]*100)
     return _impl(code, docstring, test_code, answer)
 
@@ -486,7 +491,7 @@ def efficient_frontier_2(mus, vols, rho, n_points=50):
     front = efficient_frontier_2([0.10, 0.06], [0.20, 0.15], 0.2)
     assert len(front) == 50
     assert front[0][0] > 0
-""".strip()
+"""
     answer = "Frontier: {} points from {}μ to {}μ".format(n_points, min(m for m, v in [(mu1, vol1), (mu2, vol2)]), max(m for m, v in [(mu1, vol1), (mu2, vol2)]))
     return _impl(code, docstring, test_code, answer)
 
@@ -513,7 +518,7 @@ def tracking_error(act_returns, bench_returns):
     bench_rets = [0.015, 0.02, 0.025]
     result = tracking_error(act_rets, bench_rets)
     assert 0 < result['annual_te'] < 50
-""".strip()
+"""
     answer = "TE(annual)={:.2f}%".format(te * 100) if te >= 0 else "TE(annual)={:.2f}%".format(abs(te) * 100)
     return _impl(code, docstring, test_code, answer)
 
@@ -535,7 +540,7 @@ def blume_alpha(mu_p, vol_p, mu_b, vol_b, rf):
     test_code = """
     bl = blume_alpha(0.15, 0.20, 0.10, 0.15, 0.03)
     assert isinstance(bl, float)
-""".strip()
+"""
     answer = "Blume Alpha={:.2%}".format(blume_alpha)
     return _impl(code, docstring, test_code, answer)
 
@@ -557,7 +562,7 @@ def regulatory_capital(el, unexpected_loss_pct=2.0):
     test_code = """
     result = regulatory_capital(1e6)
     assert result['total_capital'] > result['el']
-""".strip()
+"""
     answer = "EL=${:,.0f}, Total Capital=${:,.0f}".format(expected_loss, economic_capital)
     return _impl(code, docstring, test_code, answer)
 
@@ -574,7 +579,7 @@ def implied_variance_risk_premium(vol_mkt, vol_hist):
     test_code = """
     ivrp = implied_variance_risk_premium(0.30, 0.20)
     assert 0 < ivrp < 100
-""".strip()
+"""
     answer = "IVRP={:.1f}%".format(ivr)
     return _impl(code, docstring, test_code, answer)
 
@@ -593,7 +598,7 @@ def fraud_detect(scores, threshold=0.8):
     scores_test = [0.1, 0.3, 0.9, 0.2, 0.95]
     result = fraud_detect(scores_test, 0.8)
     assert result['flagged_count'] == 2
-""".strip()
+"""
     answer = "Anomalies flagged: {:} at threshold {:.1f}".format(len(flagged), threshold)
     return _impl(code, docstring, test_code, answer)
 
@@ -615,7 +620,7 @@ def loss_distribution_params(freq_mu, freq_sd, sev_mu, sev_sd):
     test_code = """
     rd = loss_distribution_params(4, 1, 25, 5)
     assert rd['std_loss'] > 0
-""".strip()
+"""
     answer = "E[L]={:.0f}, std(L)={:.0f}".format(freq_mean * sev_mean, (freq_mean * sev_sd**2 + freq_sd**2 * sev_mean**2)**0.5)
     return _impl(code, docstring, test_code, answer)
 

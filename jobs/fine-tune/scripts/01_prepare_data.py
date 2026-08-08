@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download, normalise, split and render the Cosimo corpus into data/processed/.
 
-Reads `btech-software/cosimo-cfa-frm-71k` (both configs), assigns deterministic
+Reads every source in `dataset.hub_id` + `dataset.mix`, assigns deterministic
 splits, renders every training example through the harness chat template, writes
 the JSONL files the training and evaluation scripts consume, and runs a
 validation gate that fails loudly on leakage, on a rendering fault, and on a
@@ -11,6 +11,18 @@ The gate checks the *output* against the *configuration*, not only against
 itself: a holdout family that matched no record, an empty split, a generator
 label that disagrees with its verification template, or a preference pair whose
 rejected side carries a format cue are all failures, not warnings.
+
+Three properties of the mixed corpus shape the code below:
+
+* **Five record types, one grading contract.** `FINAL ANSWER:` and the exam
+  protocol belong to `exam` rows only. The other four types are why v2 exists;
+  rendering them in exam shape would rebuild the style collapse v1 produced.
+* **Only exam rows are gradeable.** `grading.grade_cosimo` reads a final-answer
+  value, which a 900-token analysis does not have, so the two evaluation slices
+  are exam-only and non-exam records never reach a `test` split.
+* **Preference rows may or may not share ids with supervised rows.** v2's do
+  not (the `cosimopref_` namespace); v1's do, which is what
+  `data.preference_holdout_frac` exists to work around.
 
 Example:
     ./scripts/01_prepare_data.py --force
@@ -116,24 +128,64 @@ def rows_fingerprint(rows: list[dict]) -> dict:
     return {"n": len(rows), "ids_sha256": digest.hexdigest()[:16]}
 
 
-def load_hub_rows(
-    hub_id: str,
-    revision: str | None,
+def dataset_sources(cfg: dict) -> list[dict]:
+    """The ordered list of Hub corpora to merge.
+
+    ``dataset.hub_id`` is the primary source and stays a plain string so the
+    manifest, the docs and ``--set dataset.hub_id=...`` keep working; each entry
+    of ``dataset.mix`` adds another corpus. Order is priority order: the
+    cross-source question dedupe keeps the first occurrence.
+    """
+    primary = {
+        "hub_id": config_mod.get(cfg, "dataset.hub_id"),
+        "revision": config_mod.get(cfg, "dataset.revision"),
+        "preference_config": config_mod.get(cfg, "dataset.preference_config"),
+        "max_share": None,
+    }
+    if not primary["hub_id"]:
+        raise ValueError("dataset.hub_id is not set")
+    sources = [primary]
+    for entry in config_mod.get(cfg, "dataset.mix") or []:
+        if not isinstance(entry, dict) or not entry.get("hub_id"):
+            raise ValueError(
+                f"every dataset.mix entry needs a hub_id, got {entry!r}"
+            )
+        sources.append(
+            {
+                "hub_id": entry["hub_id"],
+                "revision": entry.get("revision", "main"),
+                "preference_config": entry.get("preference_config"),
+                "max_share": entry.get("max_share"),
+            }
+        )
+    seen = [source["hub_id"] for source in sources]
+    if len(set(seen)) != len(seen):
+        raise ValueError(f"a corpus is listed twice in dataset.hub_id/mix: {seen}")
+    return sources
+
+
+def load_source_rows(
+    source: dict,
     *,
     limit: int | None = None,
     seed: int = 3407,
 ) -> tuple[list[dict], list[dict], dict]:
-    """Load both dataset configs as plain dicts, plus their row fingerprints.
+    """Load one corpus's supervised and preference rows, plus row fingerprints.
 
     ``limit`` takes a *seeded, order-preserving sample* of each split rather than
     a head slice: the Hub stores contiguous ~1000-row blocks per generator, so
     ``[:N]`` would yield a single generator per program and a smoke run that
-    exercises almost none of the stratification or the holdout families. The
-    preference subset is then derived by joining on the sampled ids, so the two
-    configs stay consistent.
+    exercises almost none of the stratification, the record types or the holdout
+    families.
+
+    Preference rows are limited the same way when their ids are disjoint from
+    the supervised rows (v2), and by joining on the sampled ids when they are
+    shared (v1) so the two configs stay consistent.
     """
     from datasets import load_dataset
 
+    hub_id = source["hub_id"]
+    revision = source["revision"]
     fingerprints: dict[str, dict] = {}
 
     default_rows: list[dict] = []
@@ -144,21 +196,58 @@ def load_hub_rows(
         if len(picked) < len(dataset):
             dataset = dataset.select(picked)
         rows = [dict(row) for row in dataset]
-        fingerprints[f"default/{split_name}"] = rows_fingerprint(rows)
+        for row in rows:
+            row["_source"] = hub_id
+        fingerprints[f"{hub_id}/default/{split_name}"] = rows_fingerprint(rows)
         default_rows.extend(rows)
-        LOGGER.info("loaded default/%s: %d rows", split_name, len(rows))
+        LOGGER.info("loaded %s default/%s: %d rows", hub_id, split_name, len(rows))
+
+    pref_config = source.get("preference_config")
+    pref_rows: list[dict] = []
+    if not pref_config:
+        LOGGER.info("%s: no preference_config, its pairs are not used", hub_id)
+        return default_rows, pref_rows, fingerprints
 
     sampled_ids = {str(row.get("id", "")) for row in default_rows}
-    pref_rows: list[dict] = []
-    loaded = load_dataset(hub_id, "preference_pairs", revision=revision)
+    loaded = load_dataset(hub_id, pref_config, revision=revision)
     for split_name in sorted(loaded):
         rows = [dict(row) for row in loaded[split_name]]
         if limit is not None:
-            rows = [row for row in rows if str(row.get("id", "")) in sampled_ids]
-        fingerprints[f"preference_pairs/{split_name}"] = rows_fingerprint(rows)
+            joined = [row for row in rows if str(row.get("id", "")) in sampled_ids]
+            # Disjoint id spaces (v2) join to nothing, so the intersection is not
+            # a usable smoke sample; fall back to a seeded sample of the config.
+            rows = joined if joined else subsample(rows, limit, seed)
+        for row in rows:
+            row["_source"] = hub_id
+        fingerprints[f"{hub_id}/{pref_config}/{split_name}"] = rows_fingerprint(rows)
         pref_rows.extend(rows)
-        LOGGER.info("loaded preference_pairs/%s: %d rows", split_name, len(rows))
+        LOGGER.info(
+            "loaded %s %s/%s: %d rows", hub_id, pref_config, split_name, len(rows)
+        )
 
+    return default_rows, pref_rows, fingerprints
+
+
+def load_hub_rows(
+    sources: list[dict],
+    *,
+    limit: int | None = None,
+    seed: int = 3407,
+) -> tuple[list[dict], list[dict], dict]:
+    """Load every source in order and concatenate. Capping happens later.
+
+    ``max_share`` is applied after normalisation, in :func:`apply_source_caps`,
+    so the share is a share of the rows that actually survive verification,
+    deduplication and rendering rather than of the rows the Hub happened to ship.
+    """
+    default_rows: list[dict] = []
+    pref_rows: list[dict] = []
+    fingerprints: dict[str, dict] = {}
+    for source in sources:
+        rows, prefs, prints = load_source_rows(source, limit=limit, seed=seed)
+        default_rows.extend(rows)
+        pref_rows.extend(prefs)
+        fingerprints.update(prints)
     return default_rows, pref_rows, fingerprints
 
 
@@ -233,27 +322,122 @@ def is_blank_record(record: data_schema.CosimoRecord) -> bool:
     string is never empty — it is just degenerate, e.g. a completion of
     ``"\\n\\nFINAL ANSWER:"``. Those teach the model to emit a bare tag, so they
     are rejected on their source fields, before rendering.
+
+    Which fields are required depends on the record type: only ``exam`` has a
+    reasoning trace, ``implementation`` carries its substance in ``code``, and
+    an ``agentic`` record's target is the conversation rather than ``answer``.
+    Applying the exam rule to all five would reject 78% of the v2 corpus in
+    silence.
     """
-    return (
-        _blank(record.question)
-        or _blank(record.answer)
-        or _blank(record.reasoning_trace)
-    )
+    if _blank(record.question) and record.record_type != data_schema.AGENTIC:
+        return True
+    if record.record_type == data_schema.AGENTIC:
+        # The supervised span starts at the first assistant turn, so a
+        # conversation without one renders a prompt and nothing to learn.
+        return not any(
+            message.get("role") == "assistant" for message in record.conversation
+        )
+    if record.record_type == data_schema.IMPLEMENTATION:
+        return _blank(record.code) and _blank(record.answer)
+    if record.record_type == data_schema.EXAM:
+        return _blank(record.answer) or _blank(record.reasoning_trace)
+    if record.record_type == data_schema.PREFERENCE:
+        # A standalone pair has no gold value; its chosen side is the content,
+        # and normalize_standalone_pref_row carries that as the trace.
+        return _blank(record.reasoning_trace)
+    return _blank(record.answer)
+
+
+def apply_source_caps(
+    records: list[data_schema.CosimoRecord],
+    source_by_id: dict[str, str],
+    sources: list[dict],
+    seed: int,
+    holdout_families: set[str],
+) -> tuple[list[data_schema.CosimoRecord], dict[str, int]]:
+    """Enforce each source's ``max_share`` of the merged **trainable** pool.
+
+    A capped source keeps ``share/(1 - share)`` times the size of the uncapped
+    remainder, so its share of the final trainable pool is the configured one.
+    The subsample is seeded and order-preserving, and because the pool is sorted
+    by id it spreads across generators rather than truncating a contiguous block.
+
+    **Held-out records are exempt from the cap**, and that exemption is the
+    point of measuring against the trainable pool rather than all rows. A
+    held-out family never enters training — it is the `unseen_stems` measuring
+    instrument. Subsampling it would shrink the evaluation slice, and therefore
+    widen its confidence interval, as a side effect of retuning the training
+    mix. The knob that balances what the model learns must not quietly degrade
+    what measures it.
+    """
+    capped = {
+        str(source["hub_id"]): float(source["max_share"])
+        for source in sources
+        if source.get("max_share") is not None
+    }
+    if not capped:
+        return records, {}
+    for hub_id, share in capped.items():
+        if not 0.0 < share < 1.0:
+            raise ValueError(
+                f"dataset.mix max_share for {hub_id!r} must be in (0, 1), "
+                f"got {share!r}"
+            )
+    if sum(capped.values()) >= 1.0:
+        raise ValueError(
+            f"dataset.mix max_share values sum to {sum(capped.values())}, leaving "
+            "no room for the uncapped sources"
+        )
+
+    def held_out(record: data_schema.CosimoRecord) -> bool:
+        return data_schema.stem_family(record.generator) in holdout_families
+
+    trainable = [r for r in records if not held_out(r)]
+    uncapped = [r for r in trainable if source_by_id[r.id] not in capped]
+    budget = len(uncapped) / (1.0 - sum(capped.values()))
+    surviving = {r.id for r in records if held_out(r)}
+    surviving |= {r.id for r in uncapped}
+    dropped: dict[str, int] = {}
+    for hub_id, share in capped.items():
+        pool = [r for r in trainable if source_by_id[r.id] == hub_id]
+        keep = subsample(pool, int(round(share * budget)), seed)
+        surviving |= {r.id for r in keep}
+        if len(keep) < len(pool):
+            dropped[hub_id] = len(pool) - len(keep)
+            LOGGER.info(
+                "max_share=%s for %s: kept %d of %d trainable records "
+                "(held-out records are exempt)",
+                share,
+                hub_id,
+                len(keep),
+                len(pool),
+            )
+    return [r for r in records if r.id in surviving], dropped
 
 
 def _counts_by(rows: list[dict], field: str) -> dict[str, int]:
     return dict(sorted(Counter(str(row.get(field, "")) for row in rows).items()))
 
 
-def measure_identity(rows: list[dict], full_system: str, short_system: str) -> dict:
+def measure_identity(rows: list[dict], full_identity: str, short_identity: str) -> dict:
     """Count which identity each written prompt actually carries.
 
     Measured by substring on the rendered prompt, not re-derived from the id
     hash: a re-derivation would report the intended fraction even if rendering
     ignored it entirely.
+
+    Matched against the identity blocks alone rather than the composed system
+    message, because only exam rows carry the exam protocol. The full block is
+    tested first: ``prompt.identity_short`` is the opening line of
+    ``prompt.identity``, so a short-first test would count every row as short.
+    The exam protocol is checked separately, in :func:`validate`.
     """
-    short = sum(1 for row in rows if short_system in row["prompt"])
-    full = sum(1 for row in rows if full_system in row["prompt"])
+    full = short = 0
+    for row in rows:
+        if full_identity in row["prompt"]:
+            full += 1
+        elif short_identity in row["prompt"]:
+            short += 1
     return {
         "n": len(rows),
         "short": short,
@@ -354,6 +538,7 @@ def validate(
     generator_conflicts: list[dict],
     full_system: str,
     short_system: str,
+    exam_protocol: str,
     tag: str,
     eos_token: str = "",
 ) -> None:
@@ -476,6 +661,23 @@ def validate(
                 f"stem family {row['stem_family']!r}, which is not held out"
             )
 
+    # --- the graded suites are exam-only ---------------------------------
+    # grading.grade_cosimo reads the value after the last FINAL ANSWER: line and
+    # compares it numerically or by option letter. An analysis or abstention
+    # record has no such value, so it would be scored wrong on every model and
+    # drag both suites' accuracy toward zero while looking like a model result.
+    for name in EVAL_FILES.values():
+        non_exam = Counter(
+            str(row.get("record_type"))
+            for row in files.get(name, [])
+            if row.get("record_type") != data_schema.EXAM
+        )
+        if non_exam:
+            problems.append(
+                f"{name}: {sum(non_exam.values())} non-exam rows ({dict(non_exam)}); "
+                "the graded suites cannot score a record with no final-answer value"
+            )
+
     # --- rendering ------------------------------------------------------
     for name in SFT_FILES.values():
         for row in files.get(name, []):
@@ -515,6 +717,40 @@ def validate(
                 "the short identity in their rendered prompt"
             )
 
+    # --- the grading contract stays on exam rows -------------------------
+    # This is the failure v2 exists to fix, and it is invisible downstream: a
+    # model trained to answer an open-ended hedging question with `Step 1.` and
+    # a FINAL ANSWER line still scores well on every exam suite. The contract
+    # must be in the system block of exam rows and in the system block of
+    # nothing else, and it must be the last line of an exam target and appear in
+    # no other target.
+    for name in tuple(SFT_FILES.values()) + tuple(PREF_FILES.values()):
+        wrong_protocol: Counter = Counter()
+        wrong_tag: Counter = Counter()
+        for row in files.get(name, []):
+            is_exam = row.get("record_type") == data_schema.EXAM
+            if exam_protocol and (exam_protocol in row["prompt"]) is not is_exam:
+                wrong_protocol[row.get("record_type", "?")] += 1
+            targets = (
+                [row["chosen"], row["rejected"]] if "chosen" in row else [row["completion"]]
+            )
+            if any((tag in target) is not is_exam for target in targets):
+                wrong_tag[row.get("record_type", "?")] += 1
+        if wrong_protocol:
+            problems.append(
+                f"{name}: {sum(wrong_protocol.values())} rows carry the exam "
+                f"protocol in the wrong place ({dict(wrong_protocol)}). It belongs "
+                "in the system block of exam rows only; on any other record type "
+                "it instructs the exam shape into the answer being trained."
+            )
+        if wrong_tag:
+            problems.append(
+                f"{name}: {sum(wrong_tag.values())} supervised targets have the "
+                f"{tag!r} contract on the wrong record type ({dict(wrong_tag)}). "
+                "Exam targets must end with it; no other record type may contain "
+                "it."
+            )
+
     # --- the MCQ format cue is gone --------------------------------------
     for name in PREF_FILES.values():
         counts = written_letter_prefix_counts(files.get(name, []), tag)
@@ -546,6 +782,7 @@ def validate(
 def prepare(
     cfg: dict,
     *,
+    sources: list[dict],
     default_rows: list[dict],
     pref_rows: list[dict],
     tokenizer: Any,
@@ -571,8 +808,11 @@ def prepare(
     seed = int(config_mod.get(cfg, "seed", 3407))
     tag = config_mod.get(cfg, "prompt.final_answer_tag", grading.DEFAULT_TAG)
     variation_rate = float(config_mod.get(cfg, "prompt.variation_rate", 0.0) or 0.0)
-    full_system = chat.compose_system(cfg, short=False, exam=True)
-    short_system = chat.compose_system(cfg, short=True, exam=True)
+    # The identity blocks, not the composed system messages: the exam protocol is
+    # on exam rows only, so it cannot be part of what identifies the persona.
+    full_system = chat.compose_system(cfg, short=False, exam=False)
+    short_system = chat.compose_system(cfg, short=True, exam=False)
+    exam_protocol = str(config_mod.get(cfg, "prompt.exam_protocol", "")).strip()
     max_seq_length = int(config_mod.get(cfg, "model.max_seq_length", 2048))
     val_frac = float(config_mod.get(cfg, "data.val_frac", 0.01))
     test_frac = float(config_mod.get(cfg, "data.test_frac", 0.01))
@@ -593,10 +833,20 @@ def prepare(
     # 1. normalise, dropping unverified, duplicate and degenerate rows
     records: list[data_schema.CosimoRecord] = []
     seen_ids: set[str] = set()
+    source_by_id: dict[str, str] = {}
     dropped: Counter = Counter()
     conflicts: list[dict] = []
     n_conflicts = 0
+    # Cross-source question dedupe. 1,840 exam questions are byte-identical
+    # across the two corpora under different ids, and the split is keyed by id,
+    # so without this the same question can sit in the primary corpus's test
+    # slice and a mixed-in corpus's training set. Only the FIRST source to
+    # produce a question keeps it; duplicates *within* one corpus are left
+    # alone, because they are a pre-existing property of that corpus rather than
+    # something the mix introduced.
+    questions_by_source: dict[str, set[str]] = defaultdict(set)
     for row in default_rows:
+        source = str(row.get("_source") or "")
         if drop_unverified and not row.get("verified", False):
             # `is False` would keep a null/missing flag silently; count the two
             # cases apart so "all verified" cannot be confused with "no flag".
@@ -613,13 +863,22 @@ def prepare(
         if is_blank_record(record):
             dropped["blank_content"] += 1
             continue
+        question = record.question.strip()
+        if question and any(
+            question in seen
+            for other, seen in questions_by_source.items()
+            if other != source
+        ):
+            dropped["duplicate_question_across_sources"] += 1
+            continue
+        questions_by_source[source].add(question)
         # The generator decides the stem family, and the stem family decides the
         # holdout. A single mislabelled generator moves a held-out stem into
         # training, which is the one failure that cannot be detected downstream.
-        metadata_generator = str((row.get("metadata") or {}).get("generator") or "")
-        verification_template = str(
-            (row.get("verification") or {}).get("template") or ""
-        )
+        metadata = data_schema.decode_mapping(row.get("metadata"))
+        verification = data_schema.decode_mapping(row.get("verification"))
+        metadata_generator = str(metadata.get("generator") or "")
+        verification_template = str(verification.get("template") or "")
         if (
             metadata_generator
             and verification_template
@@ -638,25 +897,71 @@ def prepare(
                 data_schema.stem_family(verification_template),
             }:
                 conflicts.append(conflict)
+        if record.record_type == data_schema.IMPLEMENTATION:
+            # Neither counter drops a record: the code block carries the
+            # substance either way. `reindented` is the published corpus's
+            # dedent defect being undone (see normalize_python_block) and should
+            # fall to 0 once v2 is regenerated from the fixed generator;
+            # `unparseable` is a block the repair could not recover, which is
+            # left out of the target. A rising count means a generator regressed.
+            for field, block in (
+                ("code", record.code),
+                ("test_code", record.test_code),
+            ):
+                if not block.strip():
+                    continue
+                normalized = data_schema.normalize_python_block(block)
+                if not normalized:
+                    dropped[f"implementation_{field}_unparseable"] += 1
+                elif normalized != block.strip():
+                    dropped[f"implementation_{field}_reindented"] += 1
         seen_ids.add(record.id)
+        source_by_id[record.id] = source
         records.append(record)
     records.sort(key=lambda record: record.id)
+
+    # Each mixed-in corpus is capped as a share of the merged pool, after the
+    # drops above so the share describes rows that survived rather than rows the
+    # Hub shipped.
+    records, capped = apply_source_caps(
+        records, source_by_id, sources, seed, holdout_families
+    )
+    for hub_id, n in capped.items():
+        dropped[f"over_max_share:{hub_id}"] += n
     LOGGER.info(
-        "normalised %d records (dropped %s)",
+        "normalised %d records (%s) (dropped %s)",
         len(records),
+        dict(sorted(Counter(r.record_type for r in records).items())),
         dict(sorted(dropped.items())),
     )
 
-    # 2. assign splits from the `default` config; the preference rows join on id
+    # 2. assign splits. Exam and non-exam records are split separately because
+    # only exam records are gradeable: grading.grade_cosimo reads a final-answer
+    # value, which an analysis or an abstention response does not have. Non-exam
+    # records therefore get test_frac=0 and never reach an evaluation slice. The
+    # holdout family set is shared, so a held-out family's analysis and agentic
+    # records are kept out of training too -- otherwise the family leaks back in
+    # through its other record types.
     eval_rows = {record.id: data_schema.to_eval_row(record) for record in records}
     families_present = {row["stem_family"] for row in eval_rows.values()}
-    assignment = splits.assign_splits(
-        list(eval_rows.values()),
-        val_frac=val_frac,
-        test_frac=test_frac,
-        seed=seed,
-        holdout_families=holdout_families,
-    )
+    assignment: dict[str, str] = {}
+    for exam_side in (True, False):
+        pool = [
+            eval_rows[record.id]
+            for record in records
+            if data_schema.is_exam(record) is exam_side
+        ]
+        if not pool:
+            continue
+        assignment.update(
+            splits.assign_splits(
+                pool,
+                val_frac=val_frac,
+                test_frac=test_frac if exam_side else 0.0,
+                seed=seed,
+                holdout_families=holdout_families,
+            )
+        )
     pool_size = sum(
         1 for split_name in assignment.values() if split_name != splits.UNSEEN_STEMS
     )
@@ -676,24 +981,61 @@ def prepare(
 
     # 3. preference rows FIRST, because which ids they claim decides which ids
     # SFT must not be trained on. Reserving a pair only helps if the policy has
-    # never seen its `chosen` trace: the corpus reasoning_trace *is* that trace,
-    # so an id in both files gives DPO a pre-saturated margin and no gradient.
-    # See data.preference_holdout_frac in configs/data.yaml.
+    # never seen its `chosen` trace: a shared-id corpus's reasoning_trace *is*
+    # that trace, so an id in both files gives DPO a pre-saturated margin and no
+    # gradient. See data.preference_holdout_frac in configs/data.yaml.
     #
-    # The `preference_pairs` config carries no generator column, so the stem
-    # family can only come from the joined `default` record.
+    # Two shapes reach this loop:
+    #
+    #   joined      (v1 `preference_pairs`) ids are shared with supervised rows,
+    #               so the stem family comes from the joined `default` record,
+    #               the row inherits that record's split, and
+    #               preference_holdout_frac decides whether SFT gives it up.
+    #   standalone  (v2 `preference`) ids are in the disjoint `cosimopref_`
+    #               namespace and the rows carry their own generator, so there is
+    #               nothing to join, nothing to reserve -- the overlap that
+    #               caused the no-op is impossible -- and they need a split of
+    #               their own.
     generator_by_id = {record.id: record.generator for record in records}
+    standalone_rows = [
+        row
+        for row in pref_rows
+        if str(row.get("id", "")) not in generator_by_id
+        and str(row.get("chosen") or "").strip()
+    ]
+    standalone_ids = {str(row.get("id", "")) for row in standalone_rows}
+    standalone_records = [
+        data_schema.normalize_standalone_pref_row(row) for row in standalone_rows
+    ]
+    # Train/val only: a preference pair is never an evaluation item, and its
+    # generators are its own, so a holdout family it shares with the supervised
+    # corpus must still be excluded rather than trained on.
+    standalone_assignment = (
+        splits.assign_splits(
+            [data_schema.to_eval_row(record) for record in standalone_records],
+            val_frac=val_frac,
+            test_frac=0.0,
+            seed=seed,
+            holdout_families=holdout_families,
+        )
+        if standalone_records
+        else {}
+    )
+    standalone_by_id = {record.id: record for record in standalone_records}
+
     pref_files: dict[str, list[dict]] = {
         PREF_FILES[splits.TRAIN]: [],
         PREF_FILES[splits.VAL]: [],
     }
     mcq_outcomes: Counter = Counter()
+    pref_modes: Counter = Counter()
     for row in sorted(pref_rows, key=lambda row: str(row.get("id", ""))):
         row_id = str(row.get("id", ""))
-        if row_id not in generator_by_id:
+        standalone = row_id in standalone_ids
+        if not standalone and row_id not in generator_by_id:
             dropped["pref_without_default_row"] += 1
             continue
-        split_name = assignment[row_id]
+        split_name = (standalone_assignment if standalone else assignment)[row_id]
         if split_name not in PREF_FILES:
             # Kept apart: the test count is the leak-prevention number, the
             # unseen count is a consequence of the holdout.
@@ -701,25 +1043,36 @@ def prepare(
                 "pref_in_test" if split_name == splits.TEST else "pref_in_unseen_stems"
             ] += 1
             continue
-        if chat.id_fraction(row_id, PREFERENCE_HOLDOUT_SALT) >= preference_holdout_frac:
-            # Not reserved: this row stays in SFT and the preference stage does
-            # not get it. At frac 0.0 every row takes this branch, which is the
-            # original behaviour and the reason DPO could not learn.
-            dropped["pref_kept_for_sft"] += 1
-            continue
-        record = data_schema.normalize_pref_row(
-            {**row, "generator": generator_by_id[row_id]}
-        )
+        if standalone:
+            record = standalone_by_id[row_id]
+        else:
+            if (
+                chat.id_fraction(row_id, PREFERENCE_HOLDOUT_SALT)
+                >= preference_holdout_frac
+            ):
+                # Not reserved: this row stays in SFT and the preference stage
+                # does not get it. At frac 0.0 every row takes this branch, which
+                # is the original behaviour and the reason DPO could not learn.
+                dropped["pref_kept_for_sft"] += 1
+                continue
+            record = data_schema.normalize_pref_row(
+                {**row, "generator": generator_by_id[row_id]}
+            )
         if not data_schema.has_preference(record):
             dropped["pref_unusable_pair"] += 1
             continue
+        # A standalone pair has no gold `answer` -- its two sides ARE the
+        # responses -- so only the trace field is required of it.
+        required = ("reasoning_trace",) if standalone else ("answer", "reasoning_trace")
         if is_blank_record(record) or any(
             _blank((record.chosen or {}).get(field))
             or _blank((record.rejected or {}).get(field))
-            for field in ("answer", "reasoning_trace")
+            for field in required
         ):
             dropped["pref_blank_content"] += 1
             continue
+        # The MCQ letter cue is an artefact of exam pairs, where chosen carries
+        # an option letter and rejected does not. Standalone pairs are prose.
         record, outcome = normalize_mcq_pair(record)
         mcq_outcomes[outcome] += 1
         if outcome in ("no_match", "no_options"):
@@ -727,9 +1080,15 @@ def prepare(
             # very format cue this normalisation exists to remove.
             dropped["pref_mcq_cue_unresolved"] += 1
             continue
+        pref_modes[record.pref_mode or "n/a"] += 1
         pref_files[PREF_FILES[split_name]].append(
             data_schema.to_pref_row(
-                record, tokenizer, chat.system_for_record(cfg, record.id), tag
+                record,
+                tokenizer,
+                chat.system_for_record(
+                    cfg, record.id, exam=data_schema.is_exam(record)
+                ),
+                tag,
             )
         )
 
@@ -754,24 +1113,35 @@ def prepare(
     # `prompt.variation_rate` fraction carries the short identity; evaluation
     # rows carry no rendered prompt at all (evalrun renders them at eval time
     # with the full identity).
+    def sft_row(record: data_schema.CosimoRecord) -> dict:
+        return data_schema.to_sft_row(
+            record,
+            tokenizer,
+            chat.system_for_record(cfg, record.id, exam=data_schema.is_exam(record)),
+            tag,
+        )
+
     files: dict[str, list[dict]] = {
         SFT_FILES[splits.TRAIN]: [
-            data_schema.to_sft_row(
-                record, tokenizer, chat.system_for_record(cfg, record.id), tag
-            )
+            sft_row(record)
             for record in train_records
             if record.id not in reserved_ids
         ],
         SFT_FILES[splits.VAL]: [
-            data_schema.to_sft_row(
-                record, tokenizer, chat.system_for_record(cfg, record.id), tag
-            )
+            sft_row(record)
             for record in by_split[splits.VAL]
             if record.id not in reserved_ids
         ],
-        EVAL_FILES[splits.TEST]: [eval_rows[r.id] for r in by_split[splits.TEST]],
+        # Exam-only: the graded suites read a final-answer value, which the other
+        # four record types do not have. Held-out non-exam records are simply
+        # excluded from training and reported in the manifest.
+        EVAL_FILES[splits.TEST]: [
+            eval_rows[r.id] for r in by_split[splits.TEST] if data_schema.is_exam(r)
+        ],
         EVAL_FILES[splits.UNSEEN_STEMS]: [
-            eval_rows[r.id] for r in by_split[splits.UNSEEN_STEMS]
+            eval_rows[r.id]
+            for r in by_split[splits.UNSEEN_STEMS]
+            if data_schema.is_exam(r)
         ],
         **pref_files,
     }
@@ -792,6 +1162,7 @@ def prepare(
         generator_conflicts=conflicts,
         full_system=full_system,
         short_system=short_system,
+        exam_protocol=exam_protocol,
         tag=tag,
         eos_token=getattr(tokenizer, "eos_token", None) or "",
     )
@@ -846,11 +1217,15 @@ def prepare(
         # Which ids the preference stage claimed. `sft_pref_overlap` must be 0:
         # any id in both files is a DPO pair whose chosen trace SFT already
         # memorised, which contributes no gradient. The validation gate asserts it.
+        # `frac` only bites on a shared-id corpus; a standalone pair is disjoint
+        # by construction, so `standalone_pairs` rows bypass the reservation.
         "preference_holdout": {
             "frac": preference_holdout_frac,
             "salt": PREFERENCE_HOLDOUT_SALT,
             "reserved_ids": len(reserved_ids),
             "kept_for_sft": dropped.get("pref_kept_for_sft", 0),
+            "standalone_pairs": len(standalone_ids),
+            "modes": dict(sorted(pref_modes.items())),
             "sft_pref_overlap": len(
                 {str(row["id"]) for row in files[SFT_FILES[splits.TRAIN]]}
                 & {str(row["id"]) for row in files[PREF_FILES[splits.TRAIN]]}
@@ -870,7 +1245,29 @@ def prepare(
         "drop_unverified": drop_unverified,
         "holdout_families": sorted(holdout_families),
         "holdout_records": len(by_split[splits.UNSEEN_STEMS]),
+        # Non-exam held-out records are excluded from training but never
+        # evaluated -- the graded suites cannot score them. Recorded so the gap
+        # between `holdout_records` and the unseen_stems file size is explained
+        # rather than looking like rows going missing.
+        "holdout_records_not_evaluated": sum(
+            1 for r in by_split[splits.UNSEEN_STEMS] if not data_schema.is_exam(r)
+        ),
         "generators_present": len(families_present),
+        # Where the merged pool came from, after every drop and the max_share
+        # caps. The share is what `dataset.mix` was configured to produce.
+        "sources": {
+            str(source["hub_id"]): {
+                "revision": source["revision"],
+                "preference_config": source["preference_config"],
+                "max_share": source["max_share"],
+                "records": sum(
+                    1
+                    for r in records
+                    if source_by_id[r.id] == str(source["hub_id"])
+                ),
+            }
+            for source in sources
+        },
         "generator_conflicts": {
             "n": n_conflicts,
             "involving_holdout": len(conflicts),
@@ -890,6 +1287,12 @@ def prepare(
         },
         "by_question_type": {
             name: _counts_by(rows, "question_type") for name, rows in files.items()
+        },
+        # The headline composition number. An SFT corpus that has drifted back to
+        # majority-exam is the style-collapse failure returning, and it is
+        # visible here before a single GPU-hour is spent.
+        "by_record_type": {
+            name: _counts_by(rows, "record_type") for name, rows in files.items()
         },
         "token_lengths": lengths,
         "prompt_token_lengths": prompt_lengths,
@@ -948,6 +1351,19 @@ def print_summary(manifest: dict, out_dir: Path) -> None:
     for name in splits.SPLIT_NAMES:
         print(f"{name:<16}{manifest['splits'][name]:>9}")
 
+    # Composition is the number to read first: a majority-exam SFT corpus is the
+    # style collapse of the first run waiting to happen again.
+    sft_types = manifest["by_record_type"][SFT_FILES[splits.TRAIN]]
+    total = sum(sft_types.values()) or 1
+    print(f"\n{'record type (sft_train)':<24}{'rows':>9}{'share':>9}")
+    for name, count in sorted(sft_types.items(), key=lambda kv: -kv[1]):
+        print(f"{name or '?':<24}{count:>9}{count / total:>9.1%}")
+
+    print(f"\n{'source':<44}{'records':>9}{'max_share':>11}")
+    for hub_id, info in manifest["sources"].items():
+        share = "-" if info["max_share"] is None else f"{info['max_share']:.0%}"
+        print(f"{hub_id:<44}{info['records']:>9}{share:>11}")
+
     programs = sorted(
         {
             program
@@ -982,8 +1398,13 @@ def print_summary(manifest: dict, out_dir: Path) -> None:
             for name, share in manifest["prompt"]["short_identity"].items()
         )
         + f"\nholdout: {len(manifest['holdout_families'])} families, "
-        f"{manifest['holdout_records']} records, "
+        f"{manifest['holdout_records']} records "
+        f"({manifest['holdout_records_not_evaluated']} non-exam, held out of "
+        "training but not evaluated), "
         f"{manifest['generators_present']} stem families present"
+        f"\npreference: {manifest['preference_holdout']['standalone_pairs']} "
+        f"standalone pairs, modes {manifest['preference_holdout']['modes']}, "
+        f"sft overlap {manifest['preference_holdout']['sft_pref_overlap']}"
         f"\ngenerator conflicts: {manifest['generator_conflicts']}"
         f"\nMCQ preference letter outcomes: {mcq['outcomes']}"
         f"\nMCQ letter prefixes written: {mcq['written']}"
@@ -1029,18 +1450,20 @@ def main() -> None:
     check_outputs(out_dir, args.force)
 
     seed = int(config_mod.get(cfg, "seed", 3407))
-    hub_id = config_mod.get(cfg, "dataset.hub_id")
-    revision = config_mod.get(cfg, "dataset.revision")
+    sources = dataset_sources(cfg)
+    hub_id = sources[0]["hub_id"]
+    revision = sources[0]["revision"]
     tokenizer_id = args.tokenizer_id or config_mod.get(cfg, "model.base_id")
     model_revision = config_mod.get(cfg, "model.revision")
 
     tokenizer = load_tokenizer(tokenizer_id, model_revision)
     default_rows, pref_rows, fingerprints = load_hub_rows(
-        hub_id, revision, limit=args.limit, seed=seed
+        sources, limit=args.limit, seed=seed
     )
 
     manifest = prepare(
         cfg,
+        sources=sources,
         default_rows=default_rows,
         pref_rows=pref_rows,
         tokenizer=tokenizer,
@@ -1049,6 +1472,14 @@ def main() -> None:
             "hub_id": hub_id,
             "revision": revision,
             "resolved_sha": resolve_dataset_sha(hub_id, revision),
+            # `revision: main` is a moving target for every source, not just the
+            # primary; a defensible result pins all of them.
+            "resolved_shas": {
+                str(source["hub_id"]): resolve_dataset_sha(
+                    source["hub_id"], source["revision"]
+                )
+                for source in sources
+            },
             "model_revision": model_revision,
             "row_sets": fingerprints,
             "limit": args.limit,

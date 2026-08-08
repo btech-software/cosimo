@@ -18,9 +18,11 @@ eval:
   # keeps a full evaluation to a sane wall clock. Subsampling is deterministic
   # (seeded by the top-level `seed`), so every run scores the same items.
   # cosimo_unseen_stems is sampled by default: the six held-out stem families are
-  # ~8.5% of 71k, i.e. ~6,000 items, which would dominate every evaluation (hours
-  # per model, multiplied by baseline/SFT/DPO). 1000 items is ample for the
-  # generalisation read; set it to null for a final, full-slice number.
+  # ~6,900 exam items on the mixed corpus, which would dominate every evaluation
+  # (hours per model, multiplied by baseline/SFT/DPO). 1000 items is ample for
+  # the generalisation read; set it to null for a final, full-slice number.
+  # Both cosimo suites are exam-only -- the other four record types carry no
+  # final-answer value for grading.grade_cosimo to read.
   samples:
     cosimo_test: null
     cosimo_unseen_stems: 1000

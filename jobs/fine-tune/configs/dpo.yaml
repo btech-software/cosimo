@@ -16,9 +16,11 @@ dpo:
   # Default run directory name under runs/. --run-name overrides it.
   run_name: dpo
 
-  # Written by scripts/01_prepare_data.py from the dataset's preference_pairs
-  # config. Split assignment is joined on `id`, so no question in these files can
-  # appear in the test or unseen-stems eval slices.
+  # Written by scripts/01_prepare_data.py from each source's preference config.
+  # v2's pairs are standalone -- `cosimopref_` ids disjoint from every supervised
+  # row -- and get their own train/val assignment, so no pair can share a trace
+  # with an SFT target or appear in an eval slice. A shared-id corpus (v1) joins
+  # on `id` instead and is governed by data.preference_holdout_frac.
   train_file: data/processed/pref_train.jsonl
   val_file: data/processed/pref_val.jsonl
 

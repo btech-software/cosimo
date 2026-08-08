@@ -39,8 +39,9 @@ not by imports:
 dataset/                     generate → verify → publish
    │   publish/push_to_hub.py
    ▼
-Hugging Face Hub             btech-software/cosimo-cfa-frm-71k
-   │   scripts/01_prepare_data.py   (config: dataset.hub_id)
+Hugging Face Hub             btech-software/cosimo-quant-reasoning-v2   (primary)
+                             btech-software/cosimo-cfa-frm-71k          (mixed, capped)
+   │   scripts/01_prepare_data.py   (config: dataset.hub_id + dataset.mix)
    ▼
 jobs/fine-tune/              prepare → SFT → DPO/ORPO → evaluate → merge
    │   scripts/08_export_merge.py → runs/<name>/merged  (bf16 + chat template)
@@ -51,7 +52,7 @@ docker/serve/run.sh          vLLM, OpenAI-compatible API on :8000
 cosimo/agents/react_agent/   LangGraph create_react_agent (serving target)
 ```
 
-Three narrower contracts cross the boundary directly, without going through the
+Four narrower contracts cross the boundary directly, without going through the
 Hub — see §14.
 
 ---
@@ -403,7 +404,7 @@ writes into its own run directory (§10.3).
 | Script | Reads | Writes |
 | --- | --- | --- |
 | `00_check_env.py` | the installed stack | `runs/env_check.json` |
-| `01_prepare_data.py` | Hub dataset (`dataset.hub_id`) | `data/processed/{sft,pref}_{train,val}.jsonl`, `eval_cosimo_{test,unseen_stems}.jsonl`, `split_manifest.json` |
+| `01_prepare_data.py` | Hub datasets (`dataset.hub_id` + `dataset.mix`) | `data/processed/{sft,pref}_{train,val}.jsonl`, `eval_cosimo_{test,unseen_stems}.jsonl`, `split_manifest.json` |
 | `02_prepare_tool_data.py` | tool families in-script | `data/processed/tool_{train,val}.jsonl` |
 | `03_baseline_eval.py` | prepared eval slices, base model | `runs/baseline/eval/` |
 | `04_train_sft.py` | `sft_*.jsonl` + `tool_*.jsonl` | `runs/sft/adapter` |
@@ -445,10 +446,12 @@ without torch or a GPU. Import submodules explicitly.
 
 - `config.py` — layered YAML merge, `--set` overrides, `config_hash`,
   `harness_path` (resolves against the harness root, never the CWD).
-- `data_schema.py` — normalises Hub rows into `CosimoRecord` and renders
-  `to_sft_row` / `to_pref_row` / `to_eval_row`. Owns `stem_family()`, which strips
-  the `v_` / `cr_` / `m_` wrapper prefixes — the reason holdout is by *family*
-  rather than by generator (§12.2).
+- `data_schema.py` — reconciles **both** published corpus shapes (§14.1) onto one
+  `CosimoRecord` and renders `to_sft_row` / `to_pref_row` / `to_eval_row`, with
+  the supervised target dispatched on `record_type` (§14.6). Owns
+  `stem_family()`, which strips the `v_` / `cr_` / `m_` wrapper prefixes — the
+  reason holdout is by *family* rather than by generator (§12.2) — and
+  `is_exam()`, the single place the `FINAL ANSWER:` contract is decided.
 - `splits.py` — deterministic `assign_splits` into `train`/`val`/`test`/
   `unseen_stems`, with a per-stratum RNG so assignment is stable when unrelated
   strata change size.
@@ -658,19 +661,39 @@ This is separate from the application's own suite (`make test`, `tests/`).
 
 ## 14. Where the corpus and the harness touch
 
-Four couplings. The first is the main data path; the other three are narrow, easy
-to break silently, and each has a gate.
+Five couplings. The first is the main data path; the rest are narrow, easy to
+break silently, and each has a gate.
 
 ### 14.1 The Hub is the handoff
 
-`01_prepare_data.py` loads `dataset.hub_id` (`btech-software/cosimo-cfa-frm-71k`)
-via `load_dataset`, in two configs: `default` and `preference_pairs`. **The
-harness does not read `dataset/shards/`.** Regenerating the corpus locally has no
-effect on training until it is published (`dataset/publish/push_to_hub.py`) and
-`dataset.revision` points at it.
+`01_prepare_data.py` loads every source in `dataset.hub_id` + `dataset.mix` via
+`load_dataset` — by default `btech-software/cosimo-quant-reasoning-v2` (configs
+`default` and `preference`) plus `btech-software/cosimo-cfa-frm-71k` capped at
+12 % of the merged **trainable** pool (config `default` only; its
+`preference_pairs` are not used). Held-out records are exempt from the cap —
+they never train, so subsampling them would only shrink the `unseen_stems`
+measurement. **The harness does not read `dataset/shards/`.** Regenerating the corpus
+locally has no effect on training until it is published
+(`dataset/publish/push_to_hub.py`) and a source's `revision` points at it.
 
-Consequence: `dataset.revision: main` means the corpus can move under a training
-run. Pin a SHA for anything you intend to defend.
+Consequence: `revision: main` means the corpus can move under a training run.
+Pin a SHA for anything you intend to defend; the manifest records the resolved
+SHA of every source either way.
+
+Three shape differences between the two corpora are load-bearing, and
+`cosimo_ft/data_schema.py` is the single place that reconciles them:
+
+| | v2 | v1 |
+| --- | --- | --- |
+| `metadata` / `verification` / `conversation` / `tool_schemas` | JSON-encoded **strings** | Arrow **structs** (first two only) |
+| Record types | five, discriminated by `record_type` | exam only (no such column) |
+| Preference ids | `cosimopref_`, **disjoint** from supervised | **shared** with supervised |
+
+The first is the dangerous one: reading a JSON string as an empty mapping
+resolves every generator to `unknown`, which collapses the split stratification
+to a single stratum and makes every configured holdout family match nothing.
+`01_prepare_data.py`'s gate turns that into a hard failure rather than a silent
+corpus.
 
 ### 14.2 Held-out suites must not be contaminated
 
@@ -715,3 +738,27 @@ The corpus side enforces it through `FORMAT.md`, the length gate, and
 `FINAL ANSWER:` being restricted to `exam` records (§8); the harness side measures
 it through `exam_shape_rate` and `mean_new_tokens` (§12.3). A change on one side
 that ignores the other will not be caught by either.
+
+### 14.6 The record type decides the prompt surface
+
+The harness half of §14.5, made mechanical. `FINAL ANSWER:` and
+`prompt.exam_protocol` belong to `exam` records and nothing else. The corpus
+guarantees it at generation time; the harness re-checks it twice, because a
+corpus change and a harness change can each break it alone:
+
+- `01_prepare_data.py`'s validation gate checks **every written row** in both
+  directions: an exam row must carry the protocol in its system block and the
+  tag in its target, and no other record type may carry either.
+- `04_train_sft.py`'s masking check re-derives the same fact from the tokenized
+  row — the tag appears in the *masked* prompt span if and only if the row is an
+  exam row — so it holds even for a hand-supplied `--train-file`.
+
+The four non-exam types render as: the answer verbatim (`analysis`,
+`abstention`), fenced code plus the result (`implementation`), or the whole
+conversation from the first assistant turn with `tool_schemas` bound
+(`agentic`, via `chat.render_tool_example` — the same wire format as §14.4).
+
+Only `exam` records are gradeable — `grading.grade_cosimo` reads a final-answer
+value — so the two evaluation slices are exam-only and non-exam records are
+split with `test_frac = 0`. The holdout still applies to every record type, or a
+family leaks back into training through its non-exam rows.

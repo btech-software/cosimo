@@ -144,7 +144,27 @@ def test_base_model_and_precision(base):
     assert base["model"]["max_seq_length"] == 8192
     assert base["model"]["load_in_4bit"] is False, "bf16 LoRA is the locked default"
     assert base["model"]["dtype"] == "bfloat16"
-    assert base["dataset"]["hub_id"] == "btech-software/cosimo-cfa-frm-71k"
+    assert base["dataset"]["hub_id"] == "btech-software/cosimo-quant-reasoning-v2"
+
+
+def test_the_corpus_is_the_mixed_v2_primary_plus_a_capped_v1(base):
+    """v2 leads, v1 is a capped supplement, and only v2 supplies pairs.
+
+    The share cap is the mechanism that keeps the corpus majority non-exam.
+    Uncapping v1 would put 71k exam rows against v2's 24k and rebuild the
+    exam-only corpus that collapsed the first run's response style.
+    """
+    dataset = base["dataset"]
+    assert dataset["preference_config"] == "preference"
+    assert len(dataset["mix"]) == 1
+    v1 = dataset["mix"][0]
+    assert v1["hub_id"] == "btech-software/cosimo-cfa-frm-71k"
+    # Exam must stay a minority of SFT. v1 is exam-only, so its share is the
+    # lever; above ~0.20 the mixed corpus drifts back toward exam-heavy.
+    assert 0.0 < v1["max_share"] <= 0.20
+    # v1's pairs share ids with its supervised rows, which is the overlap that
+    # made the first DPO run a zero-gradient no-op. v2's do not.
+    assert v1["preference_config"] is None
 
 
 def test_identity_block_is_the_contracted_persona(base):
@@ -212,7 +232,12 @@ def test_holdout_entries_are_families_not_generator_names():
 def test_split_fractions_and_verification_gate():
     data = config_mod.load_config(stage="data")["data"]
     assert data["val_frac"] == 0.01
-    assert data["test_frac"] == 0.01
+    # Larger than val_frac on purpose: test_frac is taken from the exam records
+    # alone (~30% of the mixed corpus), because the other four record types have
+    # no final-answer value for the grader to read. At 1% the headline slice
+    # would be ~390 items rather than ~650, widening its Wilson interval as a
+    # side effect of a training-mix decision.
+    assert data["test_frac"] > data["val_frac"]
     assert data["max_train_records"] is None
     assert data["drop_unverified"] is True
 
