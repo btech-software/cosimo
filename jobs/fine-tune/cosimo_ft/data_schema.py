@@ -324,18 +324,19 @@ def is_valid_python(source: str) -> bool:
 def normalize_python_block(source: str) -> str:
     """A parseable code block, or ``""`` when it cannot be made into one.
 
-    7,500 of the published v2 corpus's 13,000 ``implementation`` records ship a
-    ``test_code`` field that does not parse::
+    v2 revisions before 2026-08-07 ship 7,500 of their 13,000 ``implementation``
+    records with a ``test_code`` field that does not parse::
 
         forwards = bootstrapped_yield([0.02, 0.03, 0.04])
             assert len(forwards) == 4
 
     The generator applied ``.strip()`` *before* ``textwrap.dedent()``, so the
     first line lost its indent, dedent then measured a common prefix of ``""``
-    and did nothing, and every continuation line kept its indentation. That is
-    fixed at the source in ``dataset/pipelines/templates/v2_implementation.py``,
-    but the *published* corpus still carries it, so the damage is undone here:
-    re-dedent the continuation lines.
+    and did nothing, and every continuation line kept its indentation. Fixed at
+    the source in ``dataset/pipelines/templates/v2_implementation.py`` and
+    republished, so ``main`` is clean — but ``dataset.revision`` is *meant* to be
+    pinned to an older sha for a reproducible result, and those revisions still
+    carry it. So the damage is undone here: re-dedent the continuation lines.
 
     The repair is only attempted on a block that does not already parse, and is
     only accepted when the result parses. A legitimately indented block — a

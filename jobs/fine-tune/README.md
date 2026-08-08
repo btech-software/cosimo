@@ -316,16 +316,17 @@ masking configuration.
   dropped (2 683 rows at the defaults, since v1 repeats some of them internally). Duplicates
   *within* one corpus are left alone — v1 has 15 366 of them and that is a pre-existing property of
   that dataset, not something the mix introduced.
-* **7 500 of the published v2's 13 000 `implementation` records ship a `test_code` field that does
-  not parse** — a stray-indent `SyntaxError` (`"f = g(x)\n    assert len(f) == 4"`), because the
-  generator ran `.strip()` before `textwrap.dedent()` and only the first line lost its indent.
-  Fixed at the source in `dataset/pipelines/templates/v2_implementation.py`, but the published
-  corpus still carries it, so `normalize_python_block` undoes the damage by re-dedenting the
-  continuation lines. The repair runs **only** on a block that fails to parse and is accepted
-  **only** if the result parses, so a legitimately indented block can never be mangled; anything
-  still unparseable is dropped rather than rendered. Both counts are in the manifest
-  (`implementation_test_code_reindented`, `..._unparseable`). All 7 500 currently repair cleanly,
-  and the reindented count should fall to 0 once v2 is regenerated from the fixed generator.
+* **v2 revisions before 2026-08-07 ship 7 500 of their 13 000 `implementation` records with a
+  `test_code` field that does not parse** — a stray-indent `SyntaxError`
+  (`"f = g(x)\n    assert len(f) == 4"`), because the generator ran `.strip()` before
+  `textwrap.dedent()` so only the first line lost its indent. Fixed in
+  `dataset/pipelines/templates/v2_implementation.py` and **republished — `main` is clean**. The
+  repair stays because `dataset.revision` is meant to be pinned to an older sha for a reproducible
+  result, and those revisions still carry the defect: `normalize_python_block` re-dedents the
+  continuation lines, running **only** on a block that fails to parse and accepting the result
+  **only** if it parses, so a legitimately indented block can never be mangled. Anything still
+  unparseable is dropped rather than rendered. Both counts are in the manifest
+  (`implementation_test_code_reindented`, `..._unparseable`); against `main` both are 0.
 
 ### Only exam records are graded
 
@@ -1085,7 +1086,8 @@ and the standalone preference shape.
 12. **The results currently on disk were measured at `max_new_tokens: 768`** on the v1-only corpus,
     and are truncation-bound on the baseline. They need re-measuring at the new 2048 default before
     any delta is quoted, and their training corpus no longer exists in this configuration.
-13. **The published v2 corpus predates the `v2_implementation.py` dedent fix.** Its 7 500 broken
-    `test_code` blocks are repaired in the harness rather than discarded, which is sound but is a
-    workaround: regenerating and republishing v2 is what actually removes it, and until then the
-    manifest's `implementation_test_code_reindented` count stays at 7 500.
+13. **Pinning `dataset.revision` to a v2 sha older than 2026-08-07 silently invokes a repair.**
+    Those revisions carry the `test_code` dedent defect; `normalize_python_block` fixes it in
+    memory so the rows stay usable, but the training data then differs from what the pinned
+    revision literally contains. The manifest's `implementation_test_code_reindented` count is how
+    you tell — it is 0 against `main`.
