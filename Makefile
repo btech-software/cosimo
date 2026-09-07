@@ -9,3 +9,31 @@ test_integration:
 	uv run --group test pytest tests/integration
 
 test: test_unit test_integration
+
+# v3 corpus control plane (spec §13). The stage targets are the same commands
+# the Airflow DAG will run verbatim, so "works under make" == "schedulable";
+# render/verify/prefer/publish parse today and name their PR until they are
+# wired (exit 2). v3-smoke is the CI gate: no teacher, no network, no GPU.
+v3-inventory:
+	uv run --group corpus python -m dataset.pipelines.v3.cli inventory
+
+v3-packs:
+	uv run --group corpus python -m dataset.pipelines.v3.cli packs
+
+v3-smoke:
+	uv run --group corpus python -m dataset.pipelines.v3.cli smoke
+
+v3-render:
+	uv run --group corpus python -m dataset.pipelines.v3.cli render
+
+v3-verify:
+	uv run --group corpus python -m dataset.pipelines.v3.cli verify
+
+v3-prefer:
+	uv run --group corpus python -m dataset.pipelines.v3.cli prefer
+
+v3-publish:
+	uv run --group corpus python -m dataset.pipelines.v3.cli publish
+
+v3-test:
+	uv run --group test pytest dataset/tests/v3 jobs/fine-tune/tests -q

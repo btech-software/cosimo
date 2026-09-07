@@ -1,0 +1,41 @@
+{
+  "entries": {
+    "*": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Understood.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-echo",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "41baa5967da4c4a83b3335cda0c01758ec15acce5807fe8a4704455db625e43b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Should we own Hearthstone Foods (YCBK)? Revenue $5,652M, EBIT margin 14.9%, cash tax 21%, capex 4.5% of revenue, working capital 13.5% of the revenue build. Over 6 years at 11.49% WACC and 2.82% terminal growth: what enterprise value does the FCFF model imply, and how does a +/- 20% change in terminal growth move it?\nterminal growth vs WACC gap.\nreinvestment consistency (capex plus working-capital build).\nthe +/- 20% terminal-growth sensitivity.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-echo",
+      "usage": {
+        "total_tokens": 71
+      }
+    }
+  },
+  "model": "fixture-echo",
+  "pinned": [
+    "valuation.equity.dcf",
+    "mature_consumer",
+    0
+  ],
+  "version": 1
+}
