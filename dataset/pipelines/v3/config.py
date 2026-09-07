@@ -39,9 +39,17 @@ TEACHER_API_KEY_ENV = "TEACHER_API_KEY"
 TEACHER_REASONING_ENV = "TEACHER_REASONING"
 TEACHER_PROSE_ENV = "TEACHER_PROSE"
 TEACHER_TIMEOUT_ENV = "TEACHER_TIMEOUT_S"
+TEACHER_FIXTURE_ENV = "COSIMO_V3_TEACHER_FIXTURE"
 DEFAULT_TEACHER_TIMEOUT_S = 120
 OUT_ENV = "COSIMO_V3_OUT"
 LIVE_ENV = "COSIMO_V3_LIVE"
+
+#: The two names of spec §5.4's "one client, two model names". Deployment
+#: overrides via TEACHER_REASONING / TEACHER_PROSE; these are the defaults a
+#: fresh box gets, and every row's verification.teacher block records which
+#: one actually answered, so a mid-run swap is visible in the data.
+TEACHER_MODEL_REASONING_DEFAULT = "deepseek-v4-flash"
+TEACHER_MODEL_PROSE_DEFAULT = "qwen3.8-flash-next"
 
 
 def out_dir() -> str:
@@ -59,6 +67,20 @@ def taxonomy_path() -> str:
 def live_enabled() -> bool:
     """True only when the operator opted into real teacher calls (spec §10 PR2)."""
     return os.environ.get(LIVE_ENV) == "1"
+
+
+def default_teacher_fixture() -> str:
+    """The committed replay file every offline teacher call falls back to.
+
+    Lives with the test suite, not under an out-dir: a fixture is source. The
+    harness that generated it is ``tests/v3/fixtures/make_teacher_echo.py``,
+    and a drift test pins the file against that harness -- replay data must be
+    reproducible or it is folklore (see §7 of the analysis spec on gold bars
+    that nobody can regenerate).
+    """
+    return os.path.abspath(
+        os.path.join(BASE_DIR, "tests", "v3", "fixtures", "teacher_echo.json")
+    )
 
 
 def supervised_id(record_type: str, seed: int) -> str:

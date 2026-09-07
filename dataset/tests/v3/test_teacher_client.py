@@ -1,0 +1,280 @@
+"""The teacher client's contracts, offline, on injected fakes (spec §5.4).
+
+Nothing here opens a socket: ``urlopen`` is reached only through the module
+level ``_urlopen`` seam, which the HTTP tests replace so the *real* request
+construction -- url, headers, body bytes, error translation -- is exercised
+while the network stays hypothetical.
+"""
+
+from __future__ import annotations
+
+import json
+import urllib.error
+
+import pytest
+
+from pipelines.v3 import config
+from pipelines.v3.teacher.client import (
+    FixtureTransport,
+    HttpTransport,
+    Teacher,
+    TeacherError,
+    canonical_request,
+    teacher_from_env,
+)
+
+
+def _reply(text="yes", think=None):
+    message = {"role": "assistant", "content": text}
+    if think is not None:
+        message["reasoning_content"] = think
+    return {
+        "model": "m-1",
+        "choices": [{"finish_reason": "stop", "message": message}],
+        "usage": {"total_tokens": 7},
+    }
+
+
+class RecordingTransport:
+    def __init__(self, reply=None):
+        self.calls = []
+        self.reply = reply if reply is not None else _reply()
+
+    def post(self, body):
+        self.calls.append(body)
+        return self.reply
+
+
+def test_complete_builds_the_openai_v1_body_exactly():
+    transport = RecordingTransport()
+    result = Teacher(transport).complete(
+        [{"role": "user", "content": "hi"}], model="m-1", temperature=0.3, max_tokens=64
+    )
+    assert transport.calls[0] == {
+        "model": "m-1",
+        "messages": [{"role": "user", "content": "hi"}],
+        "temperature": 0.3,
+        "max_tokens": 64,
+    }
+    assert (result.text, result.model, result.finish_reason) == ("yes", "m-1", "stop")
+    assert result.usage == {"total_tokens": 7}
+
+
+def test_think_adds_the_extension_and_extra_merges_top_level():
+    transport = RecordingTransport(_reply("x", think="because chains"))
+    result = Teacher(transport).complete(
+        [{"role": "user", "content": "q"}],
+        model="m",
+        think=True,
+        extra={"seed": 5},
+    )
+    body = transport.calls[0]
+    assert body["thinking"] == {"type": "enabled"}
+    assert body["seed"] == 5
+    assert result.think == "because chains"
+    assert result.to_verification()["think_present"] is True
+
+
+def test_a_bodyless_turn_is_refused_before_the_wire_is_touched():
+    transport = RecordingTransport()
+    with pytest.raises(TeacherError, match="malformed message turn"):
+        Teacher(transport).complete([{"role": "user"}], model="m")
+    assert transport.calls == []
+
+
+@pytest.mark.parametrize(
+    "payload, needle",
+    [
+        ({"choices": []}, "no choices"),
+        ({"choices": ["x"]}, "not an object"),
+        ({"choices": [{"message": "x"}]}, "not an object"),
+        ({"choices": [{"message": {"content": 3}}]}, "not a string"),
+        ({}, "no choices"),
+    ],
+)
+def test_shapeless_replies_are_named_not_trusted(payload, needle):
+    class Shape(RecordingTransport):
+        def post(self, body):
+            self.calls.append(body)
+            return payload
+
+    with pytest.raises(TeacherError, match=needle):
+        Teacher(Shape()).complete([{"role": "user", "content": "q"}], model="m")
+
+
+def test_missing_finish_and_usage_degrade_to_honest_defaults():
+    transport = RecordingTransport({"choices": [{"message": {"content": "ok"}}]})
+    result = Teacher(transport).complete(
+        [{"role": "user", "content": "q"}], model="asked"
+    )
+    assert result.finish_reason == "stop"
+    assert result.usage == {}
+    assert result.model == "asked", "reply must not invent the model that answered"
+
+
+class FakeResponse:
+    def __init__(self, payload: bytes):
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self.payload
+
+
+def test_http_transport_posts_json_with_authorisation(monkeypatch):
+    seen = {}
+
+    def fake_urlopen(request, timeout):
+        seen["url"] = request.full_url
+        seen["method"] = request.get_method()
+        seen["headers"] = request.headers
+        seen["data"] = request.data
+        seen["timeout"] = timeout
+        return FakeResponse(json.dumps(_reply("hello")).encode("utf8"))
+
+    monkeypatch.setattr("pipelines.v3.teacher.client._urlopen", fake_urlopen)
+    transport = HttpTransport("https://teacher.example/api/", "sekret", timeout_s=7)
+    result = Teacher(transport).complete([{"role": "user", "content": "hi"}], model="m")
+    assert seen["url"] == "https://teacher.example/api/v1/chat/completions"
+    assert seen["method"] == "POST"
+    assert seen["headers"]["Authorization"] == "bearer sekret"
+    assert seen["headers"]["Contenttype"] == "application/json"
+    assert seen["timeout"] == 7
+    assert json.loads(seen["data"].decode("utf8"))["model"] == "m"
+    assert result.text == "hello"
+
+
+def test_http_errors_become_teachererrors_naming_the_endpoint(monkeypatch):
+    def http_401(request, timeout):
+        raise urllib.error.HTTPError(
+            request.full_url,
+            401,
+            "Unauthorized",
+            {},
+            __import__("io").BytesIO(b"bad key"),
+        )
+
+    def unreachable(request, timeout):
+        raise urllib.error.URLError("connection refused")
+
+    client_module = __import__("pipelines.v3.teacher.client", fromlist=["_"])
+    monkeypatch.setattr(client_module, "_urlopen", http_401)
+    with pytest.raises(TeacherError, match="401"):
+        Teacher(HttpTransport("https://t.example", "k")).complete(
+            [{"role": "user", "content": "q"}], model="m"
+        )
+    monkeypatch.setattr(client_module, "_urlopen", unreachable)
+    with pytest.raises(TeacherError, match="unreachable"):
+        Teacher(HttpTransport("https://t.example", "k")).complete(
+            [{"role": "user", "content": "q"}], model="m"
+        )
+
+
+def test_non_json_reply_is_refused(monkeypatch):
+    monkeypatch.setattr(
+        "pipelines.v3.teacher.client._urlopen",
+        lambda request, timeout: FakeResponse(b"<html>not json</html>"),
+    )
+    with pytest.raises(TeacherError, match="non-json"):
+        Teacher(HttpTransport("https://t.example", "k")).complete(
+            [{"role": "user", "content": "q"}], model="m"
+        )
+
+
+def test_fixture_transport_hits_exact_wildcards_and_misses_loudly():
+    messages = [{"role": "user", "content": "hi"}]
+    body = {"model": "m", "messages": messages, "temperature": 0.7, "max_tokens": 1024}
+    entries = {
+        canonical_request(body): {"choices": [{"message": {"content": "matched"}}]},
+        "*": {"choices": [{"message": {"content": "wildcard"}}]},
+    }
+    transport = FixtureTransport(entries=entries)
+    assert Teacher(transport).complete(messages, model="m").text == "matched"
+    assert Teacher(transport).complete(
+        [{"role": "user", "content": "?"}], model="m"
+    ).text == ("wildcard")
+    strict = FixtureTransport(entries=dict(entries))
+    del strict._entries["*"]
+    with pytest.raises(
+        TeacherError, match="fixture miss for request [0-9a-f]{64}"
+    ) as err:
+        Teacher(strict).complete([{"role": "user", "content": "?"}], model="m")
+    assert canonical_request(body) not in str(err.value)
+    assert canonical_request(
+        {
+            "model": "m",
+            "messages": [{"role": "user", "content": "?"}],
+            "temperature": 0.7,
+            "max_tokens": 1024,
+        }
+    ) in str(err.value), (
+        "a miss must name the hash the operator will need to extend the fixture"
+    )
+
+
+def test_fixture_file_shape_is_validated(tmp_path):
+    bad = tmp_path / "bad.json"
+    bad.write_text('{"nope": 1}')
+    with pytest.raises(TeacherError, match="entries"):
+        FixtureTransport(path=str(bad))
+    good = tmp_path / "good.json"
+    good.write_text('{"entries": {}}')
+    FixtureTransport(path=str(good))  # loads, empty, no raise
+
+
+def test_from_env_offline_uses_the_fixture_never_the_network(monkeypatch, tmp_path):
+    fixture = tmp_path / "fx.json"
+    fixture.write_text(
+        '{"entries": {"*": {"choices": [{"message": {"content": "replay"}}]}}}'
+    )
+    monkeypatch.setenv(config.TEACHER_FIXTURE_ENV, str(fixture))
+    monkeypatch.setenv(config.LIVE_ENV, "0")
+    teacher = teacher_from_env(live=False)
+    assert isinstance(teacher.transport, FixtureTransport)
+    assert (
+        teacher.complete([{"role": "user", "content": "q"}], model="m").text == "replay"
+    )
+
+
+def test_from_env_live_demands_and_honours_the_env_quadruple(monkeypatch):
+    for name in (config.TEACHER_BASE_URL_ENV, config.TEACHER_API_KEY_ENV):
+        monkeypatch.delenv(name, raising=False)
+    with pytest.raises(TeacherError, match="TEACHER_BASE_URL"):
+        teacher_from_env(live=True)
+    monkeypatch.setenv(config.TEACHER_BASE_URL_ENV, "https://t.example/")
+    monkeypatch.setenv(config.TEACHER_API_KEY_ENV, "k")
+    monkeypatch.setenv(config.TEACHER_TIMEOUT_ENV, "9")
+    teacher = teacher_from_env(live=True)
+    assert isinstance(teacher.transport, HttpTransport)
+    assert teacher.transport.base_url == "https://t.example"
+    assert teacher.transport.timeout_s == 9.0
+    monkeypatch.delenv(config.TEACHER_TIMEOUT_ENV, raising=False)
+    assert teacher_from_env(live=True).transport.timeout_s == float(
+        config.DEFAULT_TEACHER_TIMEOUT_S
+    )
+
+
+def test_injected_transport_short_circuits_the_environment(monkeypatch):
+    monkeypatch.setenv(config.LIVE_ENV, "1")  # env must not win over injection
+    monkeypatch.setenv(config.TEACHER_BASE_URL_ENV, "https://should-not-be-used")
+    transport = RecordingTransport()
+    assert isinstance(teacher_from_env(transport=transport), Teacher)
+    teacher_from_env(transport=transport).complete(
+        [{"role": "user", "content": "q"}], model="m"
+    )
+    assert transport.calls[0]["model"] == "m"
+
+
+def test_opt_in_absent_and_no_fixture_is_a_hard_stop(monkeypatch):
+    monkeypatch.setenv(config.LIVE_ENV, "1")
+    monkeypatch.setenv(config.TEACHER_BASE_URL_ENV, "https://t.example")
+    monkeypatch.setenv(config.TEACHER_API_KEY_ENV, "k")
+    monkeypatch.setenv(config.LIVE_ENV, "")  # not "1" => offline
+    monkeypatch.setenv(config.TEACHER_FIXTURE_ENV, "/nonexistent/echo.json")
+    with pytest.raises(TeacherError, match="not found"):
+        teacher_from_env()
