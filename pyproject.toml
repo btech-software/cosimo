@@ -17,6 +17,13 @@ dependencies = [
 packages = ["cosimo"]
 
 [dependency-groups]
+# Corpus control plane (dataset/pipelines/v3): the ETL needs a YAML reader for
+# taxonomy/work_types.yaml and nothing else beyond the stdlib. Deliberately
+# separate from fine-tune: the generation box is CPU-only and must never drag
+# torch onto a Spark node's image (spec §9).
+corpus = [
+    "pyyaml>=6.0",
+]
 # Post-training stack for jobs/fine-tune, executed on an NVIDIA DGX Spark
 # (GB10 Grace Blackwell, aarch64, CUDA 13). torch is intentionally absent: it is
 # provided by the NGC base image (docker/fine-tune/Dockerfile) and must not be

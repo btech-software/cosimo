@@ -1,7 +1,7 @@
 # Cosimo dataset v2 — iteration 3
 
 Work in `dataset/`. This prompt is self-contained; the original brief is preserved at
-`docs/prompts/003_dataset_rev1_brief.md` — read it for the full rationale, but do not
+`docs/prompts/rev_02/003_dataset_rev1_brief.md` — read it for the full rationale, but do not
 wait on it to start.
 
 ## Objective

@@ -1,0 +1,115 @@
+# v3 generation plan: the primary axis of the corpus is the *work type*, not
+# the exam booklet. `taxonomy.json` beside this file stays the LOS metadata it
+# always was (coverage reporting only); `inventory.py` expands THIS file into
+# the deterministic (work_type, family, record_type, variant) job list, and it
+# is the only thing that decides how much of any family ever exists (spec §5.1).
+#
+# Keys:
+#   families            the scenario families. `holdout: true` families never
+#                       train -- they are the `unseen_scenario_family` slice the
+#                       whole v2->v3 change exists to measure.
+#   record_types        the renderers this work type publishes through.
+#   variants_per_family how many distinct seeded draws each (family, type) gets.
+#                       The family cap below, not this number, is the hard
+#                       constraint: inventory refuses to emit more than
+#                       max_share of the planned SFT pool for one family.
+#   max_share           ceiling as a fraction of the planned supervised pool.
+#   pitfalls            the legal pitfall names the preference stage may build
+#                       rejected sides from. `invented_number` is deliberately
+#                       NOT listed: it is a negative control, easy to reject,
+#                       and capping it is spec §5.7; it never needs a licence.
+
+valuation.equity.dcf:
+  computer: valuation_fcff
+  families:
+    mature_consumer: {holdout: false}
+    cyclical_industrial: {holdout: false}
+    fade_required: {holdout: true}
+  record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
+  variants_per_family:
+    exam: 80
+    analysis: 120
+    memo: 40
+    critique: 30
+    grounded: 30
+    abstention: 24
+    agentic: 36
+    implementation: 12
+  max_share: 0.03
+  pitfalls: [wrong_assumption, false_precision, ignored_constraint, look_ahead]
+
+valuation.equity.multiples:
+  computer: valuation_multiples
+  families:
+    specialty_retail: {holdout: false}
+    enterprise_software: {holdout: false}
+    consumer_platforms: {holdout: true}
+  record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
+  variants_per_family:
+    exam: 80
+    analysis: 120
+    memo: 40
+    critique: 30
+    grounded: 30
+    abstention: 24
+    agentic: 36
+    implementation: 12
+  max_share: 0.03
+  pitfalls: [wrong_assumption, false_precision, wrong_register]
+
+risk.market.var_es:
+  computer: risk_var
+  families:
+    rates_book: {holdout: false}
+    equity_longonly: {holdout: false}
+    credit_focused: {holdout: true}
+  record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
+  variants_per_family:
+    exam: 80
+    analysis: 120
+    memo: 40
+    critique: 30
+    grounded: 30
+    abstention: 24
+    agentic: 36
+    implementation: 12
+  max_share: 0.03
+  pitfalls: [wrong_assumption, overconfident_abstention_fail, false_precision]
+
+portfolio.attribution.brinson_carino:
+  computer: portfolio_attribution
+  families:
+    global_equity_long: {holdout: false}
+    us_small_cap: {holdout: false}
+    em_multi_asset: {holdout: true}
+  record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
+  variants_per_family:
+    exam: 80
+    analysis: 120
+    memo: 40
+    critique: 30
+    grounded: 30
+    abstention: 24
+    agentic: 36
+    implementation: 12
+  max_share: 0.03
+  pitfalls: [wrong_assumption, ignored_constraint, wrong_register]
+
+execution.tca.arrival:
+  computer: execution_tca
+  families:
+    large_cap_intraday: {holdout: false}
+    mid_cap_swing: {holdout: false}
+    etf_rebalance: {holdout: true}
+  record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
+  variants_per_family:
+    exam: 80
+    analysis: 120
+    memo: 40
+    critique: 30
+    grounded: 30
+    abstention: 24
+    agentic: 36
+    implementation: 12
+  max_share: 0.03
+  pitfalls: [wrong_assumption, tool_skip, false_precision]

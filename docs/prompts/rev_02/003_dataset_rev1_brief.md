@@ -1,6 +1,6 @@
 Generate the second Cosimo training corpus: a **complementary** dataset that teaches the reasoning and judgement the first one could not, designed to be **mixed** with `btech-software/cosimo-cfa-frm-71k` rather than to replace it.
 
-This supersedes `001_dataset_prompt.md`. That brief was executed, the corpus it produced was trained on, and the run was measured end-to-end. Read the findings below before designing anything: they are not predictions, they are results, and every requirement here exists because something specific went wrong.
+This supersedes `docs/prompts/rev_01/initial_dataset_prompt.md`. That brief was executed, the corpus it produced was trained on, and the run was measured end-to-end. Read the findings below before designing anything: they are not predictions, they are results, and every requirement here exists because something specific went wrong.
 
 **The objective is the one in `jobs/fine-tune/README.md`:** an assistant to a Head of Quantitative Asset Management — one that reasons about valuation, risk, market microstructure and research papers, and is honest about what it does not know. Exam accuracy is a milestone, not the target. This corpus is one increment in a planned series; it does not have to teach everything, but it must not repeat what the first one got wrong.
 
