@@ -1,4 +1,4 @@
-> **Superseded by [`003_dataset_rev1_prompt.md`](003_dataset_rev1_prompt.md).** Kept as the
+> **Superseded by [`003_dataset_rev1_prompt.md`](../rev_02/003_dataset_rev1_prompt.md).** Kept as the
 > provenance record for `btech-software/cosimo-cfa-frm-71k`: this is the brief that produced the
 > corpus, and it explains why that corpus looks the way it does. It was executed, trained on and
 > measured; `003` documents what the measurements showed and what the next corpus must do
