@@ -1,0 +1,1382 @@
+{
+  "entries": {
+    "0d00d2cdbce9ff1567c8fe2db4a227505a7880c604133379c00b1420af819b06": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "HXOG"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "0d196a6b5722e6b29f13403b002cd7e1104722a3f0068d365efb5ccd45010c47": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 242,022 shares of Vale Logistics (OZVE) buy; ADV is 18,778,352, arrival price 419.20, quoted spread 1.0 bp, daily vol 1.29%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 419.8349, per the pack.\nThe cost bps vs arrival stands at 15.14, per the pack.\nThe dollar cost stands at 153654.2, per the pack.\nThe impact bps stands at 14.64, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "0d4107cda85f35cc73ffb47a7fc4267aaacb2af51c700b7e9c204e7f129c252f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "XABW"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "0fa6bef78f74f19839d4bdaa66981b72f471acdd950919387d0ae516bb82baf9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 675,214 shares of Cobalt Power (XABW) buy; ADV is 16,178,145, arrival price 240.78, quoted spread 2.0 bp, daily vol 1.65%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 241.6157, per the pack.\nThe cost bps vs arrival stands at 34.71, per the pack.\nThe dollar cost stands at 564285.05, per the pack.\nThe impact bps stands at 33.71, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "109d8be7f6d10e0d718c4557d9b91978466616d84c8033385fb9de76e0ba110b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 34.75,
+                    "shares": 126336.0,
+                    "side": "sell",
+                    "symbol": "WSKB"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "11bffa330d70dd4add0a54d1bcd59da8951b87f2a19e4ae2fed3456d3709640a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 408,816 shares of Reed Logistics (TNMU) sell; ADV is 19,978,662, arrival price 184.34, quoted spread 4.0 bp, daily vol 1.84%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 183.8179, per the pack.\nThe cost bps vs arrival stands at 28.32, per the pack.\nThe dollar cost stands at 213428.54, per the pack.\nThe impact bps stands at 26.32, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "180b8cbd1b7580426b3c09139dc86cd0066eb0aadb35cb9decdc1094f2d2afba": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 319,906 shares of Cobalt Materials (OFBQ) buy; ADV is 4,677,474, arrival price 52.77, quoted spread 10.8 bp, daily vol 2.88%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 53.1959, per the pack.\nThe cost bps vs arrival stands at 80.72, per the pack.\nThe dollar cost stands at 136263.37, per the pack.\nThe impact bps stands at 75.32, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "1f65e23f48c512ab449169f6b190785f57790a1e4a382c78ac69c8ab22da952e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 58,302 shares of Vale Logistics (YMJU) sell; ADV is 3,354,333, arrival price 74.79, quoted spread 6.8 bp, daily vol 2.63%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 74.5053, per the pack.\nThe cost bps vs arrival stands at 38.07, per the pack.\nThe dollar cost stands at 16601.48, per the pack.\nThe impact bps stands at 34.67, per the pack.\nThe first call hit a rate limit and was unavailable; re-issued once, the block below is what the desk relies on.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 150
+      }
+    },
+    "20548ada412a8733e59c5ffdf442564fe4373964095d955e70df5752d7491624": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 260.49,
+                    "shares": 99895.0,
+                    "side": "sell",
+                    "symbol": "HXOG"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "281383f603b3fc7185727b11fff6d29624132ed9e5e0bb0aeecfeefcd9dc305b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "YCGZ"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "2a5d0d76970fa91be56618db2708e8ceefeb73899d7748e0191c750406f83bf1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 318,757 shares of Vale Mining (KDPW) buy; ADV is 3,294,805, arrival price 106.31, quoted spread 10.8 bp, daily vol 2.64%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 107.2404, per the pack.\nThe cost bps vs arrival stands at 87.51, per the pack.\nThe dollar cost stands at 296560.29, per the pack.\nThe impact bps stands at 82.11, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "334559a1c6fcae087dbbcbf87f58c6cfaff496621aec478bd07a89e3c805952d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "KDPW"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "3a4fb12197be3f83680cf6d61c0a8c9dcb1872ff80f218dde8b232226af1a080": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 78,972 shares of Onyx Mining (NXLG) buy; ADV is 4,109,995, arrival price 24.02, quoted spread 10.0 bp, daily vol 2.38%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 24.1113, per the pack.\nThe cost bps vs arrival stands at 37.99, per the pack.\nThe dollar cost stands at 7206.5, per the pack.\nThe impact bps stands at 32.99, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "41bddd2c399c85d233099b3675dc00156625b8d7a84fad669b9b596d9375dcfe": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 74.79,
+                    "shares": 58302.0,
+                    "side": "sell",
+                    "symbol": "YMJU"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "48c49dda652d1d499152ccd9b0562ad96972d6dda92064ca36f1fc83661b9f0c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "YMJU"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "56c6c48eebc2184d700f113d0bdfefaaf1faa4923fa8984f46238456c87afdd3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "LYVI"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "5b07eb0f8d5726c5aa9d3dfc1da9597f1f528c01ec650022be36cb38d03ad38e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 302,047 shares of Onyx Logistics (SATK) buy; ADV is 3,428,913, arrival price 85.52, quoted spread 8.7 bp, daily vol 1.92%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 86.0445, per the pack.\nThe cost bps vs arrival stands at 61.33, per the pack.\nThe dollar cost stands at 158434.7, per the pack.\nThe impact bps stands at 56.98, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "5b41987ce6235411254c336ac3b65b519bb1a212d5dbe00f6b34bf5532c40eeb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 85.52,
+                    "shares": 302047.0,
+                    "side": "buy",
+                    "symbol": "SATK"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "64273562c5b47d2c82d122046f188368516a9cf2ebb3c004c595e34cbdaad7ef": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "FIXP"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "675d98483d8a4b59db37ac539e3dfd33c0f0a89b55186b84b0a6d845e2ea90c9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "YMJU"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "6ab4c35c9fcb697dfdbf655a88befb1ad1ab379453a3519748c7da87ed0d3d5f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 365,112 shares of North Mining (XJLK) buy; ADV is 12,674,806, arrival price 65.44, quoted spread 3.4 bp, daily vol 1.92%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 65.6644, per the pack.\nThe cost bps vs arrival stands at 34.29, per the pack.\nThe dollar cost stands at 81921.55, per the pack.\nThe impact bps stands at 32.59, per the pack.\nThat response is stale as of 2019-01-01, an outdated stamp; I flag it and rely on the pack's own as-of.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 149
+      }
+    },
+    "6ceb87ad36c78d889b2992b1f8277100c29a7c8c360adcad333ceb62752aadcb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 474.16,
+                    "shares": 142562.0,
+                    "side": "sell",
+                    "symbol": "ASZQ"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "71f49b65d020a2a54274bf7911194d551bb3ce488de637f1b83f8b75da4cf2dd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "SATK"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "76c8944e8bc84b303a658f56509a481f4603013788badabab63fefaf2893875d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 142,562 shares of Vale Power (ASZQ) sell; ADV is 14,168,238, arrival price 474.16, quoted spread 1.1 bp, daily vol 1.60%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 473.3729, per the pack.\nThe cost bps vs arrival stands at 16.6, per the pack.\nThe dollar cost stands at 112208.58, per the pack.\nThe impact bps stands at 16.05, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "78245d3cca65f8e73cb2dc2419bfc5d596a13a1254d5f8c07633a0729ce186dd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "WSKB"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "7e13e5b909ed86dae8e36e137214a2fdaf0866d1ee80bded67e81a280feb57b0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "DUIY"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "88469c1c259cfca58fb0561f4e9225450491d4a2a892f34b23abe1c93d296518": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "WEDB"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "8a008dd1a64b6b8d441748e51153a37479a74ed100ef27b6d59798240a0ab5b6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 401.46,
+                    "shares": 706129.0,
+                    "side": "sell",
+                    "symbol": "FIXP"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "8a9a5e6d1bc2c8f816fa25dc9267be3d0cb4a74519363dd4477f5c1a4014bac2": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 126,336 shares of Onyx Mining (WSKB) sell; ADV is 2,610,129, arrival price 34.75, quoted spread 6.5 bp, daily vol 1.73%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 34.6064, per the pack.\nThe cost bps vs arrival stands at 41.31, per the pack.\nThe dollar cost stands at 18136.2, per the pack.\nThe impact bps stands at 38.06, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "8af67b3d50ac5ea03dc4befc8e42059126ba4714e0be10de2e8d13612d3438ed": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "NGVL"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "9598c76d73f40eed1c63bea995d93aaf3eeac0c741b62e020e25793648ea001f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "IMEJ"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "9b8ac10fe1771a11fcb2839c3c39f3edcfc437f95a338b599b84b83f9dfb2c51": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 706,129 shares of Reed Power (FIXP) sell; ADV is 10,065,284, arrival price 401.46, quoted spread 2.2 bp, daily vol 1.69%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 399.6188, per the pack.\nThe cost bps vs arrival stands at 45.86, per the pack.\nThe dollar cost stands at 1300125.8600000001, per the pack.\nThe impact bps stands at 44.76, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "9bebc021b163753e9ddf4a48f9aee89aaf6b844661e27fe2412255bfe5d552c0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 55.17,
+                    "shares": 81798.0,
+                    "side": "sell",
+                    "symbol": "WEDB"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "9cdfdc89927f9bb96b4b9df5166f8054d25c30e29337dca4d85f16f197534ed5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 65,394 shares of Onyx Industrials (LYVI) buy; ADV is 1,628,607, arrival price 152.62, quoted spread 5.9 bp, daily vol 2.98%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 153.5764, per the pack.\nThe cost bps vs arrival stands at 62.66, per the pack.\nThe dollar cost stands at 62541.5, per the pack.\nThe impact bps stands at 59.71, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "a66815c5a6bb0c7556637aaa1fc0826483c907ec9dbb8fe560a8728beeb1608d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "XJLK"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "a94553020de59af7d1c980dc7ccd9a076ee583d9c29dd3f9cc9d60937aa8a367": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 106.31,
+                    "shares": 318757.0,
+                    "side": "buy",
+                    "symbol": "KDPW"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "aa72319f244877855f212312d932e217cd4d25036331bec3acf7d4a798c05921": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "ASZQ"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "b2564dd98ad2811e8c07cf554c06ad86437a709396f850736538627b4372561e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "metrics": [
+                      "adv_shares",
+                      "arrival_price",
+                      "avg_fill_price",
+                      "cost_bps_vs_arrival",
+                      "dollar_cost",
+                      "impact_bps"
+                    ],
+                    "symbol": "OFBQ"
+                  },
+                  "name": "get_fundamentals"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "b402e446d4f6e1ffd0b4fcde9da2040c6cfe5cb765d9353e9bf326975b2dfca0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 539,396 shares of Vale Industrials (DUIY) buy; ADV is 10,814,615, arrival price 237.12, quoted spread 3.3 bp, daily vol 1.96%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 238.1971, per the pack.\nThe cost bps vs arrival stands at 45.42, per the pack.\nThe dollar cost stands at 580964.88, per the pack.\nThe impact bps stands at 43.77, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "b516e55ff0789bf73cdc22908163ce88246e1d15d200b7676d03a7c43441a5c9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 152.62,
+                    "shares": 65394.0,
+                    "side": "buy",
+                    "symbol": "LYVI"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "bea3ecf7a6b76ce8e8e0301c2676704bb515cbbd043c518e5e0cc1eedcb3d49d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 430,567 shares of Reed Power (QANX) sell; ADV is 8,867,535, arrival price 296.61, quoted spread 3.0 bp, daily vol 1.21%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 295.7747, per the pack.\nThe cost bps vs arrival stands at 28.16, per the pack.\nThe dollar cost stands at 359667.31, per the pack.\nThe impact bps stands at 26.66, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "c311bcc9bb152c31ddbe54a6218dab5a05971a927c89415c2dcbf23ef1d09af1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 81,798 shares of North Logistics (WEDB) sell; ADV is 3,250,321, arrival price 55.17, quoted spread 4.6 bp, daily vol 2.66%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 54.9245, per the pack.\nThe cost bps vs arrival stands at 44.5, per the pack.\nThe dollar cost stands at 20080.95, per the pack.\nThe impact bps stands at 42.2, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "cbd005d22fe97354e8333288480f37f4eb6e823dff9f77c230017601e0a8c6af": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 80.3,
+                    "shares": 494185.0,
+                    "side": "sell",
+                    "symbol": "IMEJ"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "ccb8a552794d728dc9323e90510fe47336fb6afccd26e21a7bed1589afbaaa0c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 115,794 shares of North Materials (YCGZ) buy; ADV is 5,112,455, arrival price 101.00, quoted spread 14.2 bp, daily vol 1.80%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 101.3453, per the pack.\nThe cost bps vs arrival stands at 34.19, per the pack.\nThe dollar cost stands at 39985.27, per the pack.\nThe impact bps stands at 27.09, per the pack.\nThe block carries a wrong ticker -- a mismatch, not the identifier I asked for; its figures are another entity's and are not used.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 153
+      }
+    },
+    "d0ec98ccf6ebc8e2cdc354df350215c777dc529b3910e4e9e70dc8d4f5171806": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 494,185 shares of Vale Industrials (IMEJ) sell; ADV is 7,599,544, arrival price 80.30, quoted spread 2.6 bp, daily vol 1.97%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 79.8862, per the pack.\nThe cost bps vs arrival stands at 51.54, per the pack.\nThe dollar cost stands at 204511.6, per the pack.\nThe impact bps stands at 50.24, per the pack.\nThe block came back with no data; nothing rests on it.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 140
+      }
+    },
+    "dd8dae7dbd0d116d68a0197ad1b1bd302f54902e9af45bb6bce057c4579b8fec": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 99,895 shares of Reed Power (HXOG) sell; ADV is 9,796,939, arrival price 260.49, quoted spread 2.0 bp, daily vol 1.27%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 260.1299, per the pack.\nThe cost bps vs arrival stands at 13.82, per the pack.\nThe dollar cost stands at 35972.86, per the pack.\nThe impact bps stands at 12.82, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "dfec3a00cf95239978f69ae834621ef5c2481882f6abf1dc33d50a1bdae5ef8b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 65.44,
+                    "shares": 365112.0,
+                    "side": "buy",
+                    "symbol": "XJLK"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "e187f56fc95459681962c26c16d19893f969a64c7db0d524b5b62a0e94e03fd3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Work 379,327 shares of North Materials (NGVL) sell; ADV is 11,719,963, arrival price 342.22, quoted spread 1.5 bp, daily vol 1.89%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\nthe square-root impact scaling.\nparticipation near the ADV cap as the schedule constraint.\narrival versus decision benchmark choice.\nThe avg fill price stands at 341.0307, per the pack.\nThe cost bps vs arrival stands at 34.75, per the pack.\nThe dollar cost stands at 451128.25, per the pack.\nThe impact bps stands at 34, per the pack.\nEvery figure above is the pack's own or a block received; nothing here is drawn from outside them.",
+            "reasoning_content": "Checked line by line against the pack.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 129
+      }
+    },
+    "e46c213a818f61a18de9859b1025b3c1c33b3302947d526c175efd18a389f419": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 52.77,
+                    "shares": 319906.0,
+                    "side": "buy",
+                    "symbol": "OFBQ"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "e51668e8f9e57e69ede6fc33708c21ae23be28fb9139ad63370af2a8f878a668": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 101.0,
+                    "shares": 115794.0,
+                    "side": "buy",
+                    "symbol": "YCGZ"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "f1f2725113b8a50e259e3a09a1df983dfef4130b217ef0460f508a3a2c685d42": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 237.12,
+                    "shares": 539396.0,
+                    "side": "buy",
+                    "symbol": "DUIY"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "f45057531829af57f64aeac2285872b593acbd6c87e99d8cc9800f3117b9bef4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 342.22,
+                    "shares": 379327.0,
+                    "side": "sell",
+                    "symbol": "NGVL"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    },
+    "fe62498c221a015d3f5a7c036c2e9cfaff7f8502e4b89bceee19ce1c1a4366bd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "",
+            "role": "assistant",
+            "tool_calls": [
+              {
+                "function": {
+                  "arguments": {
+                    "arrival_price": 240.78,
+                    "shares": 675214.0,
+                    "side": "buy",
+                    "symbol": "XABW"
+                  },
+                  "name": "get_transaction_cost"
+                },
+                "type": "function"
+              }
+            ]
+          }
+        }
+      ],
+      "model": "fixture-agentic",
+      "usage": {
+        "total_tokens": 1
+      }
+    }
+  },
+  "meta": {
+    "entries": 53,
+    "faulted": 4,
+    "faults": [
+      "empty_result",
+      "rate_limit",
+      "stale_asof",
+      "wrong_ticker"
+    ],
+    "limit": 20,
+    "no_call": 4,
+    "ranks_walked": 22,
+    "slice_size": 110
+  },
+  "model": "fixture-agentic",
+  "version": 1
+}

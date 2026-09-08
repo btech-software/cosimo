@@ -16,12 +16,20 @@ constraints:
   (resume by ids, never by counts -- the same rule ``stage.py`` enforces for
   packs).
 
-``prose.py`` is PR2's. ``agentic.py`` (PR3) and the exam/implementation
-renderers (PR4) join it here; they share the repair policy, not a code path
-into the teacher, because an agentic turn loop is a different animal from a
-one-shot completion.
+``prose.py`` (PR2) and ``agentic.py`` (PR3) share the *policy* -- one
+ladder, one dead letter, ids gate the bill -- and not a code path into the
+teacher, because an agentic turn loop is a different animal from a one-shot
+completion: it validates against the registry, executes against the oracle,
+and ships a transcript rather than a paragraph. The exam/implementation
+renderers join here in PR4.
 """
 
+from .agentic import (
+    KIND as AGENTIC_KIND,
+    render_agentic_row,
+    run_agentic_stage,
+    select_agentic_jobs,
+)
 from .prose import (
     render_prose_row,
     row_id,
@@ -31,9 +39,13 @@ from .prose import (
 )
 
 __all__ = [
+    "AGENTIC_KIND",
+    "render_agentic_row",
     "render_prose_row",
     "row_id",
     "row_id_from_coords",
+    "run_agentic_stage",
     "run_render_stage",
+    "select_agentic_jobs",
     "select_prose_jobs",
 ]

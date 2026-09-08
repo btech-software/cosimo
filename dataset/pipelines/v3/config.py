@@ -41,6 +41,34 @@ VALID_REGISTERS = ("desk_chat", "ic_memo", "risk_committee", "auditor", "code_re
 PROSE_ATTEMPTS = 3
 PROSE_TEMPERATURES = (0.7, 0.3, 0.1)
 
+# The agentic loop's budgets (analysis spec §5.8: "a real multi-step loop,
+# 6-16 turns"). Measured over the *non-system* messages, so the band bounds
+# what a training run pays in tokens per conversation, not the boilerplate.
+# ``AGENTIC_MAX_TOOL_CALLS`` is the hard stop the loop enforces before asking
+# again; one call that returns an error is worth re-issuing, ten is a model
+# arguing with itself.
+AGENTIC_MIN_MESSAGES = 6
+AGENTIC_MAX_MESSAGES = 16
+AGENTIC_MAX_TOOL_CALLS = 6
+
+#: The mix, exact by residue of the variant (see ``oracle.faults.schedule_of``):
+#: every fifth agentic job answers from the pack alone ("calling a tool is
+#: waste when the fact pack is already in the user message" -- spec §5.8), and
+#: every fifth *other* one walks into an injected fault. Two residues of ten,
+#: so each slice is exactly 20% -- inside the spec's 15-20% band, and exact
+#: counts beat a dice roll because the 20-row PR3 gate can assert them.
+AGENTIC_STRIDE = 5
+AGENTIC_NO_CALL_RESIDUE = 0
+AGENTIC_FAULT_RESIDUE = 2
+
+#: The agentic repair ladder sits colder than the prose one: a teacher that
+#: is creative about *which tool to call* is a teacher that ships trajectories
+#: the server cannot replay. Same three strikes as prose (a verdict about this
+#: teacher on this brief), different temperatures because tool calling is
+#: meaning, not voice.
+AGENTIC_ATTEMPTS = 3
+AGENTIC_TEMPERATURES = (0.3, 0.2, 0.1)
+
 # The analysis spec's "tiny whitelist": quantities that are arithmetic
 # furniture rather than pack facts -- the percent denominator, the two of a
 # two-way bridge, the trading-day convention -- plus every number spelled in

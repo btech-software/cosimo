@@ -31,6 +31,8 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
         sys.path.insert(0, _p)
 
 from . import config, inventory, stage, write  # noqa: E402
+from .render.agentic import KIND as AGENTIC_KIND  # noqa: E402
+from .render.agentic import run_agentic_stage  # noqa: E402
 from .render.prose import run_render_stage  # noqa: E402
 from .teacher.client import TeacherError, teacher_from_env  # noqa: E402
 from .teacher.prompts import BRIEF_KINDS  # noqa: E402
@@ -216,35 +218,67 @@ def cmd_render(args) -> int:
         )
         return EXIT_DATA
     types = _split_types(args.types)
-    if types and not set(types) <= set(BRIEF_KINDS):
-        unknown = sorted(set(types) - set(BRIEF_KINDS))
+    allowed = set(BRIEF_KINDS) | {AGENTIC_KIND}
+    if types and not set(types) <= allowed:
+        unknown = sorted(set(types) - allowed)
         print(
-            f"render: the prose stage covers {', '.join(BRIEF_KINDS)}; "
-            f"unknown --types {', '.join(unknown)} (exam/agentic/implementation "
-            "arrive with PR3-PR4)",
+            f"render: the render stages cover {', '.join(sorted(allowed))}; "
+            f"unknown --types {', '.join(unknown)} (exam/implementation "
+            "arrive with PR4)",
             file=sys.stderr,
         )
         return EXIT_USAGE
+    # One command line, up to two stages: the DAG's cell stays whole whether
+    # it runs prose, agentic, or both, and each stage keeps its own ledger --
+    # the prose board says "planned prose jobs", the agentic one adds the
+    # mix tallies the PR3 gate reads, because a trajectory mix is a property
+    # of the schedule and a paragraph mix is not.
+    prose_types = None if types is None else tuple(t for t in types if t in BRIEF_KINDS)
+    runs = []
+    if prose_types is None or prose_types:
+        runs.append(
+            (
+                "prose",
+                lambda: run_render_stage(
+                    out_dir, jobs, teacher, types=prose_types, limit=args.limit
+                ),
+            )
+        )
+    if types is None or AGENTIC_KIND in types:
+        runs.append(
+            (
+                "agentic",
+                lambda: run_agentic_stage(out_dir, jobs, teacher, limit=args.limit),
+            )
+        )
     try:
         _, jobs = inventory.read_plan(plan_path)
         teacher = teacher_from_env(live=True if args.live else None)
-        report = run_render_stage(out_dir, jobs, teacher, types=types, limit=args.limit)
+        boards = [(label, run()) for label, run in runs]
     except (inventory.PlanError, TeacherError, ValueError, OSError) as exc:
         print(f"render: {exc}", file=sys.stderr)
         return EXIT_DATA
-    print(
-        f"render: {report['rendered']} rows rendered, "
-        f"{report['existing']} already on disk, {report['dead_lettered']} dead-lettered "
-        f"(of {report['jobs_seen']} planned prose jobs; "
-        f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate) -> {out_dir}"
-    )
-    for kind in sorted(report["by_kind"]):
-        cell = report["by_kind"][kind]
+    missing_total = 0
+    for label, report in boards:
         print(
-            f"  {kind:<12} rendered {cell['rendered']:>5}  "
-            f"existing {cell['existing']:>5}"
+            f"render: {report['rendered']} rows rendered, "
+            f"{report['existing']} already on disk, {report['dead_lettered']} dead-lettered "
+            f"(of {report['jobs_seen']} planned {label} jobs; "
+            f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate) -> {out_dir}"
         )
-    if report["missing_packs"]:
+        for kind in sorted(report["by_kind"]):
+            cell = report["by_kind"][kind]
+            extra = ""
+            if label == "agentic":
+                extra = (
+                    f"  no_call {report['no_call']:>3}  faulted {report['faulted']:>3}"
+                    f"  calls {report['tool_calls']:>4}"
+                )
+            print(
+                f"  {kind:<12} rendered {cell['rendered']:>5}  "
+                f"existing {cell['existing']:>5}{extra}"
+            )
+        missing_total += len(report["missing_packs"])
         for row in report["missing_packs"][:8]:
             print(
                 f"  missing pack: {row['work_type']}/{row['family']}"
@@ -256,6 +290,7 @@ def cmd_render(args) -> int:
                 f"  ... and {len(report['missing_packs']) - 8} more",
                 file=sys.stderr,
             )
+    if missing_total:
         print(
             "render: the packs stage has not covered this plan -- the DAG does not "
             "schedule render before packs",
@@ -268,7 +303,10 @@ def cmd_render(args) -> int:
 def cmd_verify(args) -> int:
     out_dir = os.path.abspath(args.out or config.out_dir())
     report = verify_dir(out_dir)
-    mode = "quick (--quick: axes 10-12 arrive with PR3/PR4, nothing to skip yet)"
+    mode = (
+        "quick (--quick: the dedup/gold-bar axes arrive with PR4; schema, "
+        "replay and the share bands are all cheap and always run)"
+    )
     print(
         f"verify: {out_dir} -- {report['rows']} rows"
         + (f" [{mode}]" if args.quick else "")
@@ -338,7 +376,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("render", help="prose render + repair loop (PR2)")
     p.add_argument("--plan", help="plan json (default: <out>/plan.json)")
     p.add_argument("--out", help="corpus root (default: config.out_dir())")
-    p.add_argument("--types", help="comma list of prose record types")
+    p.add_argument(
+        "--types",
+        help="comma list of record types (prose kinds and/or 'agentic')",
+    )
     p.add_argument("--limit", type=int)
     p.add_argument(
         "--live",
@@ -349,7 +390,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("verify", help="the v3 verification board (axes 1-5 in PR2)")
     p.add_argument("--out", help="corpus root (default: config.out_dir())")
-    p.add_argument("--quick", action="store_true", help="skip axes 10-12 (spec §6)")
+    p.add_argument(
+        "--quick",
+        action="store_true",
+        help="skip the costly dedup/gold-bar axes at publish time (spec §6)",
+    )
     p.set_defaults(func=cmd_verify)
 
     p = sub.add_parser("prefer", help="contrastive preference pairs (PR4)")
