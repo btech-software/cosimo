@@ -77,7 +77,7 @@ def test_rejected_sides_take_their_parents_model_and_lose_their_think():
     assert abstention_child.think is False
 
 
-@pytest.mark.parametrize("kind", prompts._BRIEF_KINDS)
+@pytest.mark.parametrize("kind", prompts.BRIEF_KINDS)
 def test_briefs_render_every_pack_field_that_matters(kind):
     pack = compute_pack("valuation.equity.dcf", "mature_consumer", 0).to_dict()
     messages = render_brief(pack, kind=kind)
@@ -88,7 +88,7 @@ def test_briefs_render_every_pack_field_that_matters(kind):
     assert f"'{pack['scenario_id']}'" in user or pack["scenario_id"] in user
     for key in ("must_mention", "forbidden_claims", "allowed_numbers", "fact_pack"):
         assert key in user
-    low, high = prompts._WORD_BUDGETS[kind]
+    low, high = prompts.WORD_BUDGETS[kind]
     assert f"{low}-{high} words" in user
     assert prompts._REGISTER_HINTS[pack["register"]] in user
     assert pack["as_of"] in user

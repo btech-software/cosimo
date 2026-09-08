@@ -210,22 +210,67 @@ def expand_jobs(plan: dict, *, smoke: bool = False) -> list[Job]:
                     )
         return out
     planned_supervised = sum(not job.holdout for job in raw)
+    kept = _family_cap(plan, raw, planned_supervised)
+    return kept
+
+
+def _family_cap(plan: dict, raw: list[Job], planned_supervised: int) -> list[Job]:
+    """Enforce the per-family share, preserving each family's planned *shape*.
+
+    Largest-remainder (Hamilton) apportionment, in integer arithmetic: the
+    family's ``cap`` seats are divided across its record-type cells in
+    proportion to the planned counts, floors first, leftover seats to the
+    largest remainders, ties broken by the file's record-type order. Then a
+    cell keeps the *prefix* of its reserved variants (``0..keep-1``), which
+    is what ``pack_seed`` and the smoke walk already treat as the family's
+    reserved budget.
+
+    Proportional, and never head-truncation-by-enumeration-order, because
+    head-truncation is a silent re-authoring of the corpus: a family planned
+    at 80 exam / 120 analysis / 40 memo / ... cut at 111 in list order keeps
+    all the exam, some analysis, and *zero* of every later type -- a mix the
+    author never signed (exam alone at ~72% of the row population, precisely
+    the v2 pathology §2.3/§12 exists to prevent), and one the manifest would
+    print without ever distinguishing it from the plan. The cap's promise is
+    about a family's *share of the pool*; this keeps that promise (cells sum
+    to <= cap) and adds the one the mix table needs: the family's own shape
+    survives the cut, deterministically, as a pure function of the yaml.
+    """
+    planned_by_cell: dict[tuple[str, str, str], int] = {}
+    cell_order: dict[tuple[str, str], list[str]] = {}
+    for job in raw:
+        if job.holdout:
+            continue
+        cell = (job.work_type, job.family, job.record_type)
+        planned_by_cell[cell] = planned_by_cell.get(cell, 0) + 1
+        cells = cell_order.setdefault((job.work_type, job.family), [])
+        if job.record_type not in cells:
+            cells.append(job.record_type)
+
+    keep: dict[tuple[str, str, str], int] = {}
+    for (work_type, family), cells in cell_order.items():
+        counts = [planned_by_cell[(work_type, family, cell)] for cell in cells]
+        total = sum(counts)
+        share = min(plan[work_type]["max_share"], config.FAMILY_MAX_SHARE)
+        cap = min(total, _floor(share * planned_supervised))
+        base = [cap * count // total for count in counts]
+        remainders = [cap * count % total for count in counts]
+        awarded = cap - sum(base)
+        # largest remainder first; ties fall to the file's record-type order
+        ranking = sorted(range(len(cells)), key=lambda i: (-remainders[i], i))
+        for i in ranking[:awarded]:
+            base[i] += 1
+        for cell, kept_count in zip(cells, base):
+            keep[(work_type, family, cell)] = min(
+                planned_by_cell[(work_type, family, cell)], kept_count
+            )
     kept: list[Job] = []
-    dropped: list[dict] = []
-    seen: dict[tuple[str, str], int] = {}
     for job in raw:
         if job.holdout:
             kept.append(job)
             continue
-        share = min(plan[job.work_type]["max_share"], config.FAMILY_MAX_SHARE)
-        cap = _floor(share * planned_supervised)
-        key = (job.work_type, job.family)
-        taken = seen.get(key, 0)
-        if taken >= cap:
-            dropped.append(job.as_record())
-            continue
-        seen[key] = taken + 1
-        kept.append(job)
+        if job.variant < keep[(job.work_type, job.family, job.record_type)]:
+            kept.append(job)
     return kept
 
 

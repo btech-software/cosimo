@@ -68,18 +68,31 @@ def _matches(value: float, allowed: frozenset[float]) -> bool:
     return False
 
 
-def invented_numbers(text: str, allowed) -> list[str]:
+def invented_numbers(text: str, allowed, whitelist=()) -> list[str]:
     """Raw tokens in *text* no allowed value explains, in order of appearance.
 
     Returns the *source strings* ("17.4%"), not floats: the repair prompt and
     the dead-letter record must show the operator what the model wrote, not
     what the gate parsed it into.
+
+    ``whitelist`` holds *token strings* the caller declares arithmetic
+    furniture rather than pack facts ("100", the as-of year). Matching is on
+    the written form, commas and all, because the mercy is about what the
+    reader sees, not about what the value means; keep it tiny (see
+    ``config.NUMBER_WHITELIST`` -- the analysis spec's "tiny whitelist" rule)
+    or it stops being a gate.
     """
     allowed = _allowed_set(allowed)
+    # Token edges are typography, not meaning: "31," at the end of a date and
+    # "31" in mid-sentence are the same permission. Interior commas stay --
+    # "1,000" is one token and must match as one.
+    passed = frozenset(str(w).strip().strip(",") for w in whitelist)
     offenders: list[str] = []
     seen: set[str] = set()
     for tok in nums.TOKEN.findall(str(text)):
         if tok in seen:
+            continue
+        if tok.strip(",") in passed:
             continue
         try:
             value = nums.val(tok)
@@ -93,6 +106,6 @@ def invented_numbers(text: str, allowed) -> list[str]:
     return offenders
 
 
-def clean(text: str, allowed) -> bool:
+def clean(text: str, allowed, whitelist=()) -> bool:
     """Convenience for assertions and repair loops; see :func:`invented_numbers`."""
-    return not invented_numbers(text, allowed)
+    return not invented_numbers(text, allowed, whitelist)

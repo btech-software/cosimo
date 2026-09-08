@@ -34,12 +34,12 @@ Contract, without exception:
   correct answer, not a failure.
 """
 
-_BRIEF_KINDS = ("analysis", "memo", "grounded", "critique", "abstention")
+BRIEF_KINDS = ("analysis", "memo", "grounded", "critique", "abstention")
 
 #: (min, max) words, per kind. A budget is not a stricture -- the verifier
 #: measures length; the budget in the prompt is what stops a 4B teacher from
 #: rambling into padding that the repair loop would then have to cut.
-_WORD_BUDGETS = {
+WORD_BUDGETS = {
     "analysis": (160, 320),
     "memo": (120, 260),
     "grounded": (140, 280),
@@ -66,13 +66,13 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
     contract, and they ride in the user turn as data, not as prose the model
     could paraphrase away.
     """
-    if kind not in _BRIEF_KINDS:
+    if kind not in BRIEF_KINDS:
         raise ValueError(
-            f"no prose brief kind {kind!r} (known: {', '.join(_BRIEF_KINDS)})"
+            f"no prose brief kind {kind!r} (known: {', '.join(BRIEF_KINDS)})"
         )
     register = pack.get("register")
     hint = _REGISTER_HINTS.get(register or "", f"register: {register}")
-    low, high = _WORD_BUDGETS[kind]
+    low, high = WORD_BUDGETS[kind]
     contract = {
         "fact_pack": pack,
         "task": kind,

@@ -34,6 +34,20 @@ FAMILY_MAX_SHARE = 0.03
 # these was composed by something that was not the register contract.
 VALID_REGISTERS = ("desk_chat", "ic_memo", "risk_committee", "auditor", "code_review")
 
+# Prose repair ladder (analysis spec §6.3 item 8): attempt one at the routed
+# temperature, then cool it -- a violation is usually the model padding, and
+# cold models pad less. Three strikes and the row is dead-lettered, never
+# silently shipped.
+PROSE_ATTEMPTS = 3
+PROSE_TEMPERATURES = (0.7, 0.3, 0.1)
+
+# The analysis spec's "tiny whitelist": quantities that are arithmetic
+# furniture rather than pack facts -- the percent denominator, the two of a
+# two-way bridge, the trading-day convention -- plus every number spelled in
+# the pack's own as-of date. Token-level (the string as the model wrote it),
+# shared by the render gate and the verify board so both read the same mercy.
+NUMBER_WHITELIST = ("100", "2", "252")
+
 TEACHER_BASE_URL_ENV = "TEACHER_BASE_URL"
 TEACHER_API_KEY_ENV = "TEACHER_API_KEY"
 TEACHER_REASONING_ENV = "TEACHER_REASONING"
