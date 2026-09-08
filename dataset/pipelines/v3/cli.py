@@ -8,9 +8,9 @@ Unknown-command is exit 2 (usage), stage failure is exit 1 (data), so an
 operator skimming the task log sees which kind of bad happened before reading
 a word of it.
 
-PR1 ships ``inventory``, ``packs`` and ``smoke`` wired; ``render``,
-``verify``, ``prefer`` and ``publish`` are recognised, parse the flags spec
-§7 shows (so the DAG's command lines are written and stable today) and then
+PR2 ships ``inventory``, ``packs``, ``smoke``, ``render`` and ``verify``
+wired; ``prefer`` and ``publish`` are recognised, parse the flags spec §7
+shows (so the DAG's command lines are written and stable today) and then
 exit 2 naming the PR that fills them -- "not built yet", never "not found".
 
 Run from the repo root (``make v3-smoke``) or from ``dataset/``:
@@ -31,7 +31,11 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
         sys.path.insert(0, _p)
 
 from . import config, inventory, stage, write  # noqa: E402
+from .render.prose import run_render_stage  # noqa: E402
+from .teacher.client import TeacherError, teacher_from_env  # noqa: E402
+from .teacher.prompts import BRIEF_KINDS  # noqa: E402
 from .verification.invented_numbers import invented_numbers  # noqa: E402
+from .verify_v3 import AXES, verify_dir  # noqa: E402
 
 EXIT_OK, EXIT_DATA, EXIT_USAGE = 0, 1, 2
 
@@ -199,6 +203,94 @@ def cmd_smoke(args) -> int:
     return EXIT_OK
 
 
+def cmd_render(args) -> int:
+    out_dir = os.path.abspath(args.out or config.out_dir())
+    plan_path = os.path.abspath(
+        args.plan or os.path.join(config.out_dir(), "plan.json")
+    )
+    if not os.path.isfile(plan_path):
+        print(
+            f"render: no plan file at {plan_path}; run `inventory` first "
+            "(the stages consume the committed plan, never re-derive it)",
+            file=sys.stderr,
+        )
+        return EXIT_DATA
+    types = _split_types(args.types)
+    if types and not set(types) <= set(BRIEF_KINDS):
+        unknown = sorted(set(types) - set(BRIEF_KINDS))
+        print(
+            f"render: the prose stage covers {', '.join(BRIEF_KINDS)}; "
+            f"unknown --types {', '.join(unknown)} (exam/agentic/implementation "
+            "arrive with PR3-PR4)",
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+    try:
+        _, jobs = inventory.read_plan(plan_path)
+        teacher = teacher_from_env(live=True if args.live else None)
+        report = run_render_stage(out_dir, jobs, teacher, types=types, limit=args.limit)
+    except (inventory.PlanError, TeacherError, ValueError, OSError) as exc:
+        print(f"render: {exc}", file=sys.stderr)
+        return EXIT_DATA
+    print(
+        f"render: {report['rendered']} rows rendered, "
+        f"{report['existing']} already on disk, {report['dead_lettered']} dead-lettered "
+        f"(of {report['jobs_seen']} planned prose jobs; "
+        f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate) -> {out_dir}"
+    )
+    for kind in sorted(report["by_kind"]):
+        cell = report["by_kind"][kind]
+        print(
+            f"  {kind:<12} rendered {cell['rendered']:>5}  "
+            f"existing {cell['existing']:>5}"
+        )
+    if report["missing_packs"]:
+        for row in report["missing_packs"][:8]:
+            print(
+                f"  missing pack: {row['work_type']}/{row['family']}"
+                f"/{row['record_type']}/{row['variant']} -- {row['reason']}",
+                file=sys.stderr,
+            )
+        if len(report["missing_packs"]) > 8:
+            print(
+                f"  ... and {len(report['missing_packs']) - 8} more",
+                file=sys.stderr,
+            )
+        print(
+            "render: the packs stage has not covered this plan -- the DAG does not "
+            "schedule render before packs",
+            file=sys.stderr,
+        )
+        return EXIT_DATA
+    return EXIT_OK
+
+
+def cmd_verify(args) -> int:
+    out_dir = os.path.abspath(args.out or config.out_dir())
+    report = verify_dir(out_dir)
+    mode = "quick (--quick: axes 10-12 arrive with PR3/PR4, nothing to skip yet)"
+    print(
+        f"verify: {out_dir} -- {report['rows']} rows"
+        + (f" [{mode}]" if args.quick else "")
+    )
+    for number, name in AXES:
+        axis = report["axes"][name]
+        mark = "ok" if not axis["failures"] else f"FAIL ({len(axis['failures'])})"
+        print(f"  axis {number} {name:<32} {axis['checked']:>5} rows  {mark}")
+        for failure in axis["failures"][:8]:
+            print(f"    {failure['id']}: {failure['problem']}", file=sys.stderr)
+        if len(axis["failures"]) > 8:
+            print(
+                f"    ... and {len(axis['failures']) - 8} more",
+                file=sys.stderr,
+            )
+    if not report["ok"]:
+        print("VERIFY FAIL", file=sys.stderr)
+        return EXIT_DATA
+    print(f"verify: ok -- {report['rows']} rows clean across {len(AXES)} axes")
+    return EXIT_OK
+
+
 def _not_built(pr: str):
     def run(args) -> int:
         print(
@@ -243,16 +335,22 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="corpus root (default: <out>/_smoke)")
     p.set_defaults(func=cmd_smoke)
 
-    # PR2+ -- present in the parser so the DAG lines exist today; exit 2 until wired.
-    p = sub.add_parser("render", help="teacher render stages (PR2)")
-    p.add_argument("--types", help="comma list of record types")
+    p = sub.add_parser("render", help="prose render + repair loop (PR2)")
+    p.add_argument("--plan", help="plan json (default: <out>/plan.json)")
+    p.add_argument("--out", help="corpus root (default: config.out_dir())")
+    p.add_argument("--types", help="comma list of prose record types")
     p.add_argument("--limit", type=int)
-    p.add_argument("--live", action="store_true")
-    p.set_defaults(func=_not_built("PR2"))
+    p.add_argument(
+        "--live",
+        action="store_true",
+        help="force the live teacher (COSIMO_V3_LIVE=1 also does; default is the fixture)",
+    )
+    p.set_defaults(func=cmd_render)
 
-    p = sub.add_parser("verify", help="the v3 verification board (PR2-PR4)")
+    p = sub.add_parser("verify", help="the v3 verification board (axes 1-5 in PR2)")
+    p.add_argument("--out", help="corpus root (default: config.out_dir())")
     p.add_argument("--quick", action="store_true", help="skip axes 10-12 (spec §6)")
-    p.set_defaults(func=_not_built("PR2"))
+    p.set_defaults(func=cmd_verify)
 
     p = sub.add_parser("prefer", help="contrastive preference pairs (PR4)")
     p.add_argument("--types", help="limit pitfall families")

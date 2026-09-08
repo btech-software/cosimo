@@ -30,6 +30,13 @@ from dataclasses import dataclass, field
 from .. import config
 
 
+#: The default token budget of one completion. One source of truth on purpose:
+#: the renderer passes it explicitly and the fixture harness hashes bodies
+#: built with it -- the bytes that key the replay table must be the bytes the
+#: renderer sends.
+DEFAULT_MAX_TOKENS = 1024
+
+
 class TeacherError(RuntimeError):
     """The teacher could not be asked, or answered in a shapeless way."""
 
@@ -205,6 +212,38 @@ def _brief(payload: dict) -> str:
     return json.dumps(payload, ensure_ascii=False)[:300]
 
 
+def build_body(
+    messages: list[dict],
+    *,
+    model: str,
+    temperature: float,
+    max_tokens: int,
+    think: bool = False,
+    extra: dict | None = None,
+) -> dict:
+    """The wire body for one completion -- module level on purpose.
+
+    The fixture harness has to hash the *exact* bytes the renderer will post
+    (:func:`canonical_request` keys the replay table on them), so the body
+    construction lives here, shared by :meth:`Teacher.complete` and the
+    harness, instead of being written twice and praying they agree.
+    """
+    for turn in messages:
+        if not isinstance(turn, dict) or "role" not in turn or "content" not in turn:
+            raise TeacherError(f"malformed message turn: {turn!r}")
+    body: dict = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if think:
+        body["thinking"] = {"type": "enabled"}
+    if extra:
+        body.update(extra)
+    return body
+
+
 class Teacher:
     """The single generation entry point (spec §5.4)."""
 
@@ -217,30 +256,21 @@ class Teacher:
         *,
         model: str,
         temperature: float = 0.7,
-        max_tokens: int = 1024,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
         think: bool = False,
         extra: dict | None = None,
     ) -> TeacherResult:
         """Ask for one completion. ``temperature`` is passed through untouched:
         the repair loop's "temperature down" (spec §6.2) sets it, the client
         must not second-guess the generation policy."""
-        for turn in messages:
-            if (
-                not isinstance(turn, dict)
-                or "role" not in turn
-                or "content" not in turn
-            ):
-                raise TeacherError(f"malformed message turn: {turn!r}")
-        body: dict = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        if think:
-            body["thinking"] = {"type": "enabled"}
-        if extra:
-            body.update(extra)
+        body = build_body(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            think=think,
+            extra=extra,
+        )
         return _parse(self.transport.post(body), model)
 
 

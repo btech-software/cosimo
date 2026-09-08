@@ -10,6 +10,7 @@ dies at midnight with an error no developer ever heard.
 from __future__ import annotations
 
 import os
+import re
 
 import pytest
 
@@ -175,12 +176,22 @@ def test_the_dag_command_lines_parse_today_exit_tomorrow(corpus, capsys):
     assert cli.main(lines[0]) == cli.EXIT_OK
     assert cli.main(lines[1]) == cli.EXIT_OK
     assert cli.main(lines[6]) == cli.EXIT_OK
-    stubs = ((lines[2], "PR2"), (lines[3], "PR2"), (lines[4], "PR4"), (lines[5], "PR4"))
+    # PR2 wired render and verify: the spec's own bake-off line now runs for
+    # real. Offline it speaks through the committed echo fixture, whose
+    # wildcard answer cannot pass the prose gate -- every row is honestly
+    # dead-lettered and the board says so; a green exit here means "the disk
+    # matches the claims", not "the teacher was good today".
+    assert cli.main(lines[2]) == cli.EXIT_OK
+    assert cli.main(lines[3]) == cli.EXIT_OK
+    stubs = ((lines[4], "PR4"), (lines[5], "PR4"))
     for argv, _pr in stubs:
         assert cli.main(argv) == cli.EXIT_USAGE
     printed = _outerr(capsys)
     for argv, pr in stubs:
         assert f"{argv[0]}: arrives in {pr}" in printed, argv
+    assert re.search(
+        r"0 rows rendered, 0 already on disk, [1-9]\d* dead-lettered", printed
+    ), "with no real teacher in the room, every asked row must die at the gate"
 
 
 def test_an_unknown_command_is_usage_not_a_crash(corpus, capsys):
