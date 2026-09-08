@@ -30,6 +30,48 @@ EXAM_SHARE_BAND = (0.12, 0.18)
 LITURGY_CAP = 0.25
 FAMILY_MAX_SHARE = 0.03
 
+# The exam slice (analysis spec §5.10). The liturgy is not left to the
+# sampler's luck: it is a residue class of the variant -- 1 in
+# EXAM_LITURGY_MODULUS, strictly under LITURGY_CAP -- so no pre-thinning
+# slice can overshoot the cap, and the board still measures the shipped
+# corpus rather than trusting the sampler. A measured overshoot after
+# pack-guard thinning is itself a finding: the slice thinned unevenly.
+EXAM_LITURGY_MODULUS = 5
+EXAM_LITURGY_RESIDUE = 4
+#: §5.10: a distractor that cannot be made distinct is dropped, never
+#: inflated ("do not add 7.0"); an item that cannot reach MIN distinct
+#: distractors is no item at all and is dead-lettered, not shipped thin.
+EXAM_MIN_DISTRACTORS = 2
+EXAM_MAX_DISTRACTORS = 3
+#: Share-support floors for the corpus-level axes 6-8: below these counts a
+#: share is a ratio of noise, and a gate that measured noise would either
+#: shade red forever or be switched off. The axes therefore *report* on thin
+#: samples and certify -- can shade -- only on samples with support; the
+#: certification site for the full corpus is the publish gate.
+SHARE_MIN_ROWS = 200
+SHARE_MIN_PER_FAMILY = 30
+SHARE_MIN_EXAM_ROWS = 50
+#: The emitted-corpus reading of the §5.1 family cap (see the axis-7 note on
+#: the board): no family's share may exceed the leanest family's by more
+#: than this factor, which is the dominance the cap exists to prevent, read
+#: at a scale where ten stems can actually be balanced.
+FAMILY_BALANCE_TOLERANCE = 1.25
+
+# The implementation slice (analysis spec §5.9). ``limitations`` is the one
+# authored field of the record and it is fact-locked like any prose that
+# touches numbers -- §5.6's "temperature 0 on anything allowed to touch
+# numbers that are not already in the pack" -- so the ladder is nearly cold
+# and short: a second attempt at 0.1 is a different sample, a third would be
+# hoping. ``SANDBOX_TIMEOUT_S`` bounds what a hung instrument can cost the
+# board that re-executes it; a reference is a pure function, so five seconds
+# is minutes of slack, not a budget.
+IMPL_ATTEMPTS = 2
+IMPL_TEMPERATURES = (0.1, 0.0)
+SANDBOX_TIMEOUT_S = 5.0
+#: A limitation statement shorter than this is not a limitation; it is a
+#: shrug in a field (§5.9: the field must state what the record omits).
+MIN_LIMITATION_WORDS = 8
+
 # The registers a renderer may target; a row whose pack register is not one of
 # these was composed by something that was not the register contract.
 VALID_REGISTERS = ("desk_chat", "ic_memo", "risk_committee", "auditor", "code_review")

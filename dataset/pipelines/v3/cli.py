@@ -8,10 +8,14 @@ Unknown-command is exit 2 (usage), stage failure is exit 1 (data), so an
 operator skimming the task log sees which kind of bad happened before reading
 a word of it.
 
-PR2 ships ``inventory``, ``packs``, ``smoke``, ``render`` and ``verify``
-wired; ``prefer`` and ``publish`` are recognised, parse the flags spec §7
-shows (so the DAG's command lines are written and stable today) and then
-exit 2 naming the PR that fills them -- "not built yet", never "not found".
+PR2 wired ``inventory``, ``packs``, ``smoke``, ``render`` and ``verify``;
+PR3 added the agentic lane to render and to the board; PR4 adds the exam
+lane (composed, no teacher), the implementation lane (composed record,
+authored limitations, sandboxed suite) and the corpus-measurement and
+hidden-test axes. ``prefer`` and ``publish`` are recognised, parse the flags
+spec §7 shows (so the DAG's command lines are written and stable today) and
+then exit 2 naming the PR that fills them -- "not built yet", never
+"not found".
 
 Run from the repo root (``make v3-smoke``) or from ``dataset/``:
 both paths resolve through the same ``sys.path`` bootstrap every corpus
@@ -33,6 +37,8 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
 from . import config, inventory, stage, write  # noqa: E402
 from .render.agentic import KIND as AGENTIC_KIND  # noqa: E402
 from .render.agentic import run_agentic_stage  # noqa: E402
+from .render.exam import EXAM_KIND, run_exam_stage  # noqa: E402
+from .render.implementation import IMPL_KIND, run_impl_stage  # noqa: E402
 from .render.prose import run_render_stage  # noqa: E402
 from .teacher.client import TeacherError, teacher_from_env  # noqa: E402
 from .teacher.prompts import BRIEF_KINDS  # noqa: E402
@@ -218,21 +224,22 @@ def cmd_render(args) -> int:
         )
         return EXIT_DATA
     types = _split_types(args.types)
-    allowed = set(BRIEF_KINDS) | {AGENTIC_KIND}
+    allowed = set(BRIEF_KINDS) | {AGENTIC_KIND, EXAM_KIND, IMPL_KIND}
     if types and not set(types) <= allowed:
         unknown = sorted(set(types) - allowed)
         print(
             f"render: the render stages cover {', '.join(sorted(allowed))}; "
-            f"unknown --types {', '.join(unknown)} (exam/implementation "
-            "arrive with PR4)",
+            f"unknown --types {', '.join(unknown)} (the preference and eval "
+            "slices arrive with PR4's later stages)",
             file=sys.stderr,
         )
         return EXIT_USAGE
-    # One command line, up to two stages: the DAG's cell stays whole whether
-    # it runs prose, agentic, or both, and each stage keeps its own ledger --
-    # the prose board says "planned prose jobs", the agentic one adds the
-    # mix tallies the PR3 gate reads, because a trajectory mix is a property
-    # of the schedule and a paragraph mix is not.
+    # One command line, up to four stages: the DAG's cell stays whole whether
+    # it runs prose, agentic, exam, implementation, or all four, and each stage
+    # keeps its own ledger -- the prose board says "planned prose jobs", the
+    # agentic one adds the mix tallies the PR3 gate reads, the exam one the
+    # liturgy tally the PR4 share axes measure, because a trajectory mix is a
+    # property of the schedule and a paragraph mix is not.
     prose_types = None if types is None else tuple(t for t in types if t in BRIEF_KINDS)
     runs = []
     if prose_types is None or prose_types:
@@ -249,6 +256,15 @@ def cmd_render(args) -> int:
             (
                 "agentic",
                 lambda: run_agentic_stage(out_dir, jobs, teacher, limit=args.limit),
+            )
+        )
+    if types is None or EXAM_KIND in types:
+        runs.append(("exam", lambda: run_exam_stage(out_dir, jobs, limit=args.limit)))
+    if types is None or IMPL_KIND in types:
+        runs.append(
+            (
+                "implementation",
+                lambda: run_impl_stage(out_dir, jobs, teacher, limit=args.limit),
             )
         )
     try:
@@ -274,6 +290,8 @@ def cmd_render(args) -> int:
                     f"  no_call {report['no_call']:>3}  faulted {report['faulted']:>3}"
                     f"  calls {report['tool_calls']:>4}"
                 )
+            elif label == "exam":
+                extra = f"  liturgy {report['liturgy']:>3}"
             print(
                 f"  {kind:<12} rendered {cell['rendered']:>5}  "
                 f"existing {cell['existing']:>5}{extra}"
@@ -313,8 +331,14 @@ def cmd_verify(args) -> int:
     )
     for number, name in AXES:
         axis = report["axes"][name]
-        mark = "ok" if not axis["failures"] else f"FAIL ({len(axis['failures'])})"
-        print(f"  axis {number} {name:<32} {axis['checked']:>5} rows  {mark}")
+        if axis["failures"]:
+            mark = f"FAIL ({len(axis['failures'])})"
+        elif axis.get("note"):
+            mark = "reported"  # measured, not certifiable at this support
+        else:
+            mark = "ok"
+        note = f"  [{axis['note']}]" if axis.get("note") else ""
+        print(f"  axis {number} {name:<32} {axis['checked']:>5} rows  {mark}{note}")
         for failure in axis["failures"][:8]:
             print(f"    {failure['id']}: {failure['problem']}", file=sys.stderr)
         if len(axis["failures"]) > 8:
@@ -378,7 +402,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", help="corpus root (default: config.out_dir())")
     p.add_argument(
         "--types",
-        help="comma list of record types (prose kinds and/or 'agentic')",
+        help="comma list of record types (prose kinds, 'agentic', 'exam', "
+        "'implementation')",
     )
     p.add_argument("--limit", type=int)
     p.add_argument(

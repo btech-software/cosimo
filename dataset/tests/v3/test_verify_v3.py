@@ -88,7 +88,15 @@ def test_the_pristine_corpus_passes_and_counts_every_row(corpus):
     assert report["ok"] is True
     assert report["rows"] == N_ROWS
     for _, name in AXES:
-        assert report["axes"][name]["checked"] == N_ROWS
+        checked = report["axes"][name]["checked"]
+        if name == "exam liturgy share":
+            # The share axes read their own denominators: this corpus carries
+            # no exam rows, so the liturgy axis weighed an empty slice -- and
+            # said so, which the pristine-ok assertion above already proves it
+            # did without shading anything red.
+            assert checked == 0
+        else:
+            assert checked == N_ROWS
 
 
 def test_the_untampered_copy_fails_no_axis(corpus, tmp_path):

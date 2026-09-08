@@ -100,7 +100,7 @@ def test_render_then_verify_exit_zero_over_a_clean_corpus(
     assert "6 rows rendered" in rendered and "0 dead-lettered" in rendered
     assert cli.main(["verify", "--out", out]) == cli.EXIT_OK
     board = _outerr(capsys)
-    assert "clean across 7 axes" in board
+    assert "clean across 11 axes" in board
     assert len(write.read_jsonl(write.path_for("sft", "analysis", out))) == 6
 
 
@@ -130,10 +130,11 @@ def test_render_without_packs_is_a_data_exit_naming_the_ordering_bug(
 def test_unknown_type_is_a_usage_exit_not_a_data_one(tmp_path, monkeypatch, capsys):
     out, plan = _bare_plan(tmp_path)
     _offline(monkeypatch, _fixture_file(tmp_path, {"entries": {}}))
-    rc = cli.main(["render", "--out", out, "--plan", plan, "--types", "exam"])
+    rc = cli.main(["render", "--out", out, "--plan", plan, "--types", "preference"])
     assert rc == cli.EXIT_USAGE
     printed = _outerr(capsys)
-    assert "the render stages cover" in printed and "arrive with PR4" in printed
+    assert "the render stages cover" in printed
+    assert "preference and eval slices arrive" in printed
 
 
 def test_a_wildcard_cannot_smuggle_a_row_past_the_gate(
