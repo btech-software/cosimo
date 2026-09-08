@@ -20,10 +20,30 @@ fact pack and the prose contract, with no model in the room:
 * **5 ``FINAL ANSWER:`` is exam-only** -- its presence in a prose row is the
   v1 exam-skeleton leak, made unforgivable here.
 
-Axes 6-13 (shares, tool schemas, hidden tests, dedup, gold-bar near-dup,
-teacher pinning) join with the stages that produce their inputs, PR3/PR4;
-``--quick`` will skip 10-12 then, exactly as spec'd, and the flag is
-accepted today so DAG command lines never change shape.
+PR3 adds the two axes an agentic row can fail with no model in the room:
+
+* **9 tool schemas + roles** -- the spec's sentence verbatim ("tool schemas
+  \u2286 ``cosimo.tools.registry`` and conversation roles valid"): every
+  schema the row advertises resolves in the registry, every call validates
+  against it, the transcript reads as a conversation a server could have
+  served (the gate that judges it is :mod:`verification.agentic`, the one
+  policy the render loop also faces -- one contract, three call sites);
+* **10 tool-result replay** -- every stored tool block is re-executed,
+  fault and all, against the *recomputed* pack: a trajectory is a claim
+  about what the oracle said, and the claim is audited by saying it again
+  and comparing bytes. A hand-edited result, a fabricated block, or a
+  schedule field lying about which call ran dirty all fail here.
+
+Axes 6-8 and 11-14 (the share bands, hidden tests, preference disjointness,
+gold-bar near-dup, teacher pinning) join with the stages that produce their
+inputs, PR4. One numbering note for the auditor reading against §6: the
+spec's list jumps from 9 (tool schemas) to hidden tests without a number of
+its own for the §5.8 trajectory audit, so the board ships 9 and 10 as the
+two agentic axes above and the spec's 10-13 arrive renumbered 11-14 -- the
+list's order preserved, its content untouched, the agentic audit given a
+number of its own. ``--quick`` will skip the expensive dedup/gold-bar axes
+then, exactly as spec'd; schema and replay are cheap and always run, and
+the flag is accepted today so DAG command lines never change shape.
 
 The report is a plain dict, not a printed table: Airflow needs exit codes,
 CI needs numbers, and the human-readable board is one ``print`` away in the
@@ -35,8 +55,10 @@ from __future__ import annotations
 from . import config, write
 from .packs import PackError, compute_pack
 from .render.prose import row_id
+from .oracle.runtime import SCHEMA_NAMES as ADVERTISED_NAMES
 from .seed import pack_seed
 from .teacher.prompts import BRIEF_KINDS
+from .verification.agentic import GROUNDING_TAG, REPLAY_TAG, trajectory_violations
 from .verification.prose import (
     FINAL_ANSWER_TAG,
     forbidden_hits,
@@ -52,6 +74,34 @@ AXES = (
     (3, "invented numbers"),
     (4, "must_mention / forbidden_claims"),
     (5, "FINAL ANSWER is exam-only"),
+    (9, "tool schemas + roles"),
+    (10, "tool-result replay"),
+)
+
+#: The agentic record type, named once: the board branches on it, the
+#: ``kinds=`` default below carries it, and the axis-9/10 rows of the report
+#: are populated only by rows that claim it.
+AGENTIC_KIND = "agentic"
+
+#: What every agentic row must carry before any transcript is read: the
+#: prose fields' coordinates plus the two the replay and the registry audit
+#: cannot do without (the advertised schemas, and the calls the transcript
+#: claims ran -- the second is redundant with the transcript and checked as
+#: consistency, which is exactly why an ``answer`` can be tampered with here
+#: and still be caught).
+_AGENTIC_ROW_REQUIRED = (
+    "id",
+    "record_type",
+    "work_type",
+    "scenario_id",
+    "variant",
+    "question",
+    "answer",
+    "messages",
+    "register",
+    "verification",
+    "tool_names",
+    "tool_schemas",
 )
 
 #: What every prose row must carry before a model's word is even read.
@@ -87,22 +137,52 @@ def _check_row(row: dict, dead_ids: frozenset[str]) -> dict[str, list[str]]:
     if missing:
         failures["schema"].append(f"missing fields: {', '.join(missing)}")
     roles = [m.get("role") for m in row.get("messages") or [] if isinstance(m, dict)]
-    if roles != ["system", "user", "assistant"]:
-        failures["schema"].append(
-            f"message roles are {roles!r}, not the prose triad system/user/assistant"
-        )
     answer = row.get("answer")
-    if not isinstance(answer, str) or not answer.strip():
-        failures["schema"].append("answer is empty")
-    elif roles == ["system", "user", "assistant"]:
-        assistant = (row["messages"][2] or {}).get("content")
-        if assistant != answer:
+    if kind == AGENTIC_KIND:
+        missing = [field for field in _AGENTIC_ROW_REQUIRED if field not in row]
+        if missing:
+            failures["schema"].append(f"missing fields: {', '.join(missing)}")
+        if roles[:2] != ["system", "user"] or (roles and roles[-1] != "assistant"):
             failures["schema"].append(
-                "answer and the assistant turn have drifted apart (verify one "
-                "text, ship another)"
+                f"an agentic transcript must open system/user and close on the "
+                f"desk's answer; roles read {roles!r}"
             )
-    if kind not in BRIEF_KINDS:
-        failures["schema"].append(f"record_type {kind!r} is not a prose kind")
+        if isinstance(answer, str) and answer.strip() and roles[-1:] == ["assistant"]:
+            if (row["messages"][-1] or {}).get("content") != answer:
+                failures["schema"].append(
+                    "answer and the final assistant turn have drifted apart "
+                    "(verify one text, ship another)"
+                )
+        advertised = row.get("tool_schemas") or []
+        unknown = sorted(
+            {
+                (schema.get("function") or {}).get("name")
+                for schema in advertised
+                if isinstance(schema, dict)
+            }
+            - set(ADVERTISED_NAMES)
+        )
+        if unknown:
+            failures["schema"].append(
+                "advertised schemas name unregistered tools: "
+                + ", ".join(repr(n) for n in unknown)
+            )
+    else:
+        if roles != ["system", "user", "assistant"]:
+            failures["schema"].append(
+                f"message roles are {roles!r}, not the prose triad system/user/assistant"
+            )
+        if not isinstance(answer, str) or not answer.strip():
+            failures["schema"].append("answer is empty")
+        elif roles == ["system", "user", "assistant"]:
+            assistant = (row["messages"][2] or {}).get("content")
+            if assistant != answer:
+                failures["schema"].append(
+                    "answer and the assistant turn have drifted apart (verify one "
+                    "text, ship another)"
+                )
+        if kind not in BRIEF_KINDS:
+            failures["schema"].append(f"record_type {kind!r} is not a prose kind")
     if not str(rid).startswith(f"{config.SUPERVISED_ID_PREFIX}_"):
         failures["schema"].append(
             f"id {rid!r} is outside the supervised namespace "
@@ -114,8 +194,8 @@ def _check_row(row: dict, dead_ids: frozenset[str]) -> dict[str, list[str]]:
             "two files is lying; delete the entry that is wrong and replay"
         )
     if failures["schema"]:
-        # Axes 2-5 grade content, and content cannot be located without a
-        # shape. Report the break once; do not stack four derivative errors.
+        # Axes 2-5 and 10 grade content, and content cannot be located
+        # without a shape. Report the break once; do not stack derivatives.
         return failures
 
     # -- axis 2: the pack, re-derived, is the only authority ---------------
@@ -143,6 +223,47 @@ def _check_row(row: dict, dead_ids: frozenset[str]) -> dict[str, list[str]]:
             "or hand-written id, not a derived one"
         )
 
+    if kind == AGENTIC_KIND:
+        # Axes 3-5 are the prose contract; their agentic counterparts are
+        # §5.8's grounding/acknowledgement disciplines, which the trajectory
+        # gate below enforces whole -- graded against the *recomputed* pack,
+        # never the stored one, exactly as axes 3-4 grade prose.
+        render_field = (row.get("verification") or {}).get("render") or {}
+        if render_field.get("kind") != AGENTIC_KIND:
+            failures["tool schemas + roles"].append(
+                "verification.render.kind is "
+                f"{render_field.get('kind')!r}, not {AGENTIC_KIND!r} -- the row "
+                "does not say who rendered it"
+            )
+            return failures
+        violations = trajectory_violations(
+            pack_dict := pack.to_dict(),
+            [m for m in row["messages"] if isinstance(m, dict)],
+            mode=render_field.get("mode"),
+            fault=render_field.get("fault"),
+        )
+        # File each violation under the axis that owns it: the replay under
+        # 10, the §5.8 subset check under 3 (the spec's own invented-number
+        # axis, read with the pack ∪ results authority), the shared clauses
+        # under 4 and 5 exactly where prose files them, and the rest -- the
+        # shape, budget, mode and acknowledgement disciplines -- under 9,
+        # which is the spec's sentence "conversation roles valid" widened to
+        # the whole transcript. One gate, the same board an audit reads.
+        for violation in violations:
+            if violation.startswith(REPLAY_TAG):
+                failures["tool-result replay"].append(violation)
+            elif violation.startswith(GROUNDING_TAG):
+                failures["invented numbers"].append(violation)
+            elif violation.startswith("must_mention not covered:"):
+                failures["must_mention / forbidden_claims"].append(violation)
+            elif violation.startswith("forbidden claim asserted:"):
+                failures["must_mention / forbidden_claims"].append(violation)
+            elif "is an exam contract" in violation:
+                failures["FINAL ANSWER is exam-only"].append(violation)
+            else:
+                failures["tool schemas + roles"].append(violation)
+        return failures
+
     # -- axes 3-5: the words, against the re-derived contract --------------
     pack_dict = pack.to_dict()
     for token in invented_numbers(
@@ -164,7 +285,9 @@ def _check_row(row: dict, dead_ids: frozenset[str]) -> dict[str, list[str]]:
     return failures
 
 
-def verify_dir(out_dir: str, *, kinds: tuple[str, ...] = BRIEF_KINDS) -> dict:
+def verify_dir(
+    out_dir: str, *, kinds: tuple[str, ...] = (*BRIEF_KINDS, AGENTIC_KIND)
+) -> dict:
     """Run every implemented axis over ``<out>/sft/`` and report.
 
     Exit-0 discipline lives in the CLI; this function only states facts:

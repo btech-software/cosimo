@@ -66,6 +66,7 @@ class TeacherResult:
     text: str
     think: str | None
     finish_reason: str
+    tool_calls: tuple = field(default_factory=tuple)
     usage: dict = field(default_factory=dict)
     raw: dict = field(default_factory=dict, repr=False)
 
@@ -198,11 +199,22 @@ def _parse(payload: dict, requested_model: str) -> TeacherResult:
     usage = payload.get("usage") or {}
     if not isinstance(usage, dict):
         usage = {}
+    calls = message.get("tool_calls")
+    if calls is None:
+        calls = []
+    if not isinstance(calls, list):
+        raise TeacherError("teacher tool_calls channel is not a list")
+    for call in calls:
+        if not isinstance(call, dict) or not isinstance(call.get("function"), dict):
+            raise TeacherError(f"malformed tool call: {call!r}")
+        if "name" not in call["function"]:
+            raise TeacherError(f"tool call without a function name: {call!r}")
     return TeacherResult(
         model=str(payload.get("model") or requested_model),
         text=text,
         think=think,
         finish_reason=str(first.get("finish_reason") or "stop"),
+        tool_calls=tuple(calls),
         usage=dict(usage),
         raw=payload,
     )
