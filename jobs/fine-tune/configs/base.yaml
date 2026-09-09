@@ -1,102 +1,98 @@
 seed: 3407
 model:
-  base_id: unsloth/Phi-4-mini-reasoning
+  # The v3 student (spec §8.1, decision log #5). The Phi-4 build contract is
+  # archived verbatim as configs/base.phi4.yaml so published v2 runs replay.
+  base_id: Qwen/Qwen3.8-27B
   revision: null            # pin a commit sha to make training AND evaluation reproducible
-  # 8192, not the base model's 2048-era default: the served target is a LangGraph
-  # ReAct loop, where the conversation accumulates assistant tool calls and tool
-  # results turn after turn on top of the ~645-token persona. At 2048 the trained
-  # window is exhausted after two or three tool round-trips. The exam corpus does
-  # not need the extra room -- a typical row is ~1200 tokens -- so this costs
-  # activation memory and step time on every stage, which is why the SFT and
-  # preference micro-batches below were halved to pay for it.
+  # 8192 on Spark to start; 16384 later. The served target is a LangGraph ReAct
+  # loop, where the conversation accumulates assistant tool calls and tool
+  # results turn after turn on top of the persona, so the trained window has to
+  # hold more than one round-trip. Raising it costs activation memory and step
+  # time on every stage.
   max_seq_length: 8192
-  load_in_4bit: false
+  # QLoRA, unlike the Phi run's bf16 LoRA: 27B parameters at bf16 do not leave
+  # room for an 8k sequence and its activations inside 128 GB of unified memory.
+  # This is the knob to revisit first if the LoRA smoke is memory-bound.
+  load_in_4bit: true
   dtype: bfloat16
 dataset:
-  # The primary corpus. v2 is the complement built after the first full run:
-  # five record types (exam, analysis, abstention, agentic, implementation),
-  # with exam deliberately a minority. Training only on exam rows is what
-  # compressed run 1's mean response from ~750 tokens to 120.
-  hub_id: btech-software/cosimo-quant-reasoning-v2
+  # The v3 corpus: eight record types keyed on work_type / scenario family
+  # rather than v2's program / stem family. Published as a new Hub repo rather
+  # than a config split on v2 (decision log #2).
+  hub_id: btech-software/cosimo-quant-assistant-v3
   revision: main
 
-  # Which Hub config carries the preference pairs, or null for none.
-  # v2 names it `preference` and puts its rows in the `cosimopref_` id space,
-  # disjoint from every supervised id -- so the SFT/DPO chosen-side overlap that
-  # made run 1's preference stage a zero-gradient no-op cannot recur.
-  # v1 names it `preference_pairs` and shares ids with its supervised rows,
-  # which is what data.preference_holdout_frac exists to work around.
+  # Which Hub config carries the preference pairs, or null for none. v3 puts
+  # its pairs in the `cosimov3pref_` id space, disjoint from every supervised
+  # `cosimov3_` id, so the SFT/DPO chosen-side overlap that made run 1's
+  # preference stage a zero-gradient no-op cannot recur.
   preference_config: preference
 
-  # Additional corpora merged into the same pool. Each entry takes the same
-  # keys as above plus `max_share`, its ceiling as a fraction of the merged
-  # *trainable* pool (null = uncapped); the cap is a seeded subsample.
+  # Read the corpus off a local v3 shard tree instead of the Hub. Point it at
+  # a `COSIMO_V3_OUT` directory -- the one holding `sft/*.jsonl` and
+  # `preference/pairs.jsonl` -- and `hub_id` is ignored:
   #
-  # Trainable, not total: held-out records are exempt. They never train -- they
-  # are the unseen_stems measuring instrument -- so capping them would shrink
-  # the evaluation slice and widen its confidence interval as a side effect of
-  # retuning the training mix. The holdout stays 6,910 items at every setting
-  # below.
+  #   ./scripts/01_prepare_data.py --set dataset.local_dir=/path/to/shards/v3
   #
-  # v1 is mixed in for exam depth -- 71 stems x ~1000 rows, against v2's 174
-  # rows per stem. 0.12 puts exam at ~30% of SFT, so roughly 70% of what the
-  # model trains on is the analysis / abstention / agentic / implementation
-  # material v2 was built to supply. That balance is the whole point: an
-  # exam-only corpus is what compressed run 1's answers to 120 tokens. The
-  # trade-off is exam depth, and it is a smooth one:
-  #
-  #   max_share   SFT rows   exam share
-  #        0.30    160,757        44.5%
-  #        0.20    140,662        36.6%
-  #        0.12    127,875        30.2%   <- default
-  #        0.10    125,033        28.6%
-  #
-  # v1's embedded preference pairs are NOT used (preference_config: null): the
-  # preference stage trains on v2's standalone pairs, whose ids no supervised
-  # row shares.
-  #
-  # Rows whose question text already appears in a higher-priority source are
-  # dropped: 1,840 exam questions are byte-identical across the two corpora
-  # under different ids, and the split is keyed by id, so without the dedupe
-  # the same question could sit in v2's test slice and v1's training set.
-  mix:
-    - hub_id: btech-software/cosimo-cfa-frm-71k
-      revision: main
-      preference_config: null
-      max_share: 0.12
+  # This is how the corpus is consumed until the v3 Hub repo exists: v3's
+  # `publish` command certifies the board and writes a dataset card, but does
+  # not push (dataset/pipelines/v3/publish.py), so there is nothing for
+  # `load_dataset` to read yet. It is also the only way to prepare data on a
+  # box with no network. Set back to null once the repo is pushed and pinned.
+  local_dir: null
+
+  # No v1 mix. The 12% cap was a crutch for a corpus whose exam slice was the
+  # only deep one; v3 supplies its own exam records under an inventory family
+  # cap, and re-adding v1 would reintroduce the collapse the cap fought
+  # (spec §2, §12).
+  mix: []
 paths:
   data_dir: data
   processed_dir: data/processed
   runs_dir: runs
 prompt:
-  # The persona. Present on EVERY example, training and inference. The end goal is a
-  # financial domain assistant, not an exam-passer: the identity is bound on every
-  # example so exam traces cannot become the model's whole notion of "being Cosimo".
-  # ~600-630 tokens per example is a deliberate, accepted cost (an earlier
-  # 400-500 estimate was optimistic; the block is 2,494 characters).
+  # The persona. Present on EVERY example, training and inference. The end goal
+  # is a financial domain assistant, not an exam-passer: the identity is bound
+  # on every example so exam traces cannot become the model's whole notion of
+  # "being Cosimo".
+  #
+  # Shortened for v3 (spec §8.1). The Phi-4 run's block was 2,494 characters --
+  # ~600-630 tokens on every example, training and eval -- and length was not
+  # buying behaviour: the served checkpoint still answered an open-ended
+  # question in exam form. What it did buy was a large fixed prefix that DPO's
+  # keep_end truncation cuts from the START, and a persona so specific that the
+  # model had to be brittle to it. The full block is archived verbatim in
+  # configs/base.phi4.yaml so v2 runs replay against the exact bytes they
+  # trained on. Every clause below is load-bearing: ranges over false
+  # precision, no invented prints, tools for retrieval, and exam liturgy kept
+  # in its lane.
   identity: |-
-    You are Cosimo, a financial domain expert AI assistant created by Btech Software.
+    You are Cosimo, a quantitative finance assistant at Btech Software.
+    Prefer ranges when the inputs do not identify a point. Do not invent
+    prints, filings, or tickers. Use tools when a number must be retrieved
+    or computed. Never use exam liturgy unless the user asked an exam item.
 
-    Your capabilities position you as the main assistant for the Head of Quantitative Asset Management — the person who sits in the corner office at BlackRock, Goldman Sachs, JPMorgan, or Citadel earning a 7-figure salary. You have 20+ years on the sell-side and buy-side. You've built pricing models that moved billions. You can derive Black-Scholes from Ito's lemma on a napkin and immediately tell someone why it will misprice their trade. You know every algorithm from Monte Carlo simulation to Fama-French factor models — not just the textbook version, but how they actually behave with real market data, fat tails, regime changes, and liquidity crises.
+  # One-line identity, used on a `variation_rate` fraction of TRAINING examples
+  # so the model does not become brittle to one exact string. Never used at eval.
+  identity_short: "You are Cosimo, a quantitative finance assistant at Btech Software."
 
-    You are also a game theorist. You studied under the lineage of von Neumann, Nash, and Aumann. You see markets as multi-player games with incomplete information, and you apply that lens rigorously: Nash equilibria in competitive positioning, Bayesian games for modeling asymmetric information between insiders and the market, mechanism design for understanding how exchange microstructure shapes outcomes, auction theory for IPO pricing and share buyback dynamics, signaling games for interpreting insider trades, dividend policy, and earnings guidance. You know when cooperative game theory (Shapley values for portfolio attribution) applies and when non-cooperative frameworks (zero-sum thinking in options markets) are the right model. You understand correlated equilibria, evolutionary stable strategies in market ecology, and the minimax regret framework for portfolio decisions under Knightian uncertainty.
-
-    You are also a research engineer who reads academic whitepapers for breakfast. You've implemented hundreds of papers — from the original Black-Scholes (1973) to the latest deep hedging and reinforcement learning papers. You can read a PDF, extract the mathematical model, identify the algorithm, and produce a clean, idiomatic, object-oriented Python implementation. You know the difference between what a paper claims and what actually works in production.
-
-    You don't give generic advice. You give the analysis that a PM paying $2M/year for a quant team expects: precise, opinionated where the data supports it, and brutally honest about what you don't know.
-
-  # One-line identity, used on a `variation_rate` fraction of TRAINING examples so the
-  # model does not become brittle to one exact 400-token string. Never used at eval.
-  identity_short: "You are Cosimo, a financial domain expert AI assistant created by Btech Software."
-
-  # Task block appended ONLY for exam-format items (Cosimo records, GSM8K, MATH-500).
-  # It carries the grading contract, so the base model is told the same thing the tuned
-  # model was trained on and the comparison stays fair.
+  # Task block appended ONLY for exam-format items (Cosimo exam records, GSM8K,
+  # MATH-500). It carries the grading contract, so the base model is told the
+  # same thing the tuned model was trained on and the comparison stays fair.
+  #
+  # The closing line changed with v3. Its exam renderer composes four labelled
+  # options and closes on `FINAL ANSWER: <letter> -- <value> <unit>`
+  # (dataset/pipelines/v3/render/exam.py), so instructing the v2 `<value>` form
+  # here would tell the model to produce something every supervised target
+  # contradicts. GSM8K and MATH-500 have no options; a bare value still
+  # satisfies `grading.grade_cosimo`, which reads a letter when one is there
+  # and a number otherwise.
   exam_protocol: >-
     Solve the problem step by step: state your assumptions, show the formulas you use,
-    and compute carefully. Finish with a single final line in exactly this form:
+    and compute carefully. Choose one of the options offered. Finish with a single
+    final line in exactly this form:
 
-    FINAL ANSWER: <value>
+    FINAL ANSWER: <letter> -- <value> <unit>
 
   # Fraction of TRAINING examples that use identity_short, selected by hashing the
   # record id so data preparation stays reproducible.
@@ -135,11 +131,14 @@ tools:
   no_call_rate: 0.2
 
 chat:
-  # Vendor preamble removed: the stock template hardcodes "Your name is Phi, an AI math
-  # expert developed by Microsoft." ahead of every system message, which contradicts the
-  # identity being trained. Structure, markers and eos behaviour are otherwise identical,
-  # and it is applied to the base model too, so base-vs-tuned stays comparable.
+  # ChatML, the Qwen3.8 turn format. The Phi template is archived as
+  # configs/chat_template.phi4.jinja and referenced by configs/base.phi4.yaml.
   # Set to null to fall back to the tokenizer's own template (logged loudly).
   template_path: configs/chat_template.jinja
-  instruction_part: "<|user|>"
-  response_part: "<|assistant|>"
+  # The markers train_on_responses_only masks on. They include the trailing
+  # newline because ChatML puts the role on its own line: `<|im_start|>user` on
+  # its own would also match the literal text of a discussion *about* the
+  # format, and the masking check in 04_train_sft.py compares token ids.
+  # Tool results render as `<|im_start|>user` turns so the same rule masks them.
+  instruction_part: "<|im_start|>user\n"
+  response_part: "<|im_start|>assistant\n"

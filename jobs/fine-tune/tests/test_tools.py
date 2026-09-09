@@ -180,11 +180,11 @@ def test_schemas_render_once_with_several_system_messages(jinja_tokenizer):
 
 
 def test_tool_result_renders_as_a_user_turn(cfg, jinja_tokenizer):
-    """train_on_responses_only splits on <|user|>; a tool result must be masked."""
+    """train_on_responses_only splits on the user marker; results must mask."""
     rendered = chat.render_conversation(
         jinja_tokenizer, conversation(chat.compose_system(cfg, exam=False)), SCHEMAS
     )
-    assert "<|user|><tool_response>" in rendered
+    assert "<|im_start|>user\n<tool_response>" in rendered
     # The schema marker must not be reused for results, or the two are ambiguous.
     assert "<|tool|><tool_response>" not in rendered
 
@@ -204,7 +204,7 @@ def test_tool_example_preserves_the_prefix_invariant(cfg, jinja_tokenizer):
         jinja_tokenizer, conversation(chat.compose_system(cfg, exam=False)), SCHEMAS
     )
     assert rendered["text"] == rendered["prompt"] + rendered["completion"]
-    assert rendered["prompt"].endswith("<|assistant|>")
+    assert rendered["prompt"].endswith("<|im_start|>assistant\n")
 
 
 def test_tool_example_without_an_assistant_turn_is_refused(jinja_tokenizer):

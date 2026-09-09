@@ -292,3 +292,159 @@ def test_summarize_agentic_separates_multi_step_and_no_call():
 def test_empty_suites_summarize_to_zero():
     assert assistant.summarize_open_ended([])["n"] == 0
     assert assistant.summarize_agentic([])["n"] == 0
+
+
+# --------------------------------------------------------------------------
+# fact grounding (spec §8.4)
+# --------------------------------------------------------------------------
+
+# The gr_001 contract: 9.4% return, 12.0% vol, 4.2% risk-free, 5.2 excess,
+# Sharpe 0.43.
+ALLOWED = [9.4, 12.0, 4.2, 5.2, 0.43, 0.433]
+
+
+def test_numbers_the_prompt_supplied_are_not_inventions():
+    text = "Excess return is 5.2 over 12.0 vol, so the Sharpe is 0.43."
+    assert assistant.invented_numbers(text, ALLOWED) == []
+
+
+def test_a_figure_no_input_explains_is_reported_verbatim():
+    text = "The Sharpe is 0.43 against a peer median of 0.71."
+    assert assistant.invented_numbers(text, ALLOWED) == ["0.71"]
+
+
+def test_percent_and_ratio_renderings_of_the_same_value_both_pass():
+    """0.43 written as 43% is the same number; 4.3 is not."""
+    assert assistant.invented_numbers("a Sharpe of 43%", ALLOWED) == []
+    assert assistant.invented_numbers("a Sharpe of 4.3", ALLOWED) == ["4.3"]
+
+
+def test_the_tolerance_is_relative_not_absolute():
+    """Packs mix 1e6 AUMs with 1e-4 spreads; a fixed epsilon serves neither.
+
+    The same 0.5% band has to bind at both magnitudes: an absolute epsilon
+    large enough to accept a rounded million would wave through any spread, and
+    one tight enough for a spread would reject the pack's own AUM.
+    """
+    assert assistant.invented_numbers("9.43", [9.4]) == []  # 0.32%, inside
+    assert assistant.invented_numbers("9.46", [9.4]) == ["9.46"]  # 0.64%, outside
+    # Six orders of magnitude up, the same proportional band.
+    assert assistant.invented_numbers("1234000", [1234567]) == []  # 0.05%
+    assert assistant.invented_numbers("1200000", [1234567]) == ["1200000"]  # 2.8%
+
+
+def test_thousands_separators_read_as_one_number():
+    assert assistant.invented_numbers("1,430,000 of gross", [1430000]) == []
+
+
+def test_the_whitelist_matches_the_written_token():
+    text = "Half of the 4.0bp spread is 2.0bp."
+    assert assistant.invented_numbers(text, [4.0]) == ["2.0"]
+    assert assistant.invented_numbers(text, [4.0], whitelist=["2.0"]) == []
+
+
+def test_each_offending_token_is_reported_once_in_order():
+    text = "0.71 then 0.92 then 0.71 again"
+    assert assistant.invented_numbers(text, ALLOWED) == ["0.71", "0.92"]
+
+
+def test_no_allowed_set_means_the_metric_does_not_apply():
+    """A suite row with no fact pack is unscored, not scored as all-invented."""
+    assert assistant.invented_numbers("anything 1.23 goes", []) == []
+
+
+def test_must_mention_splits_hit_from_missed():
+    hit, missed = assistant.must_mention_hits(
+        "The Sharpe uses excess return over volatility.",
+        ["Sharpe", "excess return", "convexity"],
+    )
+    assert hit == ["Sharpe", "excess return"]
+    assert missed == ["convexity"]
+
+
+def test_must_mention_is_case_insensitive_and_matches_inflections():
+    hit, missed = assistant.must_mention_hits(
+        "the fade period is what drives it", ["fade", "FADE PERIOD"]
+    )
+    assert missed == []
+    assert len(hit) == 2
+
+
+# --------------------------------------------------------------------------
+# register
+# --------------------------------------------------------------------------
+
+
+def test_a_desk_reply_must_be_short_and_unstructured():
+    assert assistant.register_match("Around 0.43. Thin sample, though.", "desk_chat")
+    # The collapse this catches: a one-line desk question answered as a memo.
+    memo_shaped = "## Summary\n\n" + "word " * 80
+    assert not assistant.register_match(memo_shaped, "desk_chat")
+    assert not assistant.register_match("word " * 300, "desk_chat")
+
+
+def test_a_memo_must_be_long_and_sectioned():
+    body = "## Thesis\n\n" + "word " * 300
+    assert assistant.register_match(body, "ic_memo")
+    # Long but shapeless, and short but sectioned, both fail.
+    assert not assistant.register_match("word " * 300, "ic_memo")
+    assert not assistant.register_match("## Thesis\n\nword word", "ic_memo")
+
+
+def test_bullets_count_as_structure():
+    assert assistant.register_match("- point one\n- point two\n" + "word " * 300, "ic_memo")
+
+
+def test_an_unknown_register_is_unscored_rather_than_failed():
+    """None keeps the row out of the denominator; False would read as a regression."""
+    assert assistant.register_match("anything", "not_a_register") is None
+    assert assistant.register_match("anything", "") is None
+    assert assistant.register_match("anything", None) is None
+
+
+# --------------------------------------------------------------------------
+# aggregation of the three new metrics
+# --------------------------------------------------------------------------
+
+
+def test_unscored_rows_stay_out_of_each_denominator():
+    rows = [
+        # scored on all three
+        {
+            "invented_numbers": ["0.71"],
+            "must_mention_hit": ["Sharpe"],
+            "must_mention_missed": ["convexity"],
+            "register_match": True,
+        },
+        {
+            "invented_numbers": [],
+            "must_mention_hit": ["Sharpe", "convexity"],
+            "must_mention_missed": [],
+            "register_match": False,
+        },
+        # an open_ended row: declares none of the three contracts
+        {"invented_numbers": None, "must_mention_missed": None, "register_match": None},
+    ]
+    stats = assistant.summarize_open_ended(rows)
+    assert stats["n"] == 3
+    # Two scored rows, one of which invented a number.
+    assert stats["invented_numbers_n"] == 2
+    assert stats["invented_number_rate"] == pytest.approx(0.5)
+    # A mean of per-answer coverage ratios: 1/2 and 2/2.
+    assert stats["must_mention_n"] == 2
+    assert stats["must_mention_hit_rate"] == pytest.approx(0.75)
+    assert stats["register_match_n"] == 2
+    assert stats["register_match_rate"] == pytest.approx(0.5)
+
+
+def test_a_suite_declaring_no_contracts_reports_zero_denominators():
+    rows = [{"exam_shape": False, "new_tokens": 10}]
+    stats = assistant.summarize_open_ended(rows)
+    for key in ("invented_numbers_n", "must_mention_n", "register_match_n"):
+        assert stats[key] == 0
+    for key in (
+        "invented_number_rate",
+        "must_mention_hit_rate",
+        "register_match_rate",
+    ):
+        assert stats[key] == 0.0

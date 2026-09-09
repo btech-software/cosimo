@@ -1,42 +1,58 @@
-{#- Cosimo chat template.
+{#- Cosimo chat template (Qwen3.8 / ChatML).
 
-     Structure, markers and eos behaviour follow the Phi-4 vendor template minus
-     its hardcoded vendor identity preamble, which contradicts the identity being
-     trained. (The preamble is quoted verbatim in cosimo_ft/chat.py and in
-     tests/conftest.py, which assert it survives nowhere; it is deliberately not
-     repeated in this file, because those assertions read this file's text.)
+     Replaces the Phi-4 template archived alongside configs/base.phi4.yaml. The
+     turn markers are Qwen's ChatML pair -- <|im_start|>role\n ... <|im_end|> --
+     because those are real tokens in the student's vocabulary; the Phi markers
+     (<|system|>, <|user|>, <|end|>) are not, and would tokenise as multi-token
+     text on every turn boundary.
+
+     No vendor identity preamble is emitted. That was the reason the Phi vendor
+     template was overridden in the first place, and the rule survives the model
+     swap: the only identity on an example is prompt.identity.
 
      TOOL CALLING (for the LangGraph -> ChatOpenAI -> vLLM serving path):
 
-     * `tools` arrives as a TOP-LEVEL variable. That is what
-       transformers' apply_chat_template(..., tools=[...]) populates, and
-       therefore what vLLM's OpenAI server passes through from the request's
-       `tools` parameter. The vendor template read `message['tools']` instead --
-       a per-message key nothing ever sets -- so tool schemas were silently
-       dropped and the model answered as though no tools existed. That key is
-       still honoured as a fallback, but nothing in the harness sets it.
+     * `tools` arrives as a TOP-LEVEL variable. That is what transformers'
+       apply_chat_template(..., tools=[...]) populates, and therefore what
+       vLLM's OpenAI server passes through from the request's `tools`
+       parameter. A per-message `tools` key is still honoured as a fallback,
+       but nothing in the harness sets it.
 
-     * Assistant tool calls render as <tool_call>{"name":..,"arguments":{..}}</tool_call>,
-       which is what vLLM's `--tool-call-parser hermes` reads back off the
-       generated text. The markers are ordinary text, not special tokens: adding
-       special tokens would require an embedding resize, and LoRA targets only
-       the projections (configs/sft.yaml), so new embedding rows would never
-       train.
+     * The schema list stays wrapped in <|tool|> ... <|/tool|> and assistant
+       calls stay <tool_call>{"name":..,"arguments":{..}}</tool_call>. Under
+       Phi those wrappers were special tokens; under Qwen they are ordinary
+       text, which costs a handful of tokens per example and buys the thing
+       that matters: cosimo/tools/wire.py -- the single owner of this contract,
+       shared with dataset/pipelines/v3 -- does not have to change, so a v3
+       agentic row, a supervised target and a served prompt stay byte-identical
+       strings. <tool_call> is also what vLLM's `--tool-call-parser hermes`
+       reads back off generated text, and that is unchanged.
 
-     * Tool results render as a <|user|> turn wrapping <tool_response>. Using the
-       user marker is deliberate: unsloth's train_on_responses_only splits on
-       chat.instruction_part / chat.response_part, so in a multi-turn tool
-       conversation every assistant turn stays supervised and every tool result
-       stays masked, with no change to the masking configuration.
+     * Tool results render as an <|im_start|>user turn wrapping
+       <tool_response>. Using the user role is deliberate: unsloth's
+       train_on_responses_only splits on chat.instruction_part /
+       chat.response_part, so in a multi-turn tool conversation every assistant
+       turn stays supervised and every tool result stays masked, with no change
+       to the masking configuration.
 
-     A [system, user] conversation with no tools renders byte-identically to the
-     pre-tool-calling version of this template, so already-prepared data and the
-     FakeTokenizer in tests/conftest.py are unaffected.
+     THINKING: <think> blocks are passed through verbatim as ordinary message
+     content. Nothing here adds, strips or requires them -- the v3 corpus
+     publishes only `think_present` on verification.teacher and no supervised
+     target carries a think block, so a policy that stripped them would have
+     nothing to act on.
+
+     EOS: every message closes with <|im_end|>, and the separating newline is
+     emitted for every message except the last one of a non-generation render.
+     So a fully rendered conversation ends exactly on <|im_end|> -- the token
+     data_schema.to_pref_row strips so DPO and ORPO do not disagree about a
+     doubled EOS, and the suffix TRL's SFT add_eos map treats as already
+     present. `eos_token` is therefore not appended separately; under ChatML it
+     IS <|im_end|>, and emitting both would train a doubled terminator.
 -#}
 {%- set ns = namespace(system_seen=false) -%}
 {%- for message in messages -%}
 {%- if message['role'] == 'system' -%}
-{{- '<|system|>' -}}
+{{- '<|im_start|>system\n' -}}
 {%- if 'content' in message and message['content'] -%}
 {{- message['content'] -}}
 {%- endif -%}
@@ -46,25 +62,27 @@
 {{- '<|tool|>' + message['tools'] + '<|/tool|>' -}}
 {%- endif -%}
 {%- set ns.system_seen = true -%}
-{{- '<|end|>' -}}
+{{- '<|im_end|>\n' -}}
 {%- endif -%}
 {%- endfor -%}
 {#- Tools bound without any system message would otherwise be dropped, which is
-    the exact failure this template was changed to fix. -#}
+    the exact failure this template was changed to fix under Phi. -#}
 {%- if tools and not ns.system_seen -%}
-{{- '<|system|><|tool|>' + (tools | tojson) + '<|/tool|><|end|>' -}}
+{{- '<|im_start|>system\n<|tool|>' + (tools | tojson) + '<|/tool|><|im_end|>\n' -}}
 {%- endif -%}
-{%- for message in messages -%}
+{#- The non-system turns. `loop.last` decides the trailing newline, so a
+    completed conversation ends on <|im_end|> with nothing after it. -#}
+{%- for message in messages if message['role'] != 'system' -%}
 {%- if message['role'] == 'tool' -%}
-{{- '<|user|><tool_response>' -}}
+{{- '<|im_start|>user\n<tool_response>' -}}
 {%- if 'name' in message and message['name'] -%}
 {{- {'name': message['name'], 'content': message['content']} | tojson -}}
 {%- else -%}
 {{- {'content': message['content']} | tojson -}}
 {%- endif -%}
-{{- '</tool_response><|end|>' -}}
-{%- elif message['role'] != 'system' -%}
-{{- '<|' + message['role'] + '|>' -}}
+{{- '</tool_response>' -}}
+{%- else -%}
+{{- '<|im_start|>' + message['role'] + '\n' -}}
 {%- if 'content' in message and message['content'] -%}
 {{- message['content'] -}}
 {%- endif -%}
@@ -84,11 +102,12 @@
 {{- '}</tool_call>' -}}
 {%- endfor -%}
 {%- endif -%}
-{{- '<|end|>' -}}
+{%- endif -%}
+{{- '<|im_end|>' -}}
+{%- if not loop.last or add_generation_prompt -%}
+{{- '\n' -}}
 {%- endif -%}
 {%- endfor -%}
 {%- if add_generation_prompt -%}
-{{- '<|assistant|>' -}}
-{%- else -%}
-{{- eos_token -}}
+{{- '<|im_start|>assistant\n' -}}
 {%- endif -%}

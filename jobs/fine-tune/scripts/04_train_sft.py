@@ -348,8 +348,11 @@ def check_masking(report: dict, tag: str) -> None:
             "the supervised span: the prompt is not masked and the model would be "
             "trained to generate its own questions.\n"
             "chat.instruction_part / chat.response_part do not match the chat "
-            "template. For unsloth/Phi-4-mini-reasoning they must be '<|user|>' "
-            "and '<|assistant|>'.\n"
+            "template. For the shipped ChatML template (Qwen3.8) they must be "
+            "'<|im_start|>user\\n' and '<|im_start|>assistant\\n' -- including "
+            "the trailing newline, because ChatML puts the role on its own "
+            "line. The archived Phi-4 template uses '<|user|>' / "
+            "'<|assistant|>' instead; see configs/base.phi4.yaml.\n"
             f"question was: {question!r}"
         )
 

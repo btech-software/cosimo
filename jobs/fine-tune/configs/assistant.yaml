@@ -19,9 +19,20 @@ assistant:
     open_ended: suites/open_ended.jsonl
     calibration: suites/calibration.jsonl
     agentic: suites/agentic.jsonl
+    # The v3 record types that had no assistant-eval bucket (spec §8.3). Each
+    # is a prose suite and runs the same path as open_ended; what makes them
+    # different is the contract their rows declare. `grounded` rows carry
+    # `allowed_numbers`, so the invented-number rate is measurable on them and
+    # on nothing else; `memo` and `critique` rows carry a `register` and a
+    # `must_mention` list. Hand-written like the other three: a generated suite
+    # would inherit the training corpus's own template bias, and these are
+    # meant to be read.
+    memo: suites/memo.jsonl
+    critique: suites/critique.jsonl
+    grounded: suites/grounded.jsonl
 
   # Suites evaluated when --suites is not given.
-  run: [open_ended, calibration, agentic]
+  run: [open_ended, calibration, agentic, memo, critique, grounded]
 
   # Vocabulary for the unknown-terms triage. The taxonomy contributes curriculum
   # topic/subtopic names; the glossary contributes named models, statistics and
@@ -47,6 +58,18 @@ assistant:
   # 8 x (~200 + 2048) = ~18 000 slots. Within budget, but the cap is what keeps
   # it that way if either number is raised. See generation.plan_batches.
   max_batch_tokens: 24576
+
+  # Number tokens the invented-number metric treats as arithmetic furniture
+  # rather than as claims about the world: the "2" in a half-spread, the "1" in
+  # "1-day VaR", the "100" in a percentage conversion. Matched on the written
+  # token, not the value.
+  #
+  # Deliberately tiny, and it must stay that way. Every entry is a number the
+  # model may state without the prompt authorising it, so the list is the one
+  # hole in the gate -- widen it and the metric stops measuring anything. If a
+  # legitimate figure is being flagged, the fix is almost always to add it to
+  # that row's `allowed_numbers`, not to whitelist it for every row.
+  number_whitelist: ["0", "1", "2", "100"]
 
   # Tool-conversation turn budget. Training contains exactly ONE round-trip per
   # example, so 4 is enough to let a model that generalised prove it and a model

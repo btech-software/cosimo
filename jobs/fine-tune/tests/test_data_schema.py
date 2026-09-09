@@ -231,7 +231,6 @@ def test_sft_row_is_the_eval_row_plus_the_rendered_text(fake_tokenizer):
     assert row["text"] == row["prompt"] + row["completion"]
     assert row["completion"].endswith(
         chat.build_completion(rec.reasoning_trace, rec.answer, TAG)
-        + "<|end|>"
         + fake_tokenizer.eos_token
     )
     assert SYSTEM in row["prompt"]
@@ -248,7 +247,7 @@ def test_pref_row_renders_both_sides_through_the_sft_path(fake_tokenizer):
     }
     assert row["chosen"] != row["rejected"]
     assert TAG in row["chosen"] and TAG in row["rejected"]
-    assert row["prompt"].endswith("<|assistant|>")
+    assert row["prompt"].endswith("<|im_start|>assistant\n")
     # DPO must see exactly the SFT output distribution: the completion strings
     # are what SFT would have trained on for the same trace.
     sft = data_schema.to_sft_row(rec, fake_tokenizer, SYSTEM, TAG)
@@ -481,10 +480,10 @@ def test_agentic_sft_row_supervises_from_the_first_assistant_turn(jinja_tokenize
     assert "<tool_call>" in row["completion"]
     assert "9.0% upside" in row["completion"]
     assert "Three target prices?" not in row["completion"]
-    # The interior tool result renders as a <|user|> turn, which is what
+    # The interior tool result renders as a user turn, which is what
     # train_on_responses_only masks on -- without it the model would be trained
     # to generate its own tool results.
-    assert "<|user|><tool_response>" in row["completion"]
+    assert "<|im_start|>user\n<tool_response>" in row["completion"]
     assert TAG not in row["completion"]
 
 
@@ -548,7 +547,7 @@ def test_standalone_pref_sides_are_rendered_verbatim(fake_tokenizer):
     assert row["chosen"].startswith("I need the risk-free rate")
     assert row["rejected"].startswith("The Sharpe ratio is 0.51.")
     assert row["chosen"] != row["rejected"]
-    assert row["prompt"].endswith("<|assistant|>")
+    assert row["prompt"].endswith("<|im_start|>assistant\n")
 
 
 def test_standalone_pref_row_with_one_empty_side_is_not_usable():

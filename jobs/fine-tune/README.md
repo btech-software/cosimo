@@ -9,11 +9,21 @@ harness measures, not the objective it optimises for.** A run that lifts exam ac
 flattening the model into a five-step calculator has failed, and the evaluation section below tells
 you how to notice that before you ship.
 
-Base model: `unsloth/Phi-4-mini-reasoning` (3.8 B, bf16).
-Corpus: **`btech-software/cosimo-quant-reasoning-v2`** (113 574 records across five record types,
-7 500 standalone preference pairs), mixed with `btech-software/cosimo-cfa-frm-71k` capped at 12 %
-for exam depth. See [The corpus is a mix](#the-corpus-is-a-mix-of-two-published-datasets).
+Base model: `Qwen/Qwen3.8-27B` (QLoRA, bf16 compute).
+Corpus: **`btech-software/cosimo-quant-assistant-v3`** — eight record types keyed on
+`work_type` / scenario family, with standalone preference pairs in the `cosimov3pref_` id space.
+Nothing is mixed in: v3 generates its own exam records under an inventory family cap, so v1 is no
+longer needed for exam depth (`dataset.mix: []`).
 Default pipeline: **LoRA SFT → DPO**, with a complete **ORPO** single-stage alternative.
+
+> **The v3 corpus is not on the Hub yet.** `dataset/pipelines/v3`'s `publish` command certifies the
+> verification board and writes a dataset card; it does not push. Until it does, point
+> `dataset.local_dir` at a local v3 shard tree — see
+> [Preparing from a local v3 tree](#preparing-from-a-local-v3-tree).
+
+> **Replaying a v2 run.** The Phi-4 build contract is archived whole in `configs/base.phi4.yaml`
+> (model, corpus, persona, grading contract, chat template and holdout axis). One flag restores it:
+> `--config configs/base.phi4.yaml`.
 
 ---
 
@@ -48,8 +58,8 @@ x86 + discrete GPU; `00_check_env.py` warns loudly when the capability is not `(
 **Software.** Docker with the NVIDIA container runtime (`--gpus all` must work). Nothing else is
 installed on the host: **Docker is the only supported path**, there is no host `uv`/`pip` variant.
 
-**Access.** A Hugging Face account able to read `unsloth/Phi-4-mini-reasoning`,
-`btech-software/cosimo-quant-reasoning-v2` and `btech-software/cosimo-cfa-frm-71k` — the corpus is
+**Access.** A Hugging Face account able to read `Qwen/Qwen3.8-27B` and, once it is published,
+`btech-software/cosimo-quant-assistant-v3` — the corpus is
 a mix, and `01_prepare_data.py` fails if either dataset is unreadable. Export `HF_TOKEN` on the
 host before `run.sh` and it is
 forwarded into the container. `WANDB_API_KEY` is optional; when it is set, the training scripts add
@@ -163,9 +173,9 @@ python scripts/06_evaluate.py --run-name sft_smoke --adapter runs/sft_smoke/adap
 python scripts/07_compare.py --runs baseline sft_smoke --suite cosimo_test
 ```
 
-`--limit` takes a seeded sample of N rows **per split of each source**, not a head slice, so a
-smoke run still sees every program, all five record types and the holdout families. It is 2 000
-rows here, not 200: five splits × two corpora.
+`--limit` takes a seeded sample of N rows **per split of each source** (per record-type file, for
+a local v3 tree), not a head slice, so a smoke run still sees every work type, every record type
+and the holdout families.
 
 Then delete `runs/` and `data/` and start the real run, because a `--limit 200` split assignment is
 not the split assignment of the full corpus.
@@ -242,47 +252,76 @@ Memory is not the binding constraint on 128 GB; **host page-cache pressure is**.
 
 ---
 
-## The corpus is a mix of two published datasets
+## The corpus: v3, on its own
 
 `dataset.hub_id` is the primary corpus and each entry of `dataset.mix` adds another, merged into
-one pool by `01_prepare_data.py`. The default is v2 uncapped plus v1 at 30 %:
+one pool by `01_prepare_data.py`. v3 uses no mix at all. What changed, and why:
 
-| | `cosimo-quant-reasoning-v2` (primary) | `cosimo-cfa-frm-71k` (mixed, 30 %) |
+| | v3 (current) | v2 + v1 (archived) |
 | --- | --- | --- |
-| Published rows | 113 574 supervised, 7 500 pairs | 71 000 supervised, 24 711 pairs |
-| Record types | exam, analysis, abstention, agentic, implementation | exam only |
-| Nested columns | JSON-encoded strings | Arrow structs |
-| Preference config | `preference`, ids **disjoint** (`cosimopref_`) | `preference_pairs`, ids **shared** |
-| Generators | 299 | 71 (all also in v2) |
-| Used for pairs here | yes | **no** (`preference_config: null`) |
-| Trainable rows kept | all | 12 % of the merged trainable pool |
+| Repo | `cosimo-quant-assistant-v3` | `cosimo-quant-reasoning-v2` + `cosimo-cfa-frm-71k` at 12 % |
+| Record types | exam, analysis, **memo**, **critique**, **grounded**, abstention, agentic, implementation | v2's five; v1 exam only |
+| Taxonomy axis | `work_type` / `scenario_id` / `register` | `program` / `topic` / `subtopic` / `difficulty` |
+| Holdout axis | scenario family (`<work_type>.<family>`) | `v_`/`cr_`/`m_` stem family |
+| Nested columns | native lists and dicts (raw JSONL) | JSON strings (v2) / Arrow structs (v1) |
+| Preference ids | `cosimov3pref_`, **disjoint** | `cosimopref_` disjoint (v2) / **shared** (v1) |
+| Row certification | a `verification` stamp; no `verified` column | boolean `verified` |
+| Exam close | `FINAL ANSWER: <letter> -- <value> <unit>` | `FINAL ANSWER: <value>` |
 
-**Why mix at all.** v2 is deliberately majority non-exam — exam is 21 % of it, and each of the six
-held-out stem families has only 174 rows against v1's 1 000. v1 supplies the exam depth and a
-usable `cosimo_unseen_stems` slice; the cap is what stops it re-creating the exam-only corpus that
-flattened the first run. At `max_share: 0.12` exam lands at **30 % of SFT**, so roughly 70 % of
-what the model trains on is the material v2 was built to supply. The trade-off against exam depth
-is smooth — 0.20 gives 36.6 %, 0.30 gives 44.5 % — and the table is in `configs/base.yaml`.
+`cosimo_ft/data_schema.py` is the single place all three shapes are reconciled. The v3 normaliser
+maps `work_type` → `program`, `scenario_id` → `generator` **and** `stem_family`, which is why
+`splits.py` needs no v3 branch: it strata on `(program, generator)` and holds out on `stem_family`,
+and all three are populated from axes v3 already carries.
 
-**`max_share` is a share of the merged *trainable* pool, and held-out records are exempt.** A
-held-out family never trains; it is the `unseen_stems` measuring instrument. Subsampling it would
-shrink the evaluation slice and widen its confidence interval as a side effect of retuning the
-training mix, so the cap does not touch it. The holdout is 6 910 items at every setting.
-`data.test_frac` is coupled the same way and for the same reason — see below.
-
-**What preparation produces at the defaults** (measured, full corpus):
-
-| | rows |
-| --- | --- |
-| `sft_train.jsonl` | 125 939 — analysis 31.9 %, exam 29.9 %, agentic 15.3 %, abstention 12.7 %, implementation 10.2 % |
-| `sft_val.jsonl` | 1 279 |
-| `eval_cosimo_test.jsonl` | 657 (exam only) |
-| `eval_cosimo_unseen_stems.jsonl` | 6 910 (exam only, six families) |
-| `pref_train.jsonl` / `pref_val.jsonl` | 7 425 / 75, SFT overlap **0** |
+**Why no mix.** v1 was mixed in for exam depth because v2's exam slice was thin — 174 rows per
+held-out stem family against v1's 1 000. v3 generates its own exam records under an inventory
+family cap, so the crutch is gone. Re-adding it would rebuild the exam-heavy corpus that flattened
+the first run's responses to 120 tokens.
 
 Read `by_record_type` in `split_manifest.json` first. A corpus that has drifted back to
 majority-exam is the style collapse of the first run waiting to happen again, and it is visible
 there before a GPU-hour is spent.
+
+### Preparing from a local v3 tree
+
+The v3 Hub repo does not exist yet: `dataset/pipelines/v3`'s `publish` command runs the
+verification board and writes `dataset/publish/dataset_card_v3.md`, but it does not push. Until it
+does — and on any box without network — point `dataset.local_dir` at a v3 corpus root:
+
+```bash
+# generate, from the repository root (exam needs no teacher; the other kinds do)
+export COSIMO_V3_OUT=$PWD/dataset/shards/v3
+make v3-inventory && make v3-packs
+python -m dataset.pipelines.v3.cli render --types exam
+
+# prepare
+cd jobs/fine-tune
+./scripts/01_prepare_data.py --set dataset.local_dir=$COSIMO_V3_OUT --force
+```
+
+It reads `<dir>/sft/*.jsonl` and `<dir>/preference/pairs.jsonl`, sampling each file independently
+so `--limit` yields a slice of every record type rather than all of whichever one sorts first.
+There is no Hub SHA to record; provenance is the `local_dirs` entry plus the per-file content
+fingerprint in `row_sets`, which describes the rows actually read rather than a commit that might
+contain them.
+
+A tree that has not reached the `prefer` stage has no pairs. That is a legitimate SFT-only state
+and the gate says so rather than failing — but only when no source declares a `preference_config`.
+A run that *asked* for pairs and produced none has lost them somewhere, and that is still a hard
+failure.
+
+### The holdout families are not the ones `work_types.yaml` marks
+
+The v3 renderers filter holdout families out before writing (`render/prose.py`, `exam.py`,
+`agentic.py`, `implementation.py` all carry `and not job.holdout`). The five families
+`dataset/taxonomy/work_types.yaml` marks `holdout: true` therefore have fact packs on disk and **no
+rendered rows anywhere in the published corpus** — there is nothing downstream to hold out.
+
+So `data.holdout_scenario_families` names families that *are* shipped: two of the ten, spanning two
+work types and two different fact computers. That keeps the generalisation measurement alive at the
+cost of ~20 % of the corpus. It is a workaround, not the design: the honest fix is for the corpus
+side to render the declared holdout families into an eval slice, and this list should shrink to
+nothing when it does.
 
 ### `FINAL ANSWER:` belongs to exam rows and nothing else
 
@@ -304,18 +343,21 @@ re-derives the same fact from the tokenized row — the tag appears in the *mask
 and only if the row is an exam row, which needs no column the trainer's text-only view has dropped.
 
 Agentic records are rendered through `chat.render_tool_example` with their `tool_schemas` bound as
-the template's top-level `tools` variable. Their interior tool results render as `<|user|>` turns,
+the template's top-level `tools` variable. Their interior tool results render as `<|im_start|>user` turns,
 so `train_on_responses_only` masks them and supervises every assistant turn, with no change to the
 masking configuration.
 
-### Two properties of the mix that had to be handled explicitly
+### Two properties of a mixed corpus that are still handled explicitly
 
-* **1 840 exam questions are byte-identical across the two corpora under different ids.** Splits
-  are keyed by `id`, so without intervention the same question could sit in v2's test slice and
-  v1's training set. Rows whose question text already appeared in a higher-priority source are
-  dropped (2 683 rows at the defaults, since v1 repeats some of them internally). Duplicates
-  *within* one corpus are left alone — v1 has 15 366 of them and that is a pre-existing property of
-  that dataset, not something the mix introduced.
+Neither applies at the v3 defaults (`dataset.mix: []`), and both are live again the moment a mix is
+configured or `configs/base.phi4.yaml` replays the v2 run.
+
+* **1 840 exam questions are byte-identical across v1 and v2 under different ids.** Splits are
+  keyed by `id`, so without intervention the same question could sit in v2's test slice and v1's
+  training set. Rows whose question text already appeared in a higher-priority source are dropped
+  (2 683 rows at the v2 defaults, since v1 repeats some of them internally). Duplicates *within*
+  one corpus are left alone — v1 has 15 366 of them and that is a pre-existing property of that
+  dataset, not something the mix introduced.
 * **v2 revisions before 2026-08-07 ship 7 500 of their 13 000 `implementation` records with a
   `test_code` field that does not parse** — a stray-indent `SyntaxError`
   (`"f = g(x)\n    assert len(f) == 4"`), because the generator ran `.strip()` before
@@ -398,16 +440,42 @@ formulaic steps. The identity is universal; the task block is not.
 
 ## The chat template is overridden on purpose
 
-The stock `unsloth/Phi-4-mini-reasoning` chat template hardcodes this ahead of every system message:
+The rule predates the model swap. The stock `unsloth/Phi-4-mini-reasoning` template hardcoded a
+vendor identity ahead of every system message:
 
 ```
 <|system|>Your name is Phi, an AI math expert developed by Microsoft.
 ```
 
-That directly contradicts the identity being trained. `configs/chat_template.jinja` is a
-structurally identical template with that sentence removed — same `<|user|>` / `<|assistant|>` /
-`<|end|>` markers, same trailing `eos_token` behaviour, so response-only masking and the
-`text == prompt + completion` invariant are unaffected.
+That directly contradicts the identity being trained, so the template was overridden — and the
+override is still the policy under Qwen, where `configs/chat_template.jinja` is now **ChatML**:
+
+```
+<|im_start|>system
+{identity}<|tool|>[{schemas}]<|/tool|><|im_end|>
+<|im_start|>user
+{question}<|im_end|>
+<|im_start|>assistant
+```
+
+Three things about the rewrite:
+
+* **The turn markers moved, the wire format did not.** `<|im_start|>` / `<|im_end|>` are real tokens
+  in Qwen's vocabulary where the Phi markers are not. But `<|tool|>`, `<tool_call>` and
+  `<tool_response>` stayed exactly as they were: under Qwen they are ordinary text, which costs a
+  few tokens per example and buys the thing that matters — `cosimo/tools/wire.py`, the single owner
+  of that contract and shared with `dataset/pipelines/v3`, does not have to change. A v3 agentic
+  row, a supervised target and a served prompt stay the same string, and vLLM's
+  `--tool-call-parser hermes` still reads generated calls back.
+* **The EOS shape changed.** Under ChatML the turn terminator *is* the EOS token, so the template
+  stops on `<|im_end|>` rather than appending `eos_token` after it. Appending both would train a
+  doubled terminator and `to_pref_row`'s strip would remove only one.
+* **The masking markers gained a newline** (`<|im_start|>user\n`), because ChatML puts the role on
+  its own line. `04_train_sft.py` masks on the token ids of these exact strings.
+
+The Phi template is archived as `configs/chat_template.phi4.jinja` and referenced by
+`configs/base.phi4.yaml`. Response-only masking and the `text == prompt + completion` invariant hold
+under both.
 
 It is applied in **every** entry point: data preparation, SFT, DPO, ORPO, evaluation and export.
 In particular **the base model is evaluated through the same template as the fine-tuned model** —
@@ -443,7 +511,7 @@ the vendor one did not:
 | --- | --- |
 | Tool schemas | Reads the **top-level** `tools` variable. The vendor template read `message['tools']`, a per-message key nothing sets, so schemas were silently dropped and the model answered as though no tools existed. |
 | Assistant tool calls | Renders `<tool_call>{"name": …, "arguments": {…}}</tool_call>` — the Hermes format, so vLLM's stock parser reads it back with no custom plugin. |
-| Tool results | Renders a `<|user|>` turn wrapping `<tool_response>`. Deliberate: `train_on_responses_only` splits on `<|user|>` / `<|assistant|>`, so every assistant turn in a multi-turn tool conversation stays supervised and every tool result stays masked, with no change to the masking config. |
+| Tool results | Renders an `<|im_start|>user` turn wrapping `<tool_response>`. Deliberate: `train_on_responses_only` splits on `chat.instruction_part` / `.response_part`, so every assistant turn in a multi-turn tool conversation stays supervised and every tool result stays masked, with no change to the masking config. |
 
 `cosimo_ft/tools.py` is the single owner of that wire format, and
 `tests/test_tools.py::test_rendered_tool_call_matches_the_template` asserts the module and the
@@ -543,18 +611,19 @@ python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | Knob | Default | What it does |
 | --- | --- | --- |
 | `seed` | `3407` | Seeds splitting, subsampling, shuffling, training and generation. |
-| `model.base_id` | `unsloth/Phi-4-mini-reasoning` | The base checkpoint. Its projections are **fused** (`qkv_proj`, `o_proj`, `gate_up_proj`, `down_proj`). |
+| `model.base_id` | `Qwen/Qwen3.8-27B` | The base checkpoint. `lora.target_modules: auto` resolves its projections; a hardcoded list matches only one model family. |
 | `model.revision` | `null` | Pin a commit SHA to make training *and* evaluation reproducible against a moving Hub repo. |
 | `model.max_seq_length` | `8192` | Sequence budget. Sized for the agentic path, not the exam corpus: a typical exam row is ~1200 tokens, but a tool conversation adds a JSON schema list and a call/result round-trip, and the served ReAct loop stacks more on top. Raise it further if `split_manifest.json` shows meaningful truncation. |
-| `model.load_in_4bit` | `false` | bf16 LoRA is the default: 128 GB unified memory makes quantization unnecessary, and bf16 has no quantization error. Toggle for a 4-bit run. |
+| `model.load_in_4bit` | `true` | QLoRA. 27 B parameters at bf16 leave no room for an 8k sequence and its activations in 128 GB of unified memory. The first knob to revisit if the LoRA smoke is memory-bound. The archived Phi-4 run used `false`. |
 | `model.dtype` | `bfloat16` | Native on Blackwell; the base checkpoint is already bf16. |
-| `dataset.hub_id` / `.revision` | `btech-software/cosimo-quant-reasoning-v2` / `main` | The primary corpus. Pin a SHA for a frozen result; the manifest records the resolved SHA of **every** source. |
-| `dataset.preference_config` | `preference` | Which Hub config carries the pairs, or `null` for none. v2 names it `preference` and its ids are disjoint from the supervised rows; v1 names it `preference_pairs` and shares them. |
-| `dataset.mix` | v1 at `max_share: 0.12` | Additional corpora merged into the same pool. Same keys plus `max_share`, a ceiling as a fraction of the merged **trainable** pool (`null` = uncapped, held-out records exempt), enforced by a seeded subsample. See [The corpus is a mix](#the-corpus-is-a-mix-of-two-published-datasets). |
+| `dataset.hub_id` / `.revision` | `btech-software/cosimo-quant-assistant-v3` / `main` | The primary corpus. Pin a SHA for a frozen result; the manifest records the resolved SHA of **every** source. Not yet published — see `dataset.local_dir`. |
+| `dataset.preference_config` | `preference` | Which config carries the pairs, or `null` for none. v3's pair ids (`cosimov3pref_`) are disjoint from its supervised ids (`cosimov3_`), which is what keeps DPO from training on traces SFT already fit. |
+| `dataset.local_dir` | `null` | Read the corpus off a local v3 shard tree (`<dir>/sft/*.jsonl` + `<dir>/preference/pairs.jsonl`) instead of the Hub. See [Preparing from a local v3 tree](#preparing-from-a-local-v3-tree). |
+| `dataset.mix` | `[]` | Additional corpora merged into the same pool. Empty for v3: the 12 % v1 cap was a crutch for a corpus whose exam slice was thin, and re-adding it would rebuild the exam-heavy mix that collapsed the first run's response style. |
 | `paths.*` | `data/`, `data/processed/`, `runs/` | Resolved against this directory, never the CWD. |
 | `prompt.*` | see above | identity / identity_short / exam_protocol / variation_rate / final_answer_tag. |
 | `chat.template_path` | `configs/chat_template.jinja` | The prompt surface. `null` reinstates the vendor identity preamble and is refused by the scripts. |
-| `chat.instruction_part` / `.response_part` | `<|user|>` / `<|assistant|>` | The markers `train_on_responses_only` masks on. Tool results render as `<|user|>` turns so they are masked by the same rule. |
+| `chat.instruction_part` / `.response_part` | `<|im_start|>user\n` / `<|im_start|>assistant\n` | The markers `train_on_responses_only` masks on — the trailing newline included, because ChatML puts the role on its own line. Tool results render as user turns so they are masked by the same rule. |
 | `tools.enabled` | `true` | Whether `02_prepare_tool_data.py` generates rows. `false` writes empty files, which `04_train_sft.py` skips with a log line. |
 | `tools.train_records` / `.val_records` | `5000` / `100` | ~7% of the SFT corpus: enough for the format to survive an epoch against 68k rows ending in `FINAL ANSWER:`, small enough not to displace the financial reasoning. |
 | `tools.schemas_per_example` | `[2, 5]` | Schemas offered per example. More than one is essential — with a single schema the model learns "call the tool" rather than "choose the right tool". |
@@ -565,10 +634,11 @@ python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | Knob | Default | What it does |
 | --- | --- | --- |
 | `data.val_frac` | `0.01` | ~1 280 rows: enough for a stable eval-loss curve, small enough to keep mid-training evaluation to minutes. Applies to every record type. |
-| `data.test_frac` | `0.017` | 657 rows. Higher than `val_frac` because it is taken from the **exam** records alone (~30 % of the corpus) — the other types have no gradeable answer. At 1 % it would be ~390, widening the headline Wilson interval as a side effect of a training-mix decision. |
+| `data.test_frac` | `0.017` | Higher than `val_frac` because it is taken from the **exam** records alone — the other seven types have no gradeable answer. The row count behind the number changed with v3: v2's mix put exam at ~30 % of the corpus, v3 caps it at 12–18 %, so the same fraction yields fewer items. Left unchanged rather than guessed upward; retune once the first real corpus size is known. |
 | `data.max_train_records` | `null` | Cap on SFT training rows (seeded subsample). The knob to reach for when wall clock is the problem. Does not affect DPO. |
 | `data.preference_holdout_frac` | `0.5` | Fraction of preference-carrying records **reserved** for the preference stage: excluded from `sft_*.jsonl`, written to `pref_*.jsonl`. **Inert at the defaults** — it only applies to a corpus whose pairs share ids with its supervised rows, and v2's do not. Kept, with its validation gate, for the case where v1's pairs are re-enabled. |
-| `data.holdout_families` | six families | Excluded from **all** training, across **every** record type; see [`unseen_stems`](#why-unseen_stems-exists). |
+| `data.holdout_scenario_families` | two scenario ids | The v3 holdout axis: `<work_type>.<family>`, excluded from **all** training across **every** record type; see [`unseen_stems`](#why-unseen_stems-exists). |
+| `data.holdout_families` | `[]` | The v1/v2 axis: `v_`/`cr_`/`m_` stem families. Empty for v3, restored by `configs/base.phi4.yaml`. Both keys are read and unioned, so a replay holds out what it always did. |
 | `data.drop_unverified` | `true` | Drop rows that failed the generator's own answer-recomputation check. The dropped count is logged and recorded in the manifest. |
 
 ### `configs/sft.yaml` — `04_train_sft.py`
@@ -790,6 +860,9 @@ absolute standard; a 40 % exam-shape rate means nothing until you know the base 
 | `open_ended` | 30 | Real Head-of-Quant questions — hedging, factor breakdowns, execution, paper implementation. Judgement questions with no single number. |
 | `calibration` | 20 | Underspecified, unanswerable and false-premise prompts. Does the model ask, or answer anyway. |
 | `agentic` | 16 | Mock-tool ReAct trajectories: single-call, **multi-call**, and no-call-appropriate. |
+| `grounded` | 10 | Desk questions that **supply their own figures**. Each row carries `allowed_numbers`, which is what makes the invented-number rate measurable. |
+| `memo` | 6 | IC-memo prompts. Each carries `register: ic_memo` and a `must_mention` list. |
+| `critique` | 6 | Risk-committee and auditor prompts arguing against a stated position. Register and `must_mention` as above. |
 
 Metrics (`runs/<name>/assistant_eval/metrics.json`):
 
@@ -810,6 +883,28 @@ Metrics (`runs/<name>/assistant_eval/metrics.json`):
   extrapolation, and this is the number that says whether chaining generalised.
 * **`no_call_precision`** — did it decline to call a tool when none fit.
 * **`hallucinated_tool_rate`** — did it invent a tool that was never offered.
+* **`invented_number_rate`** — fraction of `grounded` answers containing a figure the supplied
+  numbers do not explain, at the same 0.5 % relative tolerance and the same three scale factors
+  (×1, ×100, ÷100) the corpus generator's own gate uses. The v3 corpus *refuses to publish* a row
+  that fails this check, so this number answers a specific question: did the student learn the
+  constraint, or only the prose around it. It is a deliberate reimplementation rather than an
+  import — `jobs` must not import `dataset` — which means the two policies can drift; if they do,
+  the eval stops measuring what generation enforced.
+* **`must_mention_hit_rate`** — mean per-answer share of the terms the prompt required. A mean of
+  ratios, not all-or-nothing, so an answer covering three of four reads differently from one
+  covering none. Catches the model that writes fluently around the point.
+* **`register_match_rate`** — was the answer shaped like the voice it was asked for: a desk reply
+  short and unheaded, a memo long and sectioned. Answering a one-line desk question with a
+  four-heading memo is the same class of failure as answering it in exam form, and nothing else
+  measured it.
+
+The last three are scored **only** on rows that declare the contract they measure; each carries its
+own `_n` denominator in `metrics.json` and is omitted from the console line when that denominator
+is zero. A row that declares nothing is unscored, never scored zero — otherwise adding a prompt to
+a suite would read as a model regression. `assistant.number_whitelist` is the one hole in the
+invented-number gate (the `2` in a half-spread, the `1` in "1-day VaR"); it must stay tiny, and a
+legitimate figure being flagged is nearly always a missing entry in that row's `allowed_numbers`
+rather than a reason to widen it.
 
 The prompts are hand-written and small on purpose: they are meant to be read and argued with, and a
 generated suite would inherit the same template bias as the training corpus. `configs/assistant.yaml`
