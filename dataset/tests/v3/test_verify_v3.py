@@ -89,11 +89,12 @@ def test_the_pristine_corpus_passes_and_counts_every_row(corpus):
     assert report["rows"] == N_ROWS
     for _, name in AXES:
         checked = report["axes"][name]["checked"]
-        if name == "exam liturgy share":
-            # The share axes read their own denominators: this corpus carries
-            # no exam rows, so the liturgy axis weighed an empty slice -- and
-            # said so, which the pristine-ok assertion above already proves it
-            # did without shading anything red.
+        if name in {"exam liturgy share", "gold-bar near-dup"}:
+            # Corpus-level axes that weigh a slice this control corpus does not
+            # carry: no exam rows to measure a liturgy over, no gold bar staged
+            # beside the shard to fence against. Both said so (a note, never a
+            # failure) rather than counting rows they never read -- which the
+            # pristine-ok assertion above already proves did not shade red.
             assert checked == 0
         else:
             assert checked == N_ROWS

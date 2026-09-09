@@ -100,7 +100,7 @@ def test_render_then_verify_exit_zero_over_a_clean_corpus(
     assert "6 rows rendered" in rendered and "0 dead-lettered" in rendered
     assert cli.main(["verify", "--out", out]) == cli.EXIT_OK
     board = _outerr(capsys)
-    assert "clean across 11 axes" in board
+    assert "clean across 14 axes" in board
     assert len(write.read_jsonl(write.path_for("sft", "analysis", out))) == 6
 
 

@@ -187,6 +187,29 @@ def test_the_real_plan_honours_its_own_caps_under_the_emitted_lens():
         assert abs(cell["share"] - cell["rows"] / manifest["supervised_rows"]) <= 1e-6
 
 
+def test_the_real_plan_authors_the_exam_slice_into_its_band():
+    """The plan must *author* the exam slice into [0.12, 0.18], not hope for it.
+
+    ``verify`` measures the exam share on the shipped rows (axis 8), where the
+    preference stage's pairs inflate the denominator -- so the board is a
+    downstream check, not the guarantee. The guarantee is authored here, in the
+    one file that decides how much of anything exists: a plan whose exam slice
+    already sits above the band can only reach it by luck of how many pairs
+    happen to land, which is the exam-overweight style-collapse pathology the
+    whole v2->v3 change exists to prevent, left one silent number away from
+    returning.
+    """
+    jobs = inventory.expand_jobs(inventory.load_plan(PLAN_PATH))
+    total = len(jobs)
+    exam = sum(1 for job in jobs if job.record_type == "exam")
+    share = exam / total
+    low, high = config.EXAM_SHARE_BAND
+    assert low <= share <= high, (
+        f"exam slice is {exam}/{total} = {share:.3f}, outside the "
+        f"[{low}, {high}] band the acceptance gate certifies"
+    )
+
+
 def test_smoke_collapses_to_one_renderable_variant_per_family():
     plan = inventory.load_plan(PLAN_PATH)
     jobs = inventory.expand_jobs(plan, smoke=True)

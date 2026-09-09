@@ -57,9 +57,9 @@ switched off -- and certify (can shade red) only on samples with support;
 the certification site for the whole corpus is the publish gate, and the
 tests certify the arithmetic on synthetic full-support corpora.
 
-Axes 11-14 (hidden tests, preference disjointness, gold-bar near-dup,
-teacher pinning) join with the stages that produce their inputs, later in
-PR4. One numbering note for the auditor reading against §6: the
+Axes 13-14 (gold-bar near-dup, teacher pinning) join with the publish
+stage that produces their inputs, later in PR4. One numbering note for the
+auditor reading against §6: the
 spec's list jumps from 9 (tool schemas) to hidden tests without a number of
 its own for the §5.8 trajectory audit, so the board ships 9 and 10 as the
 two agentic axes above and the spec's 10-13 arrive renumbered 11-14 -- the
@@ -75,6 +75,8 @@ CLI -- formatting is the CLI's job, not this one's.
 """
 
 from __future__ import annotations
+
+import os
 
 from . import config, write
 from .packs import PackError, compute_pack
@@ -107,6 +109,26 @@ from .verification.implementation import (
     impl_gate_violations,
     run_sandboxed,
 )
+from .verification.preference import (
+    PREFER_KIND,
+    TAG_COPY,
+    TAG_PITFALL,
+    TAG_SHAPE as PREF_TAG_SHAPE,
+    TAG_TAMPER as PREF_TAG_TAMPER,
+    pair_gate_violations,
+    pair_id,
+    shingle_overlap,
+)
+
+#: The axes ``--quick`` withholds: the sandboxed hidden suite and the two
+#: near-duplicate sweeps (spec §6's "skips 10-12", renumbered for the board's
+#: own 9/10). They are expensive and none is a *cheap* integrity gate -- schema,
+#: replay and the share measurements always run -- so a CI smoke may stand on a
+#: run that reports them skipped rather than having paid for them. The publish
+#: gate, by contrast, refuses on a report where any of them was skipped.
+EXPENSIVE_AXES = frozenset(
+    {"hidden tests", "preference disjointness", "gold-bar near-dup"}
+)
 
 #: The axes implemented so far, in spec order, named as the board prints them.
 AXES = (
@@ -121,6 +143,9 @@ AXES = (
     (9, "tool schemas + roles"),
     (10, "tool-result replay"),
     (11, "hidden tests"),
+    (12, "preference disjointness"),
+    (13, "gold-bar near-dup"),
+    (14, "teacher pinned"),
 )
 
 #: The agentic record type, named once: the board branches on it, the
@@ -196,7 +221,9 @@ def _family_of(row: dict) -> str:
     return row["scenario_id"][len(row["work_type"]) + 1 :]
 
 
-def _check_row(row: dict, dead_ids: frozenset[str]) -> dict[str, list[str]]:
+def _check_row(
+    row: dict, dead_ids: frozenset[str], *, quick: bool = False
+) -> dict[str, list[str]]:
     """Per-axis failure messages for one row; empty lists mean clean."""
     failures: dict[str, list[str]] = {name: [] for _, name in AXES}
     rid = row.get("id", "?")
@@ -423,19 +450,20 @@ def _check_row(row: dict, dead_ids: frozenset[str]) -> dict[str, list[str]]:
                 failures["must_mention / forbidden_claims"].append(violation)
             else:  # shape, recomposition tamper, a gone-pack: integrity findings
                 failures["schema"].append(violation)
-        if any(v.startswith(IMPL_TAG_TAMPER) for v in violations):
-            failures["hidden tests"].append(
-                f"{TAG_SANDBOX}not executed: the stored bytes are not the "
-                "recomposition, and the board runs only what it authored"
-            )
-        else:
-            passed, log = run_sandboxed(
-                row["reference_code"],
-                [*row["public_tests"], *row["hidden_tests"]],
-                pack.to_dict().get("inputs") or {},
-            )
-            if not passed:
-                failures["hidden tests"].append(f"{TAG_SANDBOX}{log}")
+        if not quick:
+            if any(v.startswith(IMPL_TAG_TAMPER) for v in violations):
+                failures["hidden tests"].append(
+                    f"{TAG_SANDBOX}not executed: the stored bytes are not the "
+                    "recomposition, and the board runs only what it authored"
+                )
+            else:
+                passed, log = run_sandboxed(
+                    row["reference_code"],
+                    [*row["public_tests"], *row["hidden_tests"]],
+                    pack.to_dict().get("inputs") or {},
+                )
+                if not passed:
+                    failures["hidden tests"].append(f"{TAG_SANDBOX}{log}")
         return failures
 
     # -- axes 3-5: the words, against the re-derived contract --------------
@@ -563,10 +591,211 @@ def _measure_shares(axes_report: dict, rows: list[dict]) -> None:
         )
 
 
+def _measure_teacher_pinning(axes_report: dict, rows: list[dict]) -> None:
+    """Axis 14: every row pins the teacher that wrote it, and one style rules.
+
+    Provenance is a fact the row carries, not a hope the operator keeps:
+    ``verification.teacher.model`` names the model that answered, and a corpus
+    that quietly carries two is the v2 "diversity" that was really a mid-run
+    swap -- two house styles passed off as range. So a single pinned model is
+    always intentional; more than one is red until the operator declares that
+    exact set intentional through ``COSIMO_V3_TEACHER_ALLOWLIST``. A row with no
+    The audited population is the rows that *claim* teacher authorship -- a
+    ``verification.teacher`` dict. An exam row sets that field to ``None`` on
+    purpose (its item is composed by the computer, not dictated by a model),
+    and is therefore not this axis's to hold to a model pin; a prose, agentic
+    or implementation row carries the dict and must name who wrote it. A row
+    with no ``verification`` envelope at all is axis 1's finding: the board
+    files a break once and does not stack a provenance finding on a schema one.
+    """
+    axis = axes_report["teacher pinned"]
+    models: dict[str, list[str]] = {}
+    unpinned: list[str] = []
+    audited = 0
+    for row in rows:
+        verification = row.get("verification")
+        if not isinstance(verification, dict):
+            continue
+        teacher = verification.get("teacher")
+        if teacher is None:
+            continue  # composed, not dictated: the row says it has no teacher
+        if not isinstance(teacher, dict):
+            continue
+        audited += 1
+        model = teacher.get("model")
+        rid = str(row.get("id", "?"))
+        if not (isinstance(model, str) and model.strip()):
+            unpinned.append(rid)
+        else:
+            models.setdefault(model, []).append(rid)
+    axis["checked"] = audited
+    for rid in unpinned:
+        axis["failures"].append(
+            {
+                "id": rid,
+                "problem": (
+                    "the row pins no teacher model in verification.teacher.model "
+                    "-- provenance is unpinned and a silent swap could not be "
+                    "seen (axis 14)"
+                ),
+            }
+        )
+    if len(models) > 1:
+        observed = frozenset(models)
+        if not observed <= config.teacher_allowlist():
+            listed = ", ".join(
+                f"{model} ({len(ids)} rows)" for model, ids in sorted(models.items())
+            )
+            axis["failures"].append(
+                {
+                    "id": "<slice>",
+                    "problem": (
+                        f"the corpus mixes teachers -- {listed}; a mid-run swap is "
+                        "how you get two house styles and call it diversity. Run "
+                        "one teacher, or declare the mix intentional via "
+                        f"{config.TEACHER_ALLOWLIST_ENV}="
+                        f"{','.join(sorted(observed))!r} (axis 14)"
+                    ),
+                }
+            )
+
+
+def _measure_gold_bar(axes_report: dict, rows: list[dict], gold_bar_path: str) -> None:
+    """Axis 13: no training row may read like a gold-bar item (spec §5.11).
+
+    The gold bar is the held-out human set -- eval material -- and a train row
+    that near-duplicates one is a leak, not coverage. The fence is the same
+    Jaccard shingle overlap the preference lane trusts, at the shared control
+    threshold. It is a measurement needing both sides: with no bar at the
+    configured path the axis reports what it could not do rather than shade a
+    corpus red for the absence of a human artefact a CI box has never held --
+    but ``publish`` treats that same absence as red, for a real publish has no
+    excuse to ship without the fence standing.
+    """
+    axis = axes_report["gold-bar near-dup"]
+    if not os.path.isfile(gold_bar_path):
+        axis["checked"] = 0
+        axis["note"] = (
+            f"no gold bar at {gold_bar_path!r}: the near-duplicate fence could "
+            "not run (publish refuses on this)"
+        )
+        return
+    try:
+        gold = write.read_jsonl(gold_bar_path)
+    except ValueError as exc:  # a corrupt bar is a finding on the fence itself
+        axis["checked"] = 0
+        axis["failures"].append({"id": gold_bar_path, "problem": str(exc)})
+        return
+    gold_texts = [
+        (
+            str(item.get("id", "?")),
+            str(item.get("answer") or item.get("content") or ""),
+        )
+        for item in gold
+    ]
+    gold_texts = [(gid, text) for gid, text in gold_texts if text.strip()]
+    axis["checked"] = len(rows)
+    for row in rows:
+        text = str(row.get("answer") or "")
+        if not text.strip():
+            continue
+        for gid, gold_text in gold_texts:
+            overlap = shingle_overlap(text, gold_text)
+            if overlap >= config.GOLDBAR_NEAR_DUP_THRESHOLD:
+                axis["failures"].append(
+                    {
+                        "id": str(row.get("id", "?")),
+                        "problem": (
+                            f"train row reads {overlap:.2f} against gold-bar item "
+                            f"{gid!r}, at or over the "
+                            f"{config.GOLDBAR_NEAR_DUP_THRESHOLD} near-duplicate "
+                            "fence -- a leak of the held-out set into training "
+                            "(axis 13)"
+                        ),
+                    }
+                )
+                break
+
+
+def _check_pair(
+    pair: dict, dead_ids: frozenset[str], parent_loader
+) -> dict[str, list[str]]:
+    """Per-axis failure messages for one preference pair; empty lists mean clean.
+
+    The pack is recomputed and the parent row fetched from the shard its
+    kind names; the pair's stored bytes are then graded against that
+    authority. Axes 3, 4 and 5 take the *chosen side's* clauses -- a chosen
+    that claims to tell the pack is graded as any prose lane is -- and
+    axis 12 owns the pair's own physics: id disjointness by prefix, the
+    no-copy thresholds, and whether the rejected side actually committed
+    the named crime. A pair that cannot locate its parent is an integrity
+    finding on 12, not an orphan to be forgiven.
+    """
+    failures: dict[str, list[str]] = {name: [] for _, name in AXES}
+    try:
+        work_type = pair["work_type"]
+        variant = pair["variant"]
+        kind = pair["parent_kind"]
+        family = pair["scenario_id"][len(work_type) + 1 :]
+    except (KeyError, TypeError):
+        failures["schema"].append(
+            "the pair does not carry the coordinates the board reads it by"
+        )
+        return failures
+    rid = pair.get("id", "?")
+    if str(rid) in dead_ids:
+        failures["schema"].append(
+            "pair is simultaneously live in preference/ and dead-lettered -- one "
+            "of the two files is lying; delete the entry that is wrong and replay"
+        )
+    try:
+        pack = compute_pack(work_type, family, variant)
+    except PackError as exc:
+        failures["pack recompute"].append(f"pack no longer computable: {exc}")
+        return failures
+    stamp = (pair.get("verification") or {}).get("pack_seed")
+    expected_stamp = f"{pack_seed(work_type, family, variant):016x}"
+    if stamp != expected_stamp:
+        failures["pack recompute"].append(
+            f"seed stamp {stamp!r} does not match the seed its coordinates hash "
+            f"to ({expected_stamp!r})"
+        )
+    if str(rid) != pair_id(work_type, family, kind, variant):
+        failures["pack recompute"].append(
+            "id does not hash from the coordinates the pair carries -- a pasted "
+            "or hand-written id, not a derived one"
+        )
+    parent = parent_loader(kind, pair.get("source_sft_id"))
+    for violation in pair_gate_violations(pack.to_dict(), parent, pair):
+        if violation.startswith(PREF_TAG_SHAPE):
+            failures["schema"].append(violation)
+        elif violation.startswith((PREF_TAG_TAMPER, TAG_COPY, TAG_PITFALL)):
+            failures["preference disjointness"].append(violation)
+        elif "chosen side: invented numbers" in violation:
+            failures["invented numbers"].append(violation)
+        elif "chosen side:" in violation and (
+            "must_mention" in violation or "forbidden" in violation
+        ):
+            failures["must_mention / forbidden_claims"].append(violation)
+        elif "chosen side:" in violation and "exam contract" in violation:
+            failures["FINAL ANSWER is exam-only"].append(violation)
+        else:  # untagged residue is structure of a side; the shape axis reads it
+            failures["schema"].append(violation)
+    return failures
+
+
 def verify_dir(
     out_dir: str,
     *,
-    kinds: tuple[str, ...] = (*BRIEF_KINDS, AGENTIC_KIND, EXAM_KIND, IMPL_KIND),
+    kinds: tuple[str, ...] = (
+        *BRIEF_KINDS,
+        AGENTIC_KIND,
+        EXAM_KIND,
+        IMPL_KIND,
+        PREFER_KIND,
+    ),
+    quick: bool = False,
+    gold_bar_path: str | None = None,
 ) -> dict:
     """Run every implemented axis over ``<out>/sft/`` and report.
 
@@ -575,11 +804,26 @@ def verify_dir(
     "note"?}}}`` -- the optional ``note`` is a measurement that could not be
     certified for want of support, printed by the CLI and never red.
     """
-    axes_report = {name: {"checked": 0, "failures": []} for _, name in AXES}
+    skipped = EXPENSIVE_AXES if quick else frozenset()
+    bar_path = config.gold_bar_v3_path() if gold_bar_path is None else gold_bar_path
+    axes_report: dict[str, dict] = {}
+    for _, name in AXES:
+        axes_report[name] = (
+            {
+                "checked": 0,
+                "failures": [],
+                "skipped": True,
+                "note": "--quick: expensive axis not run",
+            }
+            if name in skipped
+            else {"checked": 0, "failures": []}
+        )
     ok = True
     rows_seen = 0
     all_rows: list[dict] = []
     for kind in kinds:
+        if kind == PREFER_KIND:
+            continue  # pairs live in their own shard and their own config
         path = write.path_for("sft", kind, out_dir)
         try:
             rows = write.read_jsonl(path)
@@ -594,13 +838,56 @@ def verify_dir(
             # One audit per row, all axes read from it: ``_check_row``
             # re-derives the pack, and doing that once per axis multiplied the
             # bill by the number of axes for nothing.
-            result = _check_row(row, dead_ids)
+            result = _check_row(row, dead_ids, quick=quick)
             for _, name in AXES:
+                if name in skipped:
+                    continue
                 axes_report[name]["checked"] += 1
                 for problem in result[name]:
                     axes_report[name]["failures"].append(
                         {"id": row.get("id", "?"), "problem": problem}
                     )
+    if PREFER_KIND in kinds and not quick:
+        parent_cache: dict[str, dict[str, dict]] = {}
+
+        def parent_loader(kind, source_id):
+            """The parent SFT row by id, shard cached.
+
+            A corrupt parent shard was already recorded (and ``ok`` already
+            falsified) by the supervised pass over the very same file; here
+            it reads empty, which the pair gate files as an orphan finding
+            on axis 12 rather than losing twice.
+            """
+            if kind not in parent_cache:
+                try:
+                    rows = write.read_jsonl(write.path_for("sft", kind, out_dir))
+                except ValueError:
+                    parent_cache[kind] = {}
+                else:
+                    parent_cache[kind] = {r.get("id"): r for r in rows}
+            return parent_cache[kind].get(source_id)
+
+        dead_pref = write.existing_ids(
+            write.path_for("dead_letter", PREFER_KIND, out_dir)
+        )
+        for pair in write.read_jsonl(write.path_for("preference", "pairs", out_dir)):
+            rows_seen += 1
+            # Deliberately not into ``all_rows``: the share axes weigh the
+            # supervised corpus (spec §5.2 keeps the preference config
+            # separate); pairing a tenth of the analyses must not move the
+            # exam-share band it never touched.
+            result = _check_pair(pair, dead_pref, parent_loader)
+            for _, name in AXES:
+                if name in skipped:
+                    continue
+                axes_report[name]["checked"] += 1
+                for problem in result[name]:
+                    axes_report[name]["failures"].append(
+                        {"id": pair.get("id", "?"), "problem": problem}
+                    )
     _measure_shares(axes_report, all_rows)
+    _measure_teacher_pinning(axes_report, all_rows)
+    if not quick:
+        _measure_gold_bar(axes_report, all_rows, bar_path)
     ok = ok and not any(a["failures"] for a in axes_report.values())
     return {"ok": ok, "rows": rows_seen, "axes": axes_report}

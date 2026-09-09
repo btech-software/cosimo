@@ -12,10 +12,10 @@ PR2 wired ``inventory``, ``packs``, ``smoke``, ``render`` and ``verify``;
 PR3 added the agentic lane to render and to the board; PR4 adds the exam
 lane (composed, no teacher), the implementation lane (composed record,
 authored limitations, sandboxed suite) and the corpus-measurement and
-hidden-test axes. ``prefer`` and ``publish`` are recognised, parse the flags
-spec §7 shows (so the DAG's command lines are written and stable today) and
-then exit 2 naming the PR that fills them -- "not built yet", never
-"not found".
+hidden-test axes. ``prefer`` and ``publish`` were the last to arrive and now
+run for real, so every command the DAG's command lines name (spec §7) is
+wired: each parses today and does the work it names, rather than exiting 2 to
+mark a PR still ahead of it.
 
 Run from the repo root (``make v3-smoke``) or from ``dataset/``:
 both paths resolve through the same ``sys.path`` bootstrap every corpus
@@ -35,6 +35,8 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
         sys.path.insert(0, _p)
 
 from . import config, inventory, stage, write  # noqa: E402
+from .prefer import run_prefer_stage  # noqa: E402
+from .publish import run_publish  # noqa: E402
 from .render.agentic import KIND as AGENTIC_KIND  # noqa: E402
 from .render.agentic import run_agentic_stage  # noqa: E402
 from .render.exam import EXAM_KIND, run_exam_stage  # noqa: E402
@@ -320,10 +322,10 @@ def cmd_render(args) -> int:
 
 def cmd_verify(args) -> int:
     out_dir = os.path.abspath(args.out or config.out_dir())
-    report = verify_dir(out_dir)
+    report = verify_dir(out_dir, quick=args.quick)
     mode = (
-        "quick (--quick: the dedup/gold-bar axes arrive with PR4; schema, "
-        "replay and the share bands are all cheap and always run)"
+        "quick (--quick: the hidden-suite and near-duplicate axes are witheld; "
+        "schema, replay, the share bands and teacher pinning are cheap and run)"
     )
     print(
         f"verify: {out_dir} -- {report['rows']} rows"
@@ -333,6 +335,8 @@ def cmd_verify(args) -> int:
         axis = report["axes"][name]
         if axis["failures"]:
             mark = f"FAIL ({len(axis['failures'])})"
+        elif axis.get("skipped"):
+            mark = "skipped"  # --quick withheld an expensive axis on purpose
         elif axis.get("note"):
             mark = "reported"  # measured, not certifiable at this support
         else:
@@ -353,16 +357,73 @@ def cmd_verify(args) -> int:
     return EXIT_OK
 
 
-def _not_built(pr: str):
-    def run(args) -> int:
+def cmd_prefer(args) -> int:
+    """Second pass over the shipped rows: pairs the draw picks, not the dice."""
+    out_dir = os.path.abspath(args.out or config.out_dir())
+    types = _split_types(args.types)
+    if types and not set(types) <= set(config.PREF_PROBABILITIES):
+        unknown = sorted(set(types) - set(config.PREF_PROBABILITIES))
         print(
-            f"{args.command}: arrives in {pr} -- recognised and parsed "
-            "(spec §7 keeps the DAG command lines stable across PRs), but not wired yet",
+            f"prefer: pairs are drawn for "
+            f"{', '.join(sorted(config.PREF_PROBABILITIES))}; unknown --types "
+            f"{', '.join(unknown)} (exam and implementation rows are their own "
+            "contracts and carry no pair)",
             file=sys.stderr,
         )
         return EXIT_USAGE
+    try:
+        teacher = teacher_from_env(live=True if args.live else None)
+        report = run_prefer_stage(out_dir, teacher, types=types, limit=args.limit)
+    except (TeacherError, ValueError, OSError) as exc:
+        print(f"prefer: {exc}", file=sys.stderr)
+        return EXIT_DATA
+    print(
+        f"prefer: {report['rendered']} pairs written, "
+        f"{report['existing']} already on disk, {report['dead_lettered']} dead-lettered "
+        f"(of {report['jobs_seen']} drawn from the shipped rows; "
+        f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate) -> {out_dir}"
+    )
+    for kind in sorted(report["by_kind"]):
+        cell = report["by_kind"][kind]
+        print(
+            f"  {kind:<12} pairs {cell['rendered']:>5}  existing {cell['existing']:>5}"
+        )
+    for row in report["skipped_by_pack_gate"][:8]:
+        print(
+            f"  pair skipped: {row['work_type']}/{row['scenario_id']}"
+            f"/{row.get('parent_kind')}/{row.get('pitfall')} -- {row['reason']}",
+            file=sys.stderr,
+        )
+    if len(report["skipped_by_pack_gate"]) > 8:
+        print(
+            f"  ... and {len(report['skipped_by_pack_gate']) - 8} more",
+            file=sys.stderr,
+        )
+    return EXIT_OK
 
-    return run
+
+def cmd_publish(args) -> int:
+    """The last gate: certify the corpus whole, then write the card or refuse."""
+    out_dir = os.path.abspath(args.out or config.out_dir())
+    result = run_publish(
+        out_dir, dry_run=args.dry_run, hub_id=args.repo_id or config.hub_repo_id()
+    )
+    for reason in result["refusals"]:
+        print(f"publish: {reason}", file=sys.stderr)
+    if not result["ok"]:
+        print("PUBLISH REFUSED", file=sys.stderr)
+        return EXIT_DATA
+    tally = result["tally"]
+    verb = "would write" if args.dry_run else "wrote"
+    print(
+        f"publish: {verb} {result['card_path']!r} -- {tally['rows']} rows "
+        f"({tally['supervised']} supervised, {tally['eval']} eval, "
+        f"{tally['pairs']} pairs) over {tally['work_types']} work types / "
+        f"{tally['families']} families, clean across {len(AXES)} axes"
+    )
+    if args.dry_run:
+        print("publish: --dry-run wrote nothing", file=sys.stderr)
+    return EXIT_OK
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -423,14 +484,28 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_verify)
 
     p = sub.add_parser("prefer", help="contrastive preference pairs (PR4)")
-    p.add_argument("--types", help="limit pitfall families")
+    p.add_argument("--out", help="corpus root (default: config.out_dir())")
+    p.add_argument(
+        "--types",
+        help="comma list of parent record types (default: every paired kind)",
+    )
     p.add_argument("--limit", type=int)
-    p.set_defaults(func=_not_built("PR4"))
+    p.add_argument(
+        "--live",
+        action="store_true",
+        help="force the live teacher (COSIMO_V3_LIVE=1 also does; default is the fixture)",
+    )
+    p.set_defaults(func=cmd_prefer)
 
     p = sub.add_parser("publish", help="the v3 branch of push_to_hub (PR4)")
-    p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--repo-id")
-    p.set_defaults(func=_not_built("PR4"))
+    p.add_argument("--out", help="corpus root (default: config.out_dir())")
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="run the gate and print the card without writing it",
+    )
+    p.add_argument("--repo-id", help="the Hub repository id to record on the card")
+    p.set_defaults(func=cmd_publish)
     return parser
 
 
