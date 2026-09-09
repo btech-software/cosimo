@@ -1,0 +1,483 @@
+{
+  "entries": {
+    "0205643aed605790b7521736605c045b245035276e2f436215044f26ada00412": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "0481d8d62104c7cc1ef7bae3b99dfcc0a4aa130bd5abfd675fafa3d430069881": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "1996e6a6ba4ccd27f92fa2150f0009d3290198e18be8ed98ce38460ae1ab7811": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "20030190b7976f2e9d54a796ce5a33e9e9e9a35f4e74e769f163b0de13db1096": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "20fea9b6760bb242e22ebe8de481f7aac44c980f42280d1657dc49607ef88af6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "2e2ee70cb72dbc18a6cfca69c3f63f7c6aabc853b18ed247dd116c655864da9d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "396a039e642019a60c7810c6d8366184f13865435150232c1bd4f39663d576b8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "3f75be9ed2b22f8aaced65a6449fb46f3a3b8eb6a509c9c5ded521a47b55bd0a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "551e1d885b0b7fe8f052a9c9f28ead210b22dfccae7760dc97f48881d7e84a96": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "79537dae7983814b6a4b9d745687c1336273e0371027866324a5a40aa7149c3c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "7a69ed79df60b05327f926037369886673ebf642e05bb2101990e44793eb4f57": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "8173381f682ef2f9f994794c3b78aa0779ece4ddc16f2c0c9a42419117421385": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "81f46ee8297a1123d116c8cec19bed6975c1dc2644f1a7e85c6fecf260b421fd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "8fa95fdae2fb84e7e388152a6b875c54a0c61e073a1e7870e1f27be4cfe76747": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "97e3abc4160a8e0c9f1212d28073b65d95ab8d309978766a2d0c085247393341": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "a9bf0245cf4cc2f8f61ae9cb475e45e803e9a9161616584aab71b9e365802229": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "af73ea9cc96c897fb8a0e1b55760522ad017368cf8a480ef5be0dfa9998218d1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "b0ff7bd599b602a326c814f84cd49146e76031f7e54ae6bfb8cdc90a6b44ff54": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "b2e2b5eb7b26eb4b8632f6f84687a9b4e92c86926ab929161415891c3ae931aa": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "caa0bf041c2750e23a84e7ae98131958d0d08eaa7ae7c6bb4389eb431b09a0f6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "ce45e5d70bbad98111044ca8fa265ade586cb46e13f61b92dc4b188d8d371d30": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "cf7ebfb04fb8db8884d064e8a4fcbcfd0d2d7640d68f66f0483c2a1bbae8593f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "d3097b58a2e7d90f7f747ba3ad9b40617719487084cd378fec4a9c4018c7a624": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "d892ea05d2b1a3da241745d696e0f7a20c700afdf74c54d703a6c4e257493e22": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "d98798cc3df6556c5079f122f0d43bdca13abde430cb2fa02012c21b6199301b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "e3da44004cfb4979553f01fcd4132d109214dd2c7abde54119097387a21290d0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "ebd1012dc2218dfcabdee6a49284cb866ccb0ac8c1cb969acf93fea7d48a6d03": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "f212fcb5096ca00e6dcdb1f4cf34c681799c14659706b60ec78a8e4713d99220": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    },
+    "f4135f14bb8b5fceff4820b7eb2ca7ef46c0c4fecb3aa89d13491afd304aafeb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
+            "reasoning_content": "Checked against the pack: no figure restated.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-impl",
+      "usage": {
+        "total_tokens": 40
+      }
+    }
+  },
+  "meta": {
+    "entries": 29,
+    "jobs_examined": 30,
+    "limit": 30,
+    "record_type": "implementation",
+    "work_types": [
+      "execution.tca.arrival",
+      "portfolio.attribution.brinson_carino",
+      "risk.market.var_es",
+      "valuation.equity.dcf",
+      "valuation.equity.multiples"
+    ]
+  },
+  "model": "fixture-impl",
+  "version": 1
+}

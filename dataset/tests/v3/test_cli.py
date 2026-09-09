@@ -163,7 +163,7 @@ def test_smoke_fails_loudly_on_a_shattered_computer(corpus, capsys, monkeypatch)
 
 
 def test_the_dag_command_lines_parse_today_exit_tomorrow(corpus, capsys):
-    """Spec §7's Airflow cells, verbatim, must parse -- and report their PR."""
+    """Spec §7's Airflow cells, verbatim: the whole line now runs for real."""
     lines = [
         ["inventory", "--out", os.path.join(corpus, "plan.json")],
         ["packs", "--plan", os.path.join(corpus, "plan.json")],
@@ -176,22 +176,25 @@ def test_the_dag_command_lines_parse_today_exit_tomorrow(corpus, capsys):
     assert cli.main(lines[0]) == cli.EXIT_OK
     assert cli.main(lines[1]) == cli.EXIT_OK
     assert cli.main(lines[6]) == cli.EXIT_OK
-    # PR2 wired render and verify: the spec's own bake-off line now runs for
-    # real. Offline it speaks through the committed echo fixture, whose
+    # PR2 wired render and verify, PR4 wired prefer and publish: every one of
+    # the spec's lines now runs for real, so none exits 2 to mark a PR ahead of
+    # it. Offline render speaks through the committed echo fixture, whose
     # wildcard answer cannot pass the prose gate -- every row is honestly
-    # dead-lettered and the board says so; a green exit here means "the disk
-    # matches the claims", not "the teacher was good today".
+    # dead-lettered -- so the pair stage draws nobody and publish has nothing to
+    # certify: publish is expected to *refuse* this corpus (no rows, no gold-bar
+    # fence), which is the gate doing its job, not a stub standing in for it.
     assert cli.main(lines[2]) == cli.EXIT_OK
     assert cli.main(lines[3]) == cli.EXIT_OK
-    stubs = ((lines[4], "PR4"), (lines[5], "PR4"))
-    for argv, _pr in stubs:
-        assert cli.main(argv) == cli.EXIT_USAGE
+    assert cli.main(lines[4]) == cli.EXIT_OK
+    assert cli.main(lines[5]) == cli.EXIT_DATA
     printed = _outerr(capsys)
-    for argv, pr in stubs:
-        assert f"{argv[0]}: arrives in {pr}" in printed, argv
     assert re.search(
         r"0 rows rendered, 0 already on disk, [1-9]\d* dead-lettered", printed
     ), "with no real teacher in the room, every asked row must die at the gate"
+    assert "prefer:" in printed and "pairs written" in printed, (
+        "the pair stage must report its pass, not merely exit green"
+    )
+    assert "PUBLISH REFUSED" in printed, "publish must refuse an empty, unfenced corpus"
 
 
 def test_an_unknown_command_is_usage_not_a_crash(corpus, capsys):

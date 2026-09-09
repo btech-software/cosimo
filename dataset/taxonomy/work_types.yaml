@@ -27,7 +27,7 @@ valuation.equity.dcf:
     fade_required: {holdout: true}
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 80
+    exam: 60
     analysis: 120
     memo: 40
     critique: 30
@@ -46,7 +46,7 @@ valuation.equity.multiples:
     consumer_platforms: {holdout: true}
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 80
+    exam: 60
     analysis: 120
     memo: 40
     critique: 30
@@ -65,7 +65,7 @@ risk.market.var_es:
     credit_focused: {holdout: true}
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 80
+    exam: 60
     analysis: 120
     memo: 40
     critique: 30
@@ -84,7 +84,7 @@ portfolio.attribution.brinson_carino:
     em_multi_asset: {holdout: true}
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 80
+    exam: 60
     analysis: 120
     memo: 40
     critique: 30
@@ -103,7 +103,7 @@ execution.tca.arrival:
     etf_rebalance: {holdout: true}
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 80
+    exam: 60
     analysis: 120
     memo: 40
     critique: 30

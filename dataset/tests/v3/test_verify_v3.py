@@ -88,7 +88,16 @@ def test_the_pristine_corpus_passes_and_counts_every_row(corpus):
     assert report["ok"] is True
     assert report["rows"] == N_ROWS
     for _, name in AXES:
-        assert report["axes"][name]["checked"] == N_ROWS
+        checked = report["axes"][name]["checked"]
+        if name in {"exam liturgy share", "gold-bar near-dup"}:
+            # Corpus-level axes that weigh a slice this control corpus does not
+            # carry: no exam rows to measure a liturgy over, no gold bar staged
+            # beside the shard to fence against. Both said so (a note, never a
+            # failure) rather than counting rows they never read -- which the
+            # pristine-ok assertion above already proves did not shade red.
+            assert checked == 0
+        else:
+            assert checked == N_ROWS
 
 
 def test_the_untampered_copy_fails_no_axis(corpus, tmp_path):

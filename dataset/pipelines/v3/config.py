@@ -30,6 +30,75 @@ EXAM_SHARE_BAND = (0.12, 0.18)
 LITURGY_CAP = 0.25
 FAMILY_MAX_SHARE = 0.03
 
+# The exam slice (analysis spec §5.10). The liturgy is not left to the
+# sampler's luck: it is a residue class of the variant -- 1 in
+# EXAM_LITURGY_MODULUS, strictly under LITURGY_CAP -- so no pre-thinning
+# slice can overshoot the cap, and the board still measures the shipped
+# corpus rather than trusting the sampler. A measured overshoot after
+# pack-guard thinning is itself a finding: the slice thinned unevenly.
+EXAM_LITURGY_MODULUS = 5
+EXAM_LITURGY_RESIDUE = 4
+#: §5.10: a distractor that cannot be made distinct is dropped, never
+#: inflated ("do not add 7.0"); an item that cannot reach MIN distinct
+#: distractors is no item at all and is dead-lettered, not shipped thin.
+EXAM_MIN_DISTRACTORS = 2
+EXAM_MAX_DISTRACTORS = 3
+#: Share-support floors for the corpus-level axes 6-8: below these counts a
+#: share is a ratio of noise, and a gate that measured noise would either
+#: shade red forever or be switched off. The axes therefore *report* on thin
+#: samples and certify -- can shade -- only on samples with support; the
+#: certification site for the full corpus is the publish gate.
+SHARE_MIN_ROWS = 200
+SHARE_MIN_PER_FAMILY = 30
+SHARE_MIN_EXAM_ROWS = 50
+#: The emitted-corpus reading of the §5.1 family cap (see the axis-7 note on
+#: the board): no family's share may exceed the leanest family's by more
+#: than this factor, which is the dominance the cap exists to prevent, read
+#: at a scale where ten stems can actually be balanced.
+FAMILY_BALANCE_TOLERANCE = 1.25
+
+# The preference slice (analysis spec §5.7, arch spec §5.6). Pair generation
+# is a second pass over *shipped* SFT rows, so its ladders live beside the
+# prose one it repairs against: the chosen side is a paraphrase (temperature
+# 0.7 per §5.6) that must clear the whole prose gate, and one cold retry is
+# the difference between a pair and a dead letter. ``PREF_MAX_SHINGLE_OVERLAP``
+# is the acceptance criterion 5 ("chosen not-equal SFT target, n-gram overlap
+# below a set threshold") with the threshold actually set: 0.6 on the Jaccard
+# index of 8-word shingles is far enough from 1.0 that v1's near-copy rejected
+# sides -- chosen with one number changed -- could never pass for a pair.
+PREF_ATTEMPTS = 2
+PREF_TEMPERATURES = (0.7, 0.3)
+PREF_SHINGLE_WORDS = 8
+PREF_MAX_SHINGLE_OVERLAP = 0.6
+#: The rejected side is not run through the prose gate (its crime is the
+#: point); fluency is a word-count band, deliberately generous, deliberately
+#: narrow: a shrug is not a training signal and a thousand words is a novel.
+PREF_MIN_REJECTED_WORDS = 20
+PREF_MAX_REJECTED_WORDS = 400
+#: §5.7 verbatim: the per-type probability a shipped row is paired.
+PREF_PROBABILITIES = {
+    "analysis": 0.25,
+    "memo": 0.25,
+    "critique": 0.25,
+    "grounded": 0.25,
+    "abstention": 0.40,
+}
+
+# The implementation slice (analysis spec §5.9). ``limitations`` is the one
+# authored field of the record and it is fact-locked like any prose that
+# touches numbers -- §5.6's "temperature 0 on anything allowed to touch
+# numbers that are not already in the pack" -- so the ladder is nearly cold
+# and short: a second attempt at 0.1 is a different sample, a third would be
+# hoping. ``SANDBOX_TIMEOUT_S`` bounds what a hung instrument can cost the
+# board that re-executes it; a reference is a pure function, so five seconds
+# is minutes of slack, not a budget.
+IMPL_ATTEMPTS = 2
+IMPL_TEMPERATURES = (0.1, 0.0)
+SANDBOX_TIMEOUT_S = 5.0
+#: A limitation statement shorter than this is not a limitation; it is a
+#: shrug in a field (§5.9: the field must state what the record omits).
+MIN_LIMITATION_WORDS = 8
+
 # The registers a renderer may target; a row whose pack register is not one of
 # these was composed by something that was not the register contract.
 VALID_REGISTERS = ("desk_chat", "ic_memo", "risk_committee", "auditor", "code_review")
@@ -93,6 +162,35 @@ LIVE_ENV = "COSIMO_V3_LIVE"
 TEACHER_MODEL_REASONING_DEFAULT = "deepseek-v4-flash"
 TEACHER_MODEL_PROSE_DEFAULT = "qwen3.8-flash-next"
 
+# -- Publish gate (spec §6 axes 12-13) and the gold bar (§5.11) --------------
+#: The human gold bar the train corpus is fenced against for near-duplication.
+#: It is *not* generator output -- a charterholder/desk reviewed set -- and the
+#: v3 fence is the same Jaccard shingle instrument the preference lane and
+#: ``suite_overlap`` trust. A train row that reads this close to a gold item is
+#: a leak of the eval set into training, not diversity, so the bar and the
+#: threshold are both control-plane, not caller-chosen.
+GOLDBAR_FILENAME = "gold_bar_v3.jsonl"
+GOLDBAR_NEAR_DUP_THRESHOLD = 0.6
+#: The bar is a source artefact, so the path is a control-plane value: the
+#: default is the commited human file, but CI and the tests point this at a
+#: synthetic one to exercise the fence -- which is exactly why the gate checks
+#: *presence* rather than trusting the path to be the real bar.
+GOLDBAR_ENV = "COSIMO_V3_GOLDBAR"
+
+#: Teacher provenance is pinned per row (``verification.teacher.model``); a
+#: corpus that mixes models is a mistake until an operator says it is on
+#: purpose. This env lists, comma-separated, the models whose mixing is
+#: declared intentional; absent or empty means exactly one teacher may appear,
+#: and the board need not be asked to allow a second style by silence.
+TEACHER_ALLOWLIST_ENV = "COSIMO_V3_TEACHER_ALLOWLIST"
+
+#: The publish card and the Hub id it carries. Absolute paths only (spec §7):
+#: a CWD-relative card is the v2 bug where CI "publishes" into a temp dir and
+#: passes by publishing nothing.
+PUBLISH_DIR_ENV = "COSIMO_V3_PUBLISH_DIR"
+HUB_REPO_ID_ENV = "COSIMO_V3_HUB_REPO"
+DATASET_CARD_FILENAME = "dataset_card_v3.md"
+
 
 def out_dir() -> str:
     """Absolute root of the v3 shard tree (spec §12: never CWD-relative)."""
@@ -123,6 +221,45 @@ def default_teacher_fixture() -> str:
     return os.path.abspath(
         os.path.join(BASE_DIR, "tests", "v3", "fixtures", "teacher_echo.json")
     )
+
+
+def gold_bar_v3_path() -> str:
+    """Absolute path of the human v3 gold bar the publish gate fences against.
+
+    Source, not out-dir artefact: like the replay fixtures the bar must be a
+    commited, reviewable file, and it lives beside the frozen v2
+    ``gold_bar.jsonl`` as its *disjoint* successor -- spec §5.11 is emphatic
+    that it is not generator output, which is why the gate reads a path the
+    operator points at rather than synthesising one.
+    """
+    return os.path.abspath(
+        os.environ.get(GOLDBAR_ENV)
+        or os.path.join(BASE_DIR, "goldbar", GOLDBAR_FILENAME)
+    )
+
+
+def publish_dir() -> str:
+    """Where ``publish`` writes the v3 dataset card (spec §7: absolute, never CWD)."""
+    return os.path.abspath(
+        os.environ.get(PUBLISH_DIR_ENV) or os.path.join(BASE_DIR, "publish")
+    )
+
+
+def teacher_allowlist() -> frozenset[str]:
+    """The teacher models whose mixing the operator has declared intentional.
+
+    Read per call like every other control-plane value -- a corpus is
+    certified against the environment of the box that certified it -- and a
+    comma-separated list is the whole syntax. An absent env is the empty set,
+    the strictest reading: one teacher throughout, or the mix is not allowed.
+    """
+    raw = os.environ.get(TEACHER_ALLOWLIST_ENV, "")
+    return frozenset(token.strip() for token in raw.split(",") if token.strip())
+
+
+def hub_repo_id() -> str | None:
+    """The Hub repo id the dataset card records, or None when it is not set."""
+    return os.environ.get(HUB_REPO_ID_ENV) or None
 
 
 def supervised_id(record_type: str, seed: int) -> str:
