@@ -12,7 +12,7 @@ import yaml
 
 from cosimo_ft import config as config_mod
 
-from conftest import CONFIG_DIR
+from harness_fixtures import CONFIG_DIR
 
 STAGES = ("data", "eval", "sft", "dpo", "orpo")
 

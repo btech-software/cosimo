@@ -56,17 +56,23 @@ def _regenerated_bytes(payload: dict, tmp_path) -> bytes:
 
 
 def _serving_harness():
-    """The harness's template renderer, loaded under a name that cannot collide
-    with this suite's own conftest."""
+    """The harness's template renderer, loaded by path under our own alias.
+
+    From ``tests/harness_fixtures.py``, not ``tests/conftest.py``: the helpers
+    moved there precisely because a module named ``conftest`` cannot be imported
+    by name once two test trees are in one pytest run. Loading the helper module
+    also drops a dependency this file never wanted -- ``conftest.py`` imports
+    pytest and declares fixtures, none of which is any use here.
+    """
     if "cosimo_ft" not in sys.modules:
         sys.path.insert(0, _HARNESS_ROOT)
     from cosimo_ft import chat  # noqa: E402
 
-    name = "v3_harness_conftest"
+    name = "v3_harness_fixtures"
     module = sys.modules.get(name)
     if module is None:
         spec = importlib.util.spec_from_file_location(
-            name, os.path.join(_HARNESS_ROOT, "tests", "conftest.py")
+            name, os.path.join(_HARNESS_ROOT, "tests", "harness_fixtures.py")
         )
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module

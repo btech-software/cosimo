@@ -18,7 +18,7 @@ import pytest
 from cosimo_ft import chat
 from cosimo_ft import config as config_mod
 
-from conftest import CHAT_TEMPLATE_PATH, EOS_TOKEN, FakeTokenizer
+from harness_fixtures import CHAT_TEMPLATE_PATH, EOS_TOKEN, FakeTokenizer
 
 QUESTION = "A bond pays 5% annually. What is its current yield at a price of 98?"
 COMPLETION = "Current yield = coupon / price.\n\nFINAL ANSWER: 5.10%"

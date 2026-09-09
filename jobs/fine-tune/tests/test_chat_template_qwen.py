@@ -29,7 +29,7 @@ import pytest
 from cosimo_ft import chat, tools
 from cosimo_ft import config as config_mod
 
-from conftest import EOS_TOKEN, FakeTokenizer
+from harness_fixtures import EOS_TOKEN, FakeTokenizer
 
 QUESTION = "What is the modified duration of the bond?"
 COMPLETION = "About 6.4 years, before convexity."
