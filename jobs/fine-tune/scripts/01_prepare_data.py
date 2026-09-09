@@ -12,27 +12,33 @@ itself: a holdout family that matched no record, an empty split, a generator
 label that disagrees with its verification template, or a preference pair whose
 rejected side carries a format cue are all failures, not warnings.
 
-Three properties of the mixed corpus shape the code below:
+Four properties of the corpus shape the code below:
 
-* **Five record types, one grading contract.** `FINAL ANSWER:` and the exam
-  protocol belong to `exam` rows only. The other four types are why v2 exists;
+* **Eight record types, one grading contract.** `FINAL ANSWER:` and the exam
+  protocol belong to `exam` rows only. The other seven are why v2 and v3 exist;
   rendering them in exam shape would rebuild the style collapse v1 produced.
 * **Only exam rows are gradeable.** `grading.grade_cosimo` reads a final-answer
   value, which a 900-token analysis does not have, so the two evaluation slices
   are exam-only and non-exam records never reach a `test` split.
-* **Preference rows may or may not share ids with supervised rows.** v2's do
-  not (the `cosimopref_` namespace); v1's do, which is what
-  `data.preference_holdout_frac` exists to work around.
+* **Preference rows may or may not share ids with supervised rows.** v2's and
+  v3's do not (the `cosimopref_` / `cosimov3pref_` namespaces); v1's do, which
+  is what `data.preference_holdout_frac` exists to work around.
+* **Two holdout axes.** v1/v2 hold out `v_`/`cr_`/`m_` stem families; v3 holds
+  out `<work_type>.<family>` scenario ids. `data_schema.normalize_v3_record`
+  maps both onto `stem_family`, so everything downstream stays corpus-blind.
 
 Example:
     ./scripts/01_prepare_data.py --force
     ./scripts/01_prepare_data.py --limit 500 --force   # fast smoke run
+    # v3 off a local shard tree, before the Hub repo exists:
+    ./scripts/01_prepare_data.py --set dataset.local_dir=../../dataset/shards/v3 --force
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import logging
 import math
 import random
@@ -141,6 +147,12 @@ def dataset_sources(cfg: dict) -> list[dict]:
         "revision": config_mod.get(cfg, "dataset.revision"),
         "preference_config": config_mod.get(cfg, "dataset.preference_config"),
         "max_share": None,
+        # A local v3 shard tree, read instead of the Hub. See dataset.local_dir
+        # in configs/base.yaml: v3's `publish` certifies and writes a card but
+        # does not push, so until the repo exists this is the only way to
+        # prepare a v3 corpus -- and it is also how a box with no network
+        # prepares any corpus.
+        "local_dir": config_mod.get(cfg, "dataset.local_dir"),
     }
     if not primary["hub_id"]:
         raise ValueError("dataset.hub_id is not set")
@@ -156,12 +168,87 @@ def dataset_sources(cfg: dict) -> list[dict]:
                 "revision": entry.get("revision", "main"),
                 "preference_config": entry.get("preference_config"),
                 "max_share": entry.get("max_share"),
+                "local_dir": entry.get("local_dir"),
             }
         )
     seen = [source["hub_id"] for source in sources]
     if len(set(seen)) != len(seen):
         raise ValueError(f"a corpus is listed twice in dataset.hub_id/mix: {seen}")
     return sources
+
+
+def load_local_rows(
+    source: dict,
+    *,
+    limit: int | None = None,
+    seed: int = 3407,
+) -> tuple[list[dict], list[dict], dict]:
+    """Load one corpus off a local v3 shard tree instead of the Hub.
+
+    The layout is the one ``dataset/pipelines/v3/write.py`` produces::
+
+        <local_dir>/sft/<record_type>.jsonl
+        <local_dir>/preference/pairs.jsonl
+
+    Rows are read verbatim: v3 writes raw JSONL, so ``messages``,
+    ``tool_schemas`` and ``verification`` arrive as native lists and dicts and
+    need none of the JSON-string decoding a Hub row does. Files are visited in
+    sorted order and each is sampled independently, so ``--limit`` yields a
+    slice of *every* record type rather than all of whichever one sorts first.
+
+    A missing ``sft/`` directory is an error, not an empty corpus: it almost
+    always means ``dataset.local_dir`` points at the repository's ``shards/v3``
+    before anything was rendered into it, and returning zero rows would surface
+    that four steps later as an unrelated "split is empty" failure.
+    """
+    local_dir = Path(source["local_dir"]).expanduser().resolve()
+    hub_id = source["hub_id"]
+    fingerprints: dict[str, dict] = {}
+
+    sft_dir = local_dir / "sft"
+    if not sft_dir.is_dir():
+        raise FileNotFoundError(
+            f"dataset.local_dir={local_dir} has no sft/ directory. Point it at a "
+            "v3 corpus root (the COSIMO_V3_OUT tree) and render into it first: "
+            "`python -m dataset.pipelines.v3.cli render`."
+        )
+
+    default_rows: list[dict] = []
+    for path in sorted(sft_dir.glob("*.jsonl")):
+        rows = [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        rows = subsample(rows, limit, seed)
+        for row in rows:
+            row["_source"] = hub_id
+        fingerprints[f"{local_dir}/sft/{path.stem}"] = rows_fingerprint(rows)
+        default_rows.extend(rows)
+        LOGGER.info("loaded %s: %d rows", path, len(rows))
+
+    pref_rows: list[dict] = []
+    pref_path = local_dir / "preference" / "pairs.jsonl"
+    if source.get("preference_config") and pref_path.is_file():
+        pref_rows = [
+            json.loads(line)
+            for line in pref_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        pref_rows = subsample(pref_rows, limit, seed)
+        for row in pref_rows:
+            row["_source"] = hub_id
+        fingerprints[f"{local_dir}/preference/pairs"] = rows_fingerprint(pref_rows)
+        LOGGER.info("loaded %s: %d rows", pref_path, len(pref_rows))
+    elif source.get("preference_config"):
+        # Not fatal: `prefer` is a separate stage and a supervised-only tree is
+        # a legitimate intermediate state. The empty-file gate in validate()
+        # still refuses to write a run whose preference split is empty.
+        LOGGER.warning(
+            "%s does not exist; no preference pairs will be prepared", pref_path
+        )
+
+    return default_rows, pref_rows, fingerprints
 
 
 def load_source_rows(
@@ -244,7 +331,8 @@ def load_hub_rows(
     pref_rows: list[dict] = []
     fingerprints: dict[str, dict] = {}
     for source in sources:
-        rows, prefs, prints = load_source_rows(source, limit=limit, seed=seed)
+        reader = load_local_rows if source.get("local_dir") else load_source_rows
+        rows, prefs, prints = reader(source, limit=limit, seed=seed)
         default_rows.extend(rows)
         pref_rows.extend(prefs)
         fingerprints.update(prints)
@@ -312,6 +400,26 @@ def subsample(records: list, limit: int | None, seed: int) -> list:
 
 def _blank(value: Any) -> bool:
     return not str(value or "").strip()
+
+
+def is_verified(row: dict) -> bool:
+    """Whether the corpus certified this row, in either corpus's idiom.
+
+    v1/v2 publish a top-level boolean ``verified``. v3 publishes no such
+    column: a row only reaches ``sft/`` after its render-time gates passed --
+    the invented-number check, ``must_mention``, the implementation sandbox --
+    and what it carries instead is the ``verification`` stamp naming the fact
+    computer and the pack seed that certified it. Corpus-wide verification is
+    then a property of the board (``verify_v3``), not of the row.
+
+    So the v3 reading of "verified" is "carries a verification stamp". A v3 row
+    without one did not come out of the renderer and is dropped for the same
+    reason a v2 row with ``verified: false`` is: its answer cannot be trusted as
+    a supervised target.
+    """
+    if data_schema.is_v3_row(row):
+        return bool(data_schema.decode_mapping(row.get("verification")))
+    return bool(row.get("verified", False))
 
 
 def is_blank_record(record: data_schema.CosimoRecord) -> bool:
@@ -541,6 +649,7 @@ def validate(
     exam_protocol: str,
     tag: str,
     eos_token: str = "",
+    preference_expected: bool = True,
 ) -> None:
     """Fail loudly. Checks the output against the configuration that produced it.
 
@@ -573,9 +682,27 @@ def validate(
             "measurement would not exist and those records would be in training"
         )
 
-    for name in DATA_FILES:
+    # An empty preference file is a failure when pairs were asked for and a
+    # legitimate state when they were not. `preference_expected` reads the
+    # configuration, not the file: a run that declared `preference_config` and
+    # produced no pairs has lost them somewhere, while an SFT-only run over a
+    # v3 tree that has not reached the `prefer` stage yet has nothing to lose.
+    # Keyed off config rather than off emptiness so "the pairs vanished" can
+    # never be mistaken for "there were none".
+    expected_files = (
+        DATA_FILES
+        if preference_expected
+        else tuple(name for name in DATA_FILES if name not in PREF_FILES.values())
+    )
+    for name in expected_files:
         if not files.get(name):
             problems.append(f"{name} is empty")
+    if not preference_expected:
+        LOGGER.warning(
+            "no source declares a preference_config, so %s are empty: the "
+            "preference stage (05_train_dpo.py) has nothing to train on",
+            " and ".join(sorted(PREF_FILES.values())),
+        )
     if pool_size:
         for split_name, name in (
             (splits.TEST, EVAL_FILES[splits.TEST]),
@@ -826,8 +953,16 @@ def prepare(
             f"{preference_holdout_frac!r}"
         )
     drop_unverified = bool(config_mod.get(cfg, "data.drop_unverified", True))
+    # Two config keys, one set, because the two corpora hold out on different
+    # axes and a run may be replaying either. `data.holdout_families` names
+    # v1/v2 stem families (`fi_modified_duration`); `holdout_scenario_families`
+    # names v3 scenario ids (`risk.market.var_es.equity_longonly`). Both end up
+    # matched against the row's `stem_family`, which normalize_v3_record sets to
+    # the scenario id -- so the splitter and every gate below stay corpus-blind.
     holdout_families = {
-        str(f) for f in (config_mod.get(cfg, "data.holdout_families") or [])
+        str(f)
+        for key in ("data.holdout_families", "data.holdout_scenario_families")
+        for f in (config_mod.get(cfg, key) or [])
     }
 
     # 1. normalise, dropping unverified, duplicate and degenerate rows
@@ -847,16 +982,25 @@ def prepare(
     questions_by_source: dict[str, set[str]] = defaultdict(set)
     for row in default_rows:
         source = str(row.get("_source") or "")
-        if drop_unverified and not row.get("verified", False):
+        if drop_unverified and not is_verified(row):
             # `is False` would keep a null/missing flag silently; count the two
             # cases apart so "all verified" cannot be confused with "no flag".
-            dropped[
-                "unverified_missing_flag"
-                if row.get("verified") is None
-                else "unverified"
-            ] += 1
+            # A v3 row has no flag by design -- see is_verified -- so it is
+            # counted under the missing-stamp name rather than the v2 one.
+            if data_schema.is_v3_row(row):
+                dropped["unverified_no_v3_stamp"] += 1
+            else:
+                dropped[
+                    "unverified_missing_flag"
+                    if row.get("verified") is None
+                    else "unverified"
+                ] += 1
             continue
-        record = data_schema.normalize_record(row)
+        record = (
+            data_schema.normalize_v3_record(row)
+            if data_schema.is_v3_row(row)
+            else data_schema.normalize_record(row)
+        )
         if record.id in seen_ids:
             dropped["duplicate_id"] += 1
             continue
@@ -1005,7 +1149,12 @@ def prepare(
     ]
     standalone_ids = {str(row.get("id", "")) for row in standalone_rows}
     standalone_records = [
-        data_schema.normalize_standalone_pref_row(row) for row in standalone_rows
+        (
+            data_schema.normalize_v3_pref_row(row)
+            if data_schema.is_v3_row(row)
+            else data_schema.normalize_standalone_pref_row(row)
+        )
+        for row in standalone_rows
     ]
     # Train/val only: a preference pair is never an evaluation item, and its
     # generators are its own, so a holdout family it shares with the supervised
@@ -1156,6 +1305,9 @@ def prepare(
     # 5. validation gate, before anything reaches disk
     validate(
         files,
+        preference_expected=any(
+            source.get("preference_config") for source in sources
+        ),
         holdout_families=holdout_families,
         families_present=families_present,
         pool_size=pool_size,
@@ -1471,14 +1623,28 @@ def main() -> None:
         dataset_info={
             "hub_id": hub_id,
             "revision": revision,
-            "resolved_sha": resolve_dataset_sha(hub_id, revision),
+            "resolved_sha": (
+                None
+                if sources[0].get("local_dir")
+                else resolve_dataset_sha(hub_id, revision)
+            ),
             # `revision: main` is a moving target for every source, not just the
-            # primary; a defensible result pins all of them.
+            # primary; a defensible result pins all of them. A local source has
+            # no sha to pin -- its provenance is `local_dirs` below plus the
+            # content fingerprint in `row_sets`, which describes the rows that
+            # were actually read rather than a commit that might contain them.
             "resolved_shas": {
-                str(source["hub_id"]): resolve_dataset_sha(
-                    source["hub_id"], source["revision"]
+                str(source["hub_id"]): (
+                    None
+                    if source.get("local_dir")
+                    else resolve_dataset_sha(source["hub_id"], source["revision"])
                 )
                 for source in sources
+            },
+            "local_dirs": {
+                str(source["hub_id"]): str(source["local_dir"])
+                for source in sources
+                if source.get("local_dir")
             },
             "model_revision": model_revision,
             "row_sets": fingerprints,

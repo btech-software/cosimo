@@ -12,21 +12,28 @@ data:
   # accuracy. ~650 items is the target: a tolerable evaluation wall clock, and a
   # Wilson interval narrow enough to resolve the effect sizes we expect.
   #
-  # 1.7%, not the 1% of val_frac, because this fraction is taken from the *exam*
-  # records alone -- the other four record types have no final-answer value for
-  # the grader to read, so they get test_frac 0 and never reach an eval slice.
-  # Exam is ~30% of the mixed corpus (see dataset.mix in base.yaml), so 1% would
-  # yield ~390 items and widen the headline confidence interval as a side effect
-  # of a training-mix decision. Retune this if that share changes materially.
+  # Larger than val_frac because this fraction is taken from the *exam* records
+  # alone -- the other seven record types have no final-answer value for the
+  # grader to read, so they get test_frac 0 and never reach an eval slice.
+  #
+  # The premise behind the exact number changed with v3. Under the v2 mix exam
+  # was ~30% of the corpus and 1.7% of it produced the ~650-item headline
+  # slice. v3 caps exam at 12-18% of the corpus (spec §6 axis 8) and drops the
+  # v1 mix, so the same fraction of a much smaller exam pool yields far fewer
+  # items. Left at 0.017 rather than guessed upward: the right value follows
+  # from the first real corpus size (PR6), and raising it now would trade
+  # training data for an interval nobody has measured. Revisit once the
+  # published row count is known.
   test_frac: 0.017
 
   # Cap on the number of SFT training rows written to sft_train.jsonl.
   # null = use every train-split record. Set it to shorten an epoch without
   # touching the split assignment; the subsample is seeded, so it is stable.
   # Preference rows are not capped by this — DPO reads its own pref_train.jsonl.
-  # Note the identity block puts ~600-630 tokens on every example, so a step
-  # costs roughly twice what a bare instruction would; this is the knob to reach
-  # for when the resulting wall clock is the problem.
+  # This is the knob to reach for when the wall clock is the problem. It bites
+  # less than it did under Phi: the v3 identity block is ~70 tokens against the
+  # v2 block's ~600-630, so a step no longer costs roughly twice a bare
+  # instruction.
   max_train_records: null
 
   # Fraction of preference-carrying records RESERVED for the preference stage:
@@ -51,19 +58,35 @@ data:
   # deliberately uncorrelated with the prompt.variation_rate draw.
   preference_holdout_frac: 0.5
 
-  # Stem families excluded from train/val/test entirely; every one of their
-  # records lands in the unseen_stems evaluation slice (~8-9% of the corpus).
-  # Chosen to span all five programs and both question styles, so the
-  # generalisation number is not a single-topic artefact. Held out by *family*:
-  # the v_/cr_/m_ wrapper generators share a base stem, and holding out only the
-  # wrapper would leak the same question structure into training.
-  holdout_families:
-    - fi_modified_duration   # CFA L1, fixed income
-    - port_sharpe_treynor    # CFA L1, portfolio management
-    - deriv_bsm_call         # CFA L2, derivatives
-    - attr_carino            # CFA L3, performance attribution
-    - mkt_cvar               # FRM P1, market risk
-    - credit_el              # FRM P2, credit risk
+  # Scenario families excluded from train/val/test entirely; every one of their
+  # records lands in the unseen_stems evaluation slice. Held out by *family*,
+  # which in v3 means the full `scenario_id` -- `<work_type>.<family>` -- the
+  # key every published row already carries. Entries are matched against that
+  # string exactly; there are no v_/cr_/m_ wrapper stems in v3 to strip.
+  #
+  # Why these are shipped families rather than the ones work_types.yaml marks
+  # `holdout: true`: the v3 renderers skip holdout families outright
+  # (render/prose.py, exam.py, agentic.py, implementation.py all filter
+  # `not job.holdout`), so `fade_required` and its four siblings have fact
+  # packs on disk but no rendered rows anywhere in the published corpus. There
+  # is nothing downstream to hold out. Until the corpus side renders them into
+  # an eval slice, the generalisation measurement has to come from families
+  # that are actually shipped.
+  #
+  # Two of the ten shipped families, ~20% of the corpus, spanning two work
+  # types and two different fact computers. v1/v2 held out 8-9%, but with only
+  # ten families a single entry would confine the whole generalisation claim to
+  # one work type -- the single-topic artefact the v2 list was picked to avoid.
+  # Drop to one entry if the training slice matters more than the breadth.
+  holdout_scenario_families:
+    - valuation.equity.dcf.cyclical_industrial   # valuation, valuation_fcff
+    - risk.market.var_es.equity_longonly         # market risk, risk_var
+
+  # The v1/v2 axis: stem families, stripped of their v_/cr_/m_ wrapper prefix.
+  # Empty by default because v3 has no stem wrappers. configs/base.phi4.yaml
+  # sets it to the six-family v2 list, and 01_prepare_data.py reads both keys,
+  # so a v2 replay holds out exactly what it used to.
+  holdout_families: []
 
   # Drop rows whose `verified` flag is false. These failed the generator's own
   # answer-recomputation check, so their answer and reasoning trace cannot be

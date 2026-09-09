@@ -163,8 +163,12 @@ def test_prefix_invariant_with_the_fake_tokenizer(cfg, fake_tokenizer):
 
 def test_prefix_invariant_under_the_shipped_template(cfg, jinja_tokenizer):
     rendered = assert_prefix_invariant(jinja_tokenizer, chat.compose_system(cfg))
-    assert rendered["prompt"].endswith("<|assistant|>")
+    assert rendered["prompt"].endswith("<|im_start|>assistant\n")
+    # Under ChatML the turn terminator IS the EOS token, so a completed
+    # conversation ends on it exactly once -- the template does not append
+    # eos_token on top of <|im_end|>. to_pref_row strips that single suffix.
     assert rendered["text"].endswith(EOS_TOKEN)
+    assert not rendered["text"].endswith(EOS_TOKEN * 2)
 
 
 def test_shipped_template_matches_the_fake_tokenizer(cfg, jinja_tokenizer):

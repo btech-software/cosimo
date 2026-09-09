@@ -8,6 +8,16 @@ README's Known limitations said nothing answered:
   * does the model ask for what it is missing           (calibration)
   * does it invent terminology                          (triage list)
   * does a multi-step tool conversation complete        (agentic)
+  * does it invent NUMBERS the inputs do not support    (grounded)
+  * does it address what it was asked to address        (must_mention)
+  * does it answer in the voice it was asked for        (register)
+
+The last three arrived with v3 (spec §8.4) and are scored only on suite rows
+that declare the contract they measure -- `assistant.suites.grounded` carries
+`allowed_numbers`, `memo` and `critique` carry a `register` and a
+`must_mention` list. A row that declares nothing is left out of those
+denominators rather than scored zero, so adding a prompt to a suite cannot look
+like a model regression.
 
 Every number is only meaningful as a base-vs-tuned delta, so run it against the
 base model first, exactly like 03_baseline_eval.py:
@@ -91,10 +101,23 @@ def run_prose_suite(
         seed=int(config_mod.get(cfg, "seed", 3407)),
         max_batch_tokens=config_mod.get(cfg, "assistant.max_batch_tokens"),
     )
+    whitelist = config_mod.get(cfg, "assistant.number_whitelist", []) or []
     scored = []
     for row, output in zip(rows, outputs):
         text = output["text"]
         markers = assistant.exam_shape_markers(text)
+        # The three fact-grounding metrics are scored only for rows that declare
+        # the contract they measure. `None` means unscored, which
+        # summarize_open_ended keeps out of the denominator -- scoring a plain
+        # open-ended prompt as an invented-number failure would make adding a
+        # suite row look like a model regression.
+        allowed = row.get("allowed_numbers")
+        required = row.get("must_mention")
+        hit, missed = (
+            assistant.must_mention_hits(text, required)
+            if required is not None
+            else (None, None)
+        )
         scored.append(
             {
                 **row,
@@ -104,6 +127,14 @@ def run_prose_suite(
                 "exam_shape_markers": markers,
                 "abstention": assistant.is_abstention(text),
                 "unknown_terms": assistant.unknown_terms(text, vocabulary),
+                "invented_numbers": (
+                    assistant.invented_numbers(text, allowed, whitelist)
+                    if allowed
+                    else None
+                ),
+                "must_mention_hit": hit,
+                "must_mention_missed": missed,
+                "register_match": assistant.register_match(text, row.get("register")),
             }
         )
     return scored
@@ -289,12 +320,30 @@ def main() -> None:
                 f"no_call_precision={stats['no_call_precision']:.3f}"
             )
         else:
-            print(
+            line = (
                 f"{name}: n={stats['n']} exam_shape={stats['exam_shape_rate']:.3f} "
                 f"abstention={stats['abstention_rate']:.3f} "
                 f"mean_tokens={stats['mean_new_tokens']:.0f} "
                 f"unknown_terms={stats['unknown_term_rate']:.3f}"
             )
+            # Printed only where the suite actually declares the contract, so a
+            # suite with no fact packs does not report three misleading zeroes.
+            if stats["invented_numbers_n"]:
+                line += (
+                    f" invented_numbers={stats['invented_number_rate']:.3f}"
+                    f"(n={stats['invented_numbers_n']})"
+                )
+            if stats["must_mention_n"]:
+                line += (
+                    f" must_mention={stats['must_mention_hit_rate']:.3f}"
+                    f"(n={stats['must_mention_n']})"
+                )
+            if stats["register_match_n"]:
+                line += (
+                    f" register={stats['register_match_rate']:.3f}"
+                    f"(n={stats['register_match_n']})"
+                )
+            print(line)
     print(f"metrics: {out_dir / 'metrics.json'}")
 
 

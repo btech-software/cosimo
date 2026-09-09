@@ -31,6 +31,10 @@ def test_every_config_file_is_a_yaml_mapping():
     files = sorted(CONFIG_DIR.glob("*.yaml"))
     assert {f.name for f in files} == {
         "base.yaml",
+        # The archived Phi-4 / v2 build contract. It is a config file like any
+        # other -- loadable as an `--config` extra layer -- so it belongs in
+        # this set rather than being special-cased out of it.
+        "base.phi4.yaml",
         "data.yaml",
         "eval.yaml",
         "sft.yaml",
@@ -57,7 +61,7 @@ def test_merge_order_is_base_then_stage_then_extra_then_set(tmp_path):
     extra.write_text("model:\n  max_seq_length: 4096\nseed: 1\n", encoding="utf-8")
     cfg = config_mod.load_config(stage="sft", extra=[str(extra)], overrides=["seed=99"])
     assert cfg["model"]["max_seq_length"] == 4096  # extra beats base
-    assert cfg["model"]["base_id"] == "unsloth/Phi-4-mini-reasoning"  # base survives
+    assert cfg["model"]["base_id"] == "Qwen/Qwen3.8-27B"  # base survives
     assert cfg["sft"]["run_name"] == "sft"  # stage layer survives
     assert cfg["seed"] == 99  # --set beats everything
 
@@ -138,65 +142,71 @@ def test_get_returns_the_default_for_absent_keys(base):
 
 def test_base_model_and_precision(base):
     assert base["seed"] == 3407
-    assert base["model"]["base_id"] == "unsloth/Phi-4-mini-reasoning"
+    assert base["model"]["base_id"] == "Qwen/Qwen3.8-27B"
     # 8192, not 2048: the served target is a LangGraph ReAct loop whose
     # conversation accumulates tool calls and tool results on top of the persona.
     assert base["model"]["max_seq_length"] == 8192
-    assert base["model"]["load_in_4bit"] is False, "bf16 LoRA is the locked default"
+    # QLoRA, unlike the Phi run: 27B parameters at bf16 leave no room for an 8k
+    # sequence and its activations in 128 GB of unified memory.
+    assert base["model"]["load_in_4bit"] is True, "QLoRA is the locked default at 27B"
     assert base["model"]["dtype"] == "bfloat16"
-    assert base["dataset"]["hub_id"] == "btech-software/cosimo-quant-reasoning-v2"
+    assert base["dataset"]["hub_id"] == "btech-software/cosimo-quant-assistant-v3"
 
 
-def test_the_corpus_is_the_mixed_v2_primary_plus_a_capped_v1(base):
-    """v2 leads, v1 is a capped supplement, and only v2 supplies pairs.
+def test_the_corpus_is_v3_alone_with_no_v1_mix(base):
+    """v3 leads and nothing is mixed in.
 
-    The share cap is the mechanism that keeps the corpus majority non-exam.
-    Uncapping v1 would put 71k exam rows against v2's 24k and rebuild the
-    exam-only corpus that collapsed the first run's response style.
+    The v2 build mixed v1 in at a 12% cap to buy exam depth, because v2's exam
+    slice was thin. v3 generates its own exam records under an inventory family
+    cap, so the crutch is gone -- and re-adding it would reintroduce the
+    exam-heavy corpus that collapsed the first run's response style
+    (spec §2, §12).
     """
     dataset = base["dataset"]
     assert dataset["preference_config"] == "preference"
-    assert len(dataset["mix"]) == 1
-    v1 = dataset["mix"][0]
-    assert v1["hub_id"] == "btech-software/cosimo-cfa-frm-71k"
-    # Exam must stay a minority of SFT. v1 is exam-only, so its share is the
-    # lever; above ~0.20 the mixed corpus drifts back toward exam-heavy.
-    assert 0.0 < v1["max_share"] <= 0.20
-    # v1's pairs share ids with its supervised rows, which is the overlap that
-    # made the first DPO run a zero-gradient no-op. v2's do not.
-    assert v1["preference_config"] is None
+    assert dataset["mix"] == [], "v3 trains on one corpus; see spec §8.1 `mix: []`"
+    # The local-shard escape hatch exists but must not be the shipped default:
+    # a committed absolute path would silently prepare one developer's tree.
+    assert dataset["local_dir"] is None
 
 
 def test_identity_block_is_the_contracted_persona(base):
     identity = base["prompt"]["identity"]
     assert identity.startswith(
-        "You are Cosimo, a financial domain expert AI assistant created by "
-        "Btech Software."
+        "You are Cosimo, a quantitative finance assistant at Btech Software."
     )
-    # Spot-check each paragraph so a trimmed persona is caught.
+    # Each clause is load-bearing behaviour, not decoration: hedging over false
+    # precision, no fabricated market data, tools for retrieval, and exam
+    # liturgy kept in its lane.
     for phrase in (
-        "Head of Quantitative Asset Management",
-        "You are also a game theorist",
-        "von Neumann, Nash, and Aumann",
-        "You are also a research engineer",
-        "brutally honest about what you don't know",
+        "Prefer ranges when the inputs do not identify a point",
+        "Do not invent",
+        "Use tools when a number must be retrieved",
+        "Never use exam liturgy unless the user asked an exam item",
     ):
         assert phrase in identity
     assert "Microsoft" not in identity
+    # Shortened deliberately (spec §8.1). The Phi-era block was 2,494 chars on
+    # every example; length was not buying behaviour, and DPO's keep_end
+    # truncation cuts the START of the prompt, which is where this sits.
+    assert len(identity) < 600, "the v3 identity is short on purpose"
 
 
 def test_short_identity_is_the_one_line_variant(base):
     assert base["prompt"]["identity_short"] == (
-        "You are Cosimo, a financial domain expert AI assistant created by "
-        "Btech Software."
+        "You are Cosimo, a quantitative finance assistant at Btech Software."
     )
 
 
 def test_exam_protocol_carries_the_grading_contract(base):
     protocol = base["prompt"]["exam_protocol"]
     assert protocol.startswith("Solve the problem step by step")
-    assert protocol.rstrip().endswith("FINAL ANSWER: <value>")
-    assert "\nFINAL ANSWER: <value>" in protocol, "the contract must be its own line"
+    # v3's exam renderer composes four labelled options and closes on
+    # `FINAL ANSWER: <letter> -- <value> <unit>`. Instructing the v2 `<value>`
+    # form here would tell the model to produce something every supervised
+    # target contradicts.
+    assert protocol.rstrip().endswith("FINAL ANSWER: <letter> -- <value> <unit>")
+    assert "\nFINAL ANSWER: <letter>" in protocol, "the contract must be its own line"
     assert base["prompt"]["final_answer_tag"] == "FINAL ANSWER:"
 
 
@@ -207,8 +217,38 @@ def test_variation_rate_is_fifteen_percent(base):
 def test_chat_template_override_is_configured(base):
     assert base["chat"]["template_path"] == "configs/chat_template.jinja"
     assert config_mod.harness_path(base["chat"]["template_path"]).is_file()
-    assert base["chat"]["instruction_part"] == "<|user|>"
-    assert base["chat"]["response_part"] == "<|assistant|>"
+    # ChatML. The trailing newline is part of the marker because the role sits
+    # on its own line; 04_train_sft.py masks on the token ids of these exact
+    # strings, and they must be what the template emits at a turn boundary.
+    assert base["chat"]["instruction_part"] == "<|im_start|>user\n"
+    assert base["chat"]["response_part"] == "<|im_start|>assistant\n"
+
+
+def test_the_phi4_archive_replays_the_v2_build_contract():
+    """configs/base.phi4.yaml restores every value v3 changed.
+
+    Decision log #7: the Phi-4 configs stay so published v2 runs replay. That
+    is only true if ONE `--config` flag moves the model, the corpus, the
+    persona, the grading contract, the chat template and the holdout axis back
+    together -- a partial archive would replay a run that never happened.
+    """
+    cfg = config_mod.load_config(
+        stage="data", extra=[str(CONFIG_DIR / "base.phi4.yaml")]
+    )
+    assert cfg["model"]["base_id"] == "unsloth/Phi-4-mini-reasoning"
+    assert cfg["model"]["load_in_4bit"] is False
+    assert cfg["dataset"]["hub_id"] == "btech-software/cosimo-quant-reasoning-v2"
+    assert [m["hub_id"] for m in cfg["dataset"]["mix"]] == [
+        "btech-software/cosimo-cfa-frm-71k"
+    ]
+    assert cfg["prompt"]["exam_protocol"].rstrip().endswith("FINAL ANSWER: <value>")
+    assert "Head of Quantitative Asset Management" in cfg["prompt"]["identity"]
+    assert cfg["chat"]["instruction_part"] == "<|user|>"
+    assert config_mod.harness_path(cfg["chat"]["template_path"]).is_file()
+    # The extra layer beats the stage layer, so data.yaml's v3 families do not
+    # leak into a v2 replay -- and its own six-family list comes back.
+    assert len(cfg["data"]["holdout_families"]) == 6
+    assert "fi_modified_duration" in cfg["data"]["holdout_families"]
 
 
 # --------------------------------------------------------------------------
@@ -216,17 +256,33 @@ def test_chat_template_override_is_configured(base):
 # --------------------------------------------------------------------------
 
 
-def test_holdout_entries_are_families_not_generator_names():
+def test_holdout_entries_are_v3_scenario_families():
+    """The v3 holdout axis is a full `scenario_id`, and it spans work types.
+
+    `<work_type>.<family>` rather than a bare family name, because two work
+    types could name a family the same thing and `normalize_v3_record` sets
+    `stem_family` to the whole scenario id. Spanning more than one work type is
+    the point of the list: a single entry would make the generalisation number
+    a one-topic artefact, which is why the v2 list named six programs.
+    """
     from cosimo_ft.data_schema import stem_family
 
     data = config_mod.load_config(stage="data")["data"]
-    families = data["holdout_families"]
-    assert len(families) == len(set(families)) == 6
+    families = data["holdout_scenario_families"]
+    assert len(families) == len(set(families)) >= 2
+    assert len({f.rsplit(".", 1)[0] for f in families}) >= 2, (
+        "hold out families from at least two work types, or the unseen-family "
+        "measurement describes one corner of the corpus"
+    )
     for family in families:
+        assert "." in family, f"{family!r} is not a <work_type>.<family> scenario id"
         assert stem_family(family) == family, (
             f"{family} carries a v_/cr_/m_ wrapper prefix; holding out a wrapper "
             "leaves the base stem in training"
         )
+    # v3 has no stem wrappers, so the v1/v2 axis is empty unless a replay layer
+    # (configs/base.phi4.yaml) puts it back.
+    assert data["holdout_families"] == []
 
 
 def test_split_fractions_and_verification_gate():
@@ -256,8 +312,9 @@ def test_lora_defaults_match_the_contract():
     assert lora["use_rslora"] is False
     assert lora["use_gradient_checkpointing"] == "unsloth"
     assert lora["target_modules"] == "auto", (
-        "unsloth/Phi-4-mini-reasoning has fused projections (qkv_proj, o_proj, "
-        "gate_up_proj, down_proj); a hardcoded 7-module list matches nothing"
+        "projection naming is model-specific -- Phi-4-mini-reasoning fuses them "
+        "(qkv_proj, gate_up_proj) where Qwen does not -- so a hardcoded module "
+        "list matches nothing on one of the two. 'auto' resolves per model."
     )
 
 

@@ -25,10 +25,11 @@ from cosimo_ft import config as config_mod  # noqa: E402
 CONFIG_DIR = HARNESS_ROOT / "configs"
 CHAT_TEMPLATE_PATH = CONFIG_DIR / "chat_template.jinja"
 
-# The vendor template shipped with unsloth/Phi-4-mini-reasoning, verbatim. It is
-# here only as a control: the tests that assert the harness template is free of
-# the Microsoft identity preamble are meaningless unless the same assertion fails
-# for the template the harness replaces.
+# The vendor template shipped with unsloth/Phi-4-mini-reasoning, verbatim. The
+# student moved to Qwen3.8 (configs/base.yaml; the Phi run is archived as
+# configs/base.phi4.yaml), but this stays as the negative control: the tests
+# asserting the harness template is free of a vendor identity preamble are
+# meaningless unless the same assertion fails for a template that carries one.
 VENDOR_CHAT_TEMPLATE = (
     "{{ '<|system|>Your name is Phi, an AI math expert developed by Microsoft.' }}"
     "{% for message in messages %}{% if message['role'] == 'system' %}"
@@ -43,16 +44,23 @@ VENDOR_CHAT_TEMPLATE = (
     "{% else %}{{ eos_token }}{% endif %}"
 )
 
-EOS_TOKEN = "<|endoftext|>"
+# ChatML: under Qwen the turn terminator IS the EOS token, which is why the
+# shipped template stops on <|im_end|> rather than appending eos_token after it.
+EOS_TOKEN = "<|im_end|>"
 
 
 class FakeTokenizer:
     """Stand-in for a transformers tokenizer, template semantics only.
 
     Reproduces what the shipped ``configs/chat_template.jinja`` does without
-    needing Jinja: system turns first, then the remaining turns, then either the
-    generation prompt or the EOS token. ``chat.render_*`` only ever calls
+    needing Jinja: system turns first, then the remaining turns, each closed
+    with ``<|im_end|>`` and separated by a newline, then the generation prompt
+    when one was asked for. ``chat.render_*`` only ever calls
     ``apply_chat_template``, which is what makes this substitution legitimate.
+
+    The trailing newline is emitted for every turn *except* the last one of a
+    non-generation render, so a completed conversation ends exactly on the EOS
+    token -- the invariant ``data_schema.to_pref_row`` strips against.
     """
 
     eos_token = EOS_TOKEN
@@ -68,17 +76,18 @@ class FakeTokenizer:
     ) -> str:
         if tokenize:
             raise NotImplementedError("the harness always renders with tokenize=False")
-        parts = [
-            f"<|system|>{m['content']}<|end|>"
-            for m in messages
-            if m["role"] == "system"
-        ]
-        parts += [
-            f"<|{m['role']}|>{m['content']}<|end|>"
-            for m in messages
-            if m["role"] != "system"
-        ]
-        parts.append("<|assistant|>" if add_generation_prompt else self.eos_token)
+        system = [m for m in messages if m["role"] == "system"]
+        rest = [m for m in messages if m["role"] != "system"]
+        parts = [f"<|im_start|>system\n{m['content']}<|im_end|>\n" for m in system]
+        for index, message in enumerate(rest):
+            last = index == len(rest) - 1
+            separator = "\n" if not last or add_generation_prompt else ""
+            parts.append(
+                f"<|im_start|>{message['role']}\n{message['content']}"
+                f"<|im_end|>{separator}"
+            )
+        if add_generation_prompt:
+            parts.append("<|im_start|>assistant\n")
         return "".join(parts)
 
 

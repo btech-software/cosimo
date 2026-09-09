@@ -667,33 +667,64 @@ break silently, and each has a gate.
 ### 14.1 The Hub is the handoff
 
 `01_prepare_data.py` loads every source in `dataset.hub_id` + `dataset.mix` via
-`load_dataset` — by default `btech-software/cosimo-quant-reasoning-v2` (configs
-`default` and `preference`) plus `btech-software/cosimo-cfa-frm-71k` capped at
-12 % of the merged **trainable** pool (config `default` only; its
-`preference_pairs` are not used). Held-out records are exempt from the cap —
-they never train, so subsampling them would only shrink the `unseen_stems`
-measurement. **The harness does not read `dataset/shards/`.** Regenerating the corpus
-locally has no effect on training until it is published
-(`dataset/publish/push_to_hub.py`) and a source's `revision` points at it.
+`load_dataset` — by default `btech-software/cosimo-quant-assistant-v3` (configs
+`default` and `preference`), with `dataset.mix: []`. **The harness does not read
+`dataset/shards/` by default.** Regenerating the corpus locally has no effect on
+training until it is published and a source's `revision` points at it.
 
 Consequence: `revision: main` means the corpus can move under a training run.
 Pin a SHA for anything you intend to defend; the manifest records the resolved
 SHA of every source either way.
 
-Three shape differences between the two corpora are load-bearing, and
+**The one exception, and it is currently the normal path.** `dataset.local_dir`
+makes `01_prepare_data.py` read a local v3 shard tree — `<dir>/sft/*.jsonl` and
+`<dir>/preference/pairs.jsonl` — instead of the Hub. It exists because v3's
+`publish` command certifies the verification board and writes a dataset card but
+**does not push**: there is no v3 Hub repo yet for `load_dataset` to read. This
+is a deliberate hole in §14.1's own rule, and it closes when the repo is
+published (spec §10, PR6). While it is open, provenance is the `local_dirs`
+entry in the manifest plus the per-file content fingerprint in `row_sets` — the
+rows actually read, rather than a commit that might contain them.
+
+Shape differences across the three corpora are load-bearing, and
 `cosimo_ft/data_schema.py` is the single place that reconciles them:
 
-| | v2 | v1 |
-| --- | --- | --- |
-| `metadata` / `verification` / `conversation` / `tool_schemas` | JSON-encoded **strings** | Arrow **structs** (first two only) |
-| Record types | five, discriminated by `record_type` | exam only (no such column) |
-| Preference ids | `cosimopref_`, **disjoint** from supervised | **shared** with supervised |
+| | v3 | v2 | v1 |
+| --- | --- | --- | --- |
+| Nested columns | native lists/dicts (raw JSONL) | JSON-encoded **strings** | Arrow **structs** |
+| Record types | eight, discriminated by `record_type` | five | exam only (no such column) |
+| Taxonomy axis | `work_type` / `scenario_id` / `register` | `program` / `topic` / `subtopic` | same as v2 |
+| Holdout axis | scenario family (`<work_type>.<family>`) | `v_`/`cr_`/`m_` stem family | same as v2 |
+| Preference ids | `cosimov3pref_`, **disjoint** | `cosimopref_`, **disjoint** | **shared** with supervised |
+| Certification | a `verification` stamp; no `verified` column | boolean `verified` | boolean `verified` |
+| Exam close | `FINAL ANSWER: <letter> -- <value> <unit>` | `FINAL ANSWER: <value>` | `FINAL ANSWER: <value>` |
 
-The first is the dangerous one: reading a JSON string as an empty mapping
-resolves every generator to `unknown`, which collapses the split stratification
-to a single stratum and makes every configured holdout family match nothing.
-`01_prepare_data.py`'s gate turns that into a hard failure rather than a silent
-corpus.
+Two of these are the dangerous ones.
+
+For v1/v2, reading a JSON string as an empty mapping resolves every generator to
+`unknown`, which collapses the split stratification to a single stratum and makes
+every configured holdout family match nothing. `01_prepare_data.py`'s gate turns
+that into a hard failure rather than a silent corpus.
+
+For v3 the equivalent is the axis mapping. `normalize_v3_record` maps
+`work_type` → `program` and `scenario_id` → both `generator` and `stem_family`,
+which is precisely why `splits.py` needs no v3 branch — it strata on
+`(program, generator)` and holds out on `stem_family`. Leave any of the three
+blank and the same single-stratum collapse follows, from a different cause.
+
+### 14.1.1 v3 ships no holdout rows
+
+`dataset/taxonomy/work_types.yaml` marks one family per work type `holdout: true`,
+but every v3 renderer filters those out before writing (`render/prose.py`,
+`exam.py`, `agentic.py`, `implementation.py` all carry `and not job.holdout`).
+Those families have fact packs on disk and **no rendered rows in the published
+corpus**, so there is nothing for the harness to hold out.
+
+`data.holdout_scenario_families` therefore names families that *are* shipped —
+two of the ten, spanning two work types. That preserves the `unseen_stems`
+measurement at the cost of ~20 % of the corpus. It is a workaround. The honest
+fix belongs on the corpus side: render the declared holdout families into their
+own eval slice, at which point the harness list shrinks to nothing.
 
 ### 14.2 Held-out suites must not be contaminated
 
@@ -718,17 +749,25 @@ So a term the corpus teaches but the taxonomy never names is reported as unknown
 Extending the taxonomy is what keeps that signal readable — and it is why the
 metric is a triage aid rather than a threshold.
 
-### 14.4 One tool-calling wire format, two repositories
+### 14.4 One tool-calling wire format, three repositories
 
-`jobs/fine-tune/cosimo_ft/tools.py` owns the format;
-`configs/chat_template.jinja` renders it at training and serving time;
-`tests/test_tools.py::test_rendered_tool_call_matches_the_template` asserts the
-two emit byte-identical strings. `dataset/pipelines/generate.py` generates
-`agentic` records against that same rendering, and
+`cosimo/tools/wire.py` owns the format since v3 (spec §8.5);
+`jobs/fine-tune/cosimo_ft/tools.py` re-exports it, `dataset/pipelines/v3`
+imports it, and `configs/chat_template.jinja` renders it at training and serving
+time. `tests/test_tools.py::test_rendered_tool_call_matches_the_template` and
+`tests/test_chat_template_qwen.py` assert the renderings are byte-identical.
 `dataset/scripts/smoke_generate.py` checks every agentic record survives it.
 
 A training target differing from the served rendering by one space teaches a
 format the runtime cannot parse back, and nothing else would catch it.
+
+This is why the Qwen3.8 template swap moved the **turn** markers
+(`<|system|>`/`<|user|>`/`<|end|>` → `<|im_start|>role\n`/`<|im_end|>`) and
+deliberately left the **tool** markers alone. Under Phi, `<|tool|>` was a real
+special token; under Qwen it is ordinary text, costing a few tokens per example.
+Paying that keeps `cosimo/tools/wire.py` — a contract shared across the
+`dataset` ↔ `jobs` boundary that AGENTS.md §5.3 says must be changed alone —
+untouched by a harness-only change.
 
 ### 14.5 The shared failure mode
 
@@ -738,6 +777,15 @@ The corpus side enforces it through `FORMAT.md`, the length gate, and
 `FINAL ANSWER:` being restricted to `exam` records (§8); the harness side measures
 it through `exam_shape_rate` and `mean_new_tokens` (§12.3). A change on one side
 that ignores the other will not be caught by either.
+
+v3 adds three more paired measurements of the same kind, and they pair the same
+way: the corpus *refuses to publish* a row whose answer invents a number or
+misses a `must_mention` term, and `09_assistant_eval.py` measures whether the
+student learned those constraints (`invented_number_rate`,
+`must_mention_hit_rate`, `register_match_rate`). The number gate is
+reimplemented in `cosimo_ft/assistant.py` rather than imported, because `jobs`
+must not import `dataset` — so the two policies can drift, and if they do, the
+eval quietly stops measuring what generation enforced.
 
 ### 14.6 The record type decides the prompt surface
 
@@ -753,10 +801,20 @@ corpus change and a harness change can each break it alone:
   row — the tag appears in the *masked* prompt span if and only if the row is an
   exam row — so it holds even for a hand-supplied `--train-file`.
 
-The four non-exam types render as: the answer verbatim (`analysis`,
-`abstention`), fenced code plus the result (`implementation`), or the whole
-conversation from the first assistant turn with `tool_schemas` bound
-(`agentic`, via `chat.render_tool_example` — the same wire format as §14.4).
+The seven non-exam types render as: the answer verbatim (`analysis`,
+`abstention`, and v3's `memo` / `critique` / `grounded`), fenced code plus the
+prose (`implementation` — v3's `reference_code` and `public_tests`, closing on
+the teacher-authored `limitations`), or the whole conversation from the first
+assistant turn with `tool_schemas` bound (`agentic`, via
+`chat.render_tool_example` — the same wire format as §14.4).
+
+One v3 subtlety on both ends of the exam contract. The options live in
+`messages[1]`, not in the row's `question` column, so preparing the bare column
+would ask the model for a letter without ever showing it the letters. And
+`prompt.exam_protocol` had to move to the `<letter> -- <value> <unit>` form:
+under the v2 wording the system block would have instructed a close that every
+v3 supervised target contradicts, and the existing gate — which only checks that
+the tag is *present* on exam rows — would not have noticed.
 
 Only `exam` records are gradeable — `grading.grade_cosimo` reads a final-answer
 value — so the two evaluation slices are exam-only and non-exam records are

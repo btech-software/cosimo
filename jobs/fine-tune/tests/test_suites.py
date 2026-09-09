@@ -12,7 +12,17 @@ import pytest
 from cosimo_ft import assistant
 from cosimo_ft import config as config_mod
 
-SUITE_NAMES = ("open_ended", "calibration", "agentic")
+SUITE_NAMES = (
+    "open_ended",
+    "calibration",
+    "agentic",
+    "memo",
+    "critique",
+    "grounded",
+)
+
+# The suites whose rows declare a v3 contract for 09_assistant_eval to score.
+CONTRACT_SUITES = ("memo", "critique", "grounded")
 
 
 @pytest.fixture(scope="module")
@@ -81,6 +91,65 @@ def test_open_ended_prompts_do_not_ask_for_a_single_number(cfg):
     would make the exam_shape_rate uninterpretable."""
     for row in load(cfg, "open_ended"):
         assert "FINAL ANSWER" not in row["prompt"].upper()
+
+
+@pytest.mark.parametrize("name", CONTRACT_SUITES)
+def test_contract_suites_declare_a_known_register(cfg, name):
+    """An unrecognised register is scored `None`, i.e. silently not measured.
+
+    That is the right runtime behaviour -- an unlabelled row must not drag the
+    rate down -- and exactly why it has to be caught here instead: a typo in a
+    register name would remove the row from the metric with no visible symptom.
+    """
+    for row in load(cfg, name):
+        register = row.get("register")
+        assert register in assistant.REGISTER_SHAPES, (
+            f"{row['id']}: register {register!r} is not one the corpus writes "
+            f"({sorted(assistant.REGISTER_SHAPES)})"
+        )
+        assert assistant.register_match("", register) is not None
+
+
+@pytest.mark.parametrize("name", CONTRACT_SUITES)
+def test_contract_suites_require_terms_to_mention(cfg, name):
+    for row in load(cfg, name):
+        terms = row.get("must_mention")
+        assert terms, f"{row['id']}: no must_mention terms, so the row scores nothing"
+        assert all(isinstance(term, str) and term.strip() for term in terms)
+
+
+def test_grounded_rows_authorise_the_numbers_their_answer_needs(cfg):
+    """Every grounded row must carry a usable `allowed_numbers` set.
+
+    A row without one is skipped by the invented-number metric, so the suite
+    would look like it was passing when it was not being scored at all.
+    """
+    rows = load(cfg, "grounded")
+    assert rows
+    for row in rows:
+        allowed = row.get("allowed_numbers")
+        assert allowed, f"{row['id']}: grounded rows must authorise their numbers"
+        assert all(isinstance(value, (int, float)) for value in allowed)
+        # The figures quoted in the prompt are by definition authorised: the
+        # model is repeating them back, not inventing them. If the prompt's own
+        # numbers are not in the set, a correct answer scores as a violation.
+        quoted = assistant.invented_numbers(row["prompt"], allowed)
+        assert not quoted, (
+            f"{row['id']}: the prompt's own figures {quoted} are not in "
+            "allowed_numbers, so a correct answer would be scored as invented"
+        )
+
+
+def test_memo_and_critique_carry_no_fact_pack(cfg):
+    """They are judgement suites: there is no supplied arithmetic to lock to.
+
+    Attaching an `allowed_numbers` set to an open judgement prompt would score
+    every illustrative figure as an invention, which is the metric firing on
+    the absence of a contract rather than on a fault.
+    """
+    for name in ("memo", "critique"):
+        for row in load(cfg, name):
+            assert "allowed_numbers" not in row, f"{row['id']}: unexpected fact lock"
 
 
 def test_shipped_vocabulary_loads_and_covers_the_glossary(cfg):
