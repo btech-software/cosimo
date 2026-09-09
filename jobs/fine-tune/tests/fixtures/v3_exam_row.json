@@ -1,0 +1,69 @@
+{
+  "answer": "Work the instrument through: the half-spread 1.50; the square-root impact 26.66.\nSo the implementation shortfall is 28.16 bp.\nFINAL ANSWER: B -- 28.16 bp",
+  "answer_key": "cost_bps_vs_arrival",
+  "answer_value": 28.16,
+  "id": "cosimov3_exam_2a1c7a901ddf2041",
+  "messages": [
+    {
+      "content": "You are sitting a Cosimo verification item. Work the instrument the way the formula says; every figure you state must be one the statement authorises. Choose an option. Close with the line 'FINAL ANSWER: <letter> -- <value> <unit>' and nothing after it.",
+      "role": "system"
+    },
+    {
+      "content": "Work 430,567 shares of Reed Power (QANX) sell; ADV is 8,867,535, arrival price 296.61, quoted spread 3.0 bp, daily vol 1.21%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?\n\nOptions:\n(A) 29.66 bp\n(B) 28.16 bp\n(C) 26.66 bp\n(D) 7.38 bp",
+      "role": "user"
+    },
+    {
+      "content": "Work the instrument through: the half-spread 1.50; the square-root impact 26.66.\nSo the implementation shortfall is 28.16 bp.\nFINAL ANSWER: B -- 28.16 bp",
+      "role": "assistant"
+    }
+  ],
+  "options": [
+    {
+      "label": "A",
+      "pitfall": "the whole spread paid",
+      "text": "29.66",
+      "value": 29.662709764100832
+    },
+    {
+      "label": "B",
+      "pitfall": null,
+      "text": "28.16",
+      "value": 28.16
+    },
+    {
+      "label": "C",
+      "pitfall": "the half-spread forgotten",
+      "text": "26.66",
+      "value": 26.662709764100832
+    },
+    {
+      "label": "D",
+      "pitfall": "impact linear in participation",
+      "text": "7.38",
+      "value": 7.375207371608909
+    }
+  ],
+  "question": "Work 430,567 shares of Reed Power (QANX) sell; ADV is 8,867,535, arrival price 296.61, quoted spread 3.0 bp, daily vol 1.21%. Under the square-root model what implementation shortfall in bp of the arrival does this cost, what average fill price does it imply, and at what participation does the schedule itself become the risk?",
+  "record_type": "exam",
+  "register": "desk_chat",
+  "scenario_id": "execution.tca.arrival.large_cap_intraday",
+  "unit": "bp",
+  "variant": 0,
+  "verification": {
+    "computed_by": "dataset.pipelines.v3.packs.execution_tca",
+    "pack_seed": "88405e883240d1ed",
+    "render": {
+      "attempts": 0,
+      "distractors": [
+        "the half-spread forgotten",
+        "impact linear in participation",
+        "the whole spread paid"
+      ],
+      "kind": "exam",
+      "liturgy": false,
+      "style": "prose"
+    },
+    "teacher": null
+  },
+  "work_type": "execution.tca.arrival"
+}
