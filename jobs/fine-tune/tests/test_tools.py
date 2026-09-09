@@ -19,7 +19,7 @@ import pytest
 
 from cosimo_ft import chat, tools
 
-from conftest import FakeTokenizer
+from harness_fixtures import FakeTokenizer
 
 QUESTION = "What is BLK trading at?"
 ANSWER = "BLK is at 812.40, up 1.2% on the session."
