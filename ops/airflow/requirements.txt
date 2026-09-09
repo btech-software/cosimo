@@ -1,0 +1,18 @@
+# The optional Airflow wrapper -- ops/airflow/dags/cosimo_v3_corpus.py.
+#
+# This is deliberately NOT a dependency group in the root pyproject.toml. The
+# corpus control plane runs on the stdlib plus pyyaml alone (the locked "corpus"
+# group), and the generation box must never be dragged toward a scheduler it
+# does not use -- the same rule that keeps torch out of the corpus image
+# (spec §9). Only the box that actually schedules the DAG installs this file.
+#
+# Airflow is imported by the DAG module and by nothing in dataset/pipelines/v3:
+# the CLI is the source of truth and does not import Airflow (decision log
+# §14.3). Because the wrapper is optional, the DAG's tests skip cleanly when
+# airflow is absent (see dataset/tests/v3/test_dag_cosimo_v3_corpus.py), so a
+# bare `make v3-test` needs none of what is listed here.
+#
+# Pools the DAG names -- "teacher" (render, prefer) and "cpu" (the rest) -- are
+# referenced, never created: they must be provisioned on the cluster. The
+# teacher pool is sized to the endpoint's RPM.
+apache-airflow>=2.9,<3

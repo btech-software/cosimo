@@ -92,6 +92,20 @@ def cmd_packs(args) -> int:
         )
         return EXIT_DATA
     _, jobs = inventory.read_plan(plan_path)
+    work_types = _split_types(args.work_type)
+    if work_types:
+        known = {job.work_type for job in jobs}
+        unknown = sorted(set(work_types) - known)
+        if unknown:
+            print(
+                f"packs: unknown --work-type {', '.join(unknown)}; this committed "
+                f"plan covers {', '.join(sorted(known)) or 'no work types'} -- if "
+                "the taxonomy changed, re-run `inventory` to refresh the plan",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
+        wanted = set(work_types)
+        jobs = [job for job in jobs if job.work_type in wanted]
     report = stage.run_pack_stage(
         os.path.abspath(args.out or config.out_dir()),
         jobs,
@@ -448,6 +462,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("packs", help="compute fact packs for a plan (idempotent)")
     p.add_argument("--plan", help="plan json written by `inventory`")
     p.add_argument("--out", help="corpus root (default: config.out_dir())")
+    p.add_argument(
+        "--work-type",
+        help="comma list of work types to cover (default: all); the DAG maps "
+        "one task per work type so a broken computer cannot block the others",
+    )
     p.add_argument("--types", help="comma list of record types to cover")
     p.add_argument(
         "--limit", type=int, help="truncate the job list (bake-off/dev only)"

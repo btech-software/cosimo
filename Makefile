@@ -11,10 +11,11 @@ test_integration:
 test: test_unit test_integration
 
 # v3 corpus control plane (spec §13). The stage targets are the same commands
-# the Airflow DAG will run verbatim, so "works under make" == "schedulable";
-# render and verify are wired (prose PR2, agentic PR3); only prefer/publish
-# parse today and name their PR until they are wired (exit 2). v3-smoke is
-# the CI gate: no teacher, no network, no GPU.
+# the Airflow DAG runs verbatim (ops/airflow/dags/cosimo_v3_corpus.py), so
+# "works under make" == "schedulable". All stages -- inventory, packs, smoke,
+# render, verify, prefer, publish -- are wired and run for real; the DAG fans
+# packs out per work type (--work-type) and render per record type (--types).
+# v3-smoke is the CI gate: no teacher, no network, no GPU.
 v3-inventory:
 	uv run --group corpus python -m dataset.pipelines.v3.cli inventory
 
