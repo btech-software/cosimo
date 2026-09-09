@@ -1,0 +1,38 @@
+name: Corpus v3 (offline gate)
+
+# The corpus control plane's own gate (spec §7: "CI: smoke inventory + verify
+# --quick"). It is deliberately separate from ci.yml: the v3 ETL runs on the
+# stdlib + pyyaml corpus group with no torch, no GPU, and -- here -- no teacher
+# key, so a fork that does not want to bill a teacher in CI still gets the
+# numeric gate exercised. The prose/agentic lanes need fixtures to render and so
+# live in the pytest suite (make v3-test), not in these one-line shells.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow-dispatch:
+
+jobs:
+  corpus-v3:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install the corpus + test groups (no teacher, no network, no GPU)
+        run: uv sync --frozen --group corpus --group test
+      - name: v3 suite (offline fixtures stand in for the teacher)
+        run: make v3-test
+      - name: Smoke the DAG command lines -- inventory + packs self-check
+        run: uv run --group corpus python -m dataset.pipelines.v3.cli smoke
+      - name: Verify the board quickly over a freshly packed plan
+        env:
+          COSIMO_V3_OUT: ${{ github.workspace }}/v3-ci
+        run: |-
+          uv run --group corpus python -m dataset.pipelines.v3.cli inventory
+          uv run --group corpus python -m dataset.pipelines.v3.cli packs
+          uv run --group corpus python -m dataset.pipelines.v3.cli verify --quick
