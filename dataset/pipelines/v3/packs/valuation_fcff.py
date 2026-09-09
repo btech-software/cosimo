@@ -215,9 +215,9 @@ def _build(
             "perpetual margin uplift without fade",
         ],
         must_mention=[
-            "terminal growth vs WACC gap",
-            "reinvestment consistency (capex plus working-capital build)",
-            "the +/- 20% terminal-growth sensitivity",
+            "terminal growth versus WACC",
+            "reinvestment capex working-capital",
+            "terminal-growth sensitivity",
         ],
         register=rng.choice(("desk_chat", "ic_memo")),
         as_of=pick_as_of(rng),

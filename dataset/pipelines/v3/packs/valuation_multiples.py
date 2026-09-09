@@ -162,9 +162,9 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "the mean is the robust central peer",
         ],
         must_mention=[
-            "peer-set selection and its dispersion",
-            "the EV-to-equity bridge through net debt",
-            "median over mean for a small peer set",
+            "peer dispersion",
+            "equity net debt",
+            "median versus mean",
         ],
         register=rng.choice(("desk_chat", "ic_memo")),
         as_of=pick_as_of(rng),

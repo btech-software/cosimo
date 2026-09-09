@@ -17,6 +17,21 @@ import json
 #: The stable system turn (spec §5.6). Versioned inside the text because the
 #: fixture hashes cover the whole message list: editing this string must
 #: invalidate stale fixtures loudly (the drift test fails), never silently.
+#:
+#: Length is load-bearing, which is not obvious and cost a live run to learn.
+#: A reasoning teacher reasons about its *instructions*, so every clause here
+#: is paid for twice -- once in prompt tokens and again in the chain of thought
+#: it provokes. Measured on deepseek-v4-flash at a 8192 budget: this block at
+#: 917 characters converged and wrote 100 words; the same block plus four
+#: lines (1,218 chars) never stopped reasoning and returned nothing at all; an
+#: earlier 2,469-character draft of the standard below burned 57,704 characters
+#: of reasoning at a 16,384 budget and still returned nothing.
+#:
+#: So the standard is stated once, in five clauses, and not elaborated. At a
+#: 16,384 budget it converges and produces materially better answers than the
+#: bare contract did -- 147 words against 75, landing the mechanism, the
+#: constraint, the hidden assumption, the sensitivity and the call. Adding to
+#: it is not free; measure before you do.
 TEACHER_SYSTEM = """You are the Cosimo v3 teacher, writing in one named register for a junior quant desk.
 
 Contract, without exception:
@@ -25,26 +40,46 @@ Contract, without exception:
   a ticker statistic, not a "historical average", not a constant from memory.
 - You may not invent companies, filings, datasets, or events. The entities in
   the fact pack are the only ones that exist for this answer.
-- Cover every must_mention point. Do not assert any forbidden_claim, even as
-  a hedge or a disclaimer.
-- Write in the register given. Facts first, voice second; the numbers are
-  already computed, your job is the desk's voice and the reasoning's shape.
+- Cover every must_mention anchor -- they are concepts to engage, not phrases
+  to quote. Do not assert any forbidden_claim; warning against one is not
+  asserting it, and is often the right move.
+- Write in the register given. Facts first, voice second.
 - If the brief cannot be met from the fact pack alone, do not stretch: state
   what is missing and stop. That output is an abstention, and it is a
   correct answer, not a failure.
-"""
+
+Write as the head of quant research, not a summariser. Beyond the number: the
+mechanism that produces it, the binding constraint, the assumption it hides,
+what would move your conclusion, and your call. No padding, no repeated
+figures, no restating the question. Answer immediately; do not deliberate at
+length."""
 
 BRIEF_KINDS = ("analysis", "memo", "grounded", "critique", "abstention")
 
-#: (min, max) words, per kind. A budget is not a stricture -- the verifier
-#: measures length; the budget in the prompt is what stops a 4B teacher from
-#: rambling into padding that the repair loop would then have to cut.
+#: (min, max) words, per kind. A budget is a *bound*, not a target, and the
+#: system turn says so in as many words -- the first live run produced a
+#: 245-word answer that reached its floor by saying "Participation is 4.86%"
+#: three times, which is the failure a floor causes and the reason the bands
+#: below are wide.
+#:
+#: The floors moved with the analytical standard rather than independently of
+#: it: the teacher is now asked for the mechanism, the binding constraint, the
+#: hidden assumption, the sensitivity and the call, and five things cannot be
+#: said well in ninety words. `memo` is the long form (an IC memo that fits in
+#: 260 words was never an IC memo); `abstention` is the short one, because
+#: naming what is missing and stopping is the whole job.
+#:
+#: The floors are deliberately below what the standard typically produces. A
+#: complete answer that lands all five clauses came in at 147 words and would
+#: have been rejected by a 150 floor -- three words of padding away from
+#: shipping, which is the instrument corrupting the sample it measures. The
+#: floor exists to catch a one-line non-answer, nothing more.
 WORD_BUDGETS = {
-    "analysis": (160, 320),
-    "memo": (120, 260),
-    "grounded": (140, 280),
-    "critique": (90, 200),
-    "abstention": (50, 140),
+    "analysis": (120, 400),
+    "memo": (200, 550),
+    "grounded": (110, 340),
+    "critique": (110, 340),
+    "abstention": (40, 160),
 }
 
 #: Packs carry the register label; prose rows also name the persona so the
@@ -82,7 +117,10 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
         "number_policy": (
             "every numeric token in your answer must equal one of "
             "allowed_numbers, possibly scaled by 100 (fraction as percent) or "
-            "divided by 100; no other number in any form"
+            "divided by 100; no other number in any form. The unit-conversion "
+            "constants 100 and 10000 may be written plainly when converting to "
+            "percent or basis points -- write the conversion, do not build it "
+            "out of repeated allowed values"
         ),
         "as_of": pack.get("as_of"),
     }
@@ -107,15 +145,28 @@ def render_repair(
     teacher actually received, not a reconstruction.
     """
     lines = "\n".join(f"- {v}" for v in violations) or "- (unspecified)"
-    repair = (
-        "Your draft failed the contract:\n"
-        + lines
-        + "\n\nDraft:\n"
-        + draft
-        + "\n\nRewrite the draft fixing every listed violation. Keep every "
-        "number you keep from allowed_numbers; delete or re-round the rest to "
-        "an allowed value. Do not shorten what was compliant."
-    )
+    if not (draft or "").strip():
+        # An empty draft is not a draft with faults, and asking the model to
+        # "rewrite" nothing wastes the attempt. The first live run spent all
+        # three attempts this way: a reasoning teacher exhausted its token
+        # budget mid-thought, returned `content: null`, and got back a repair
+        # turn quoting an empty draft at it.
+        repair = (
+            "You returned an empty answer -- no text at all, only reasoning. "
+            "Answer now, directly and in the register given. Begin with the "
+            "finding; do not restate the question and do not think at length "
+            "before writing."
+        )
+    else:
+        repair = (
+            "Your draft failed the contract:\n"
+            + lines
+            + "\n\nDraft:\n"
+            + draft
+            + "\n\nRewrite the draft fixing every listed violation. Keep every "
+            "number you keep from allowed_numbers; delete or re-round the rest to "
+            "an allowed value. Do not shorten what was compliant."
+        )
     return [
         *messages,
         {"role": "assistant", "content": draft},

@@ -143,13 +143,30 @@ AGENTIC_TEMPERATURES = (0.3, 0.2, 0.1)
 # two-way bridge, the trading-day convention -- plus every number spelled in
 # the pack's own as-of date. Token-level (the string as the model wrote it),
 # shared by the render gate and the verify board so both read the same mercy.
-NUMBER_WHITELIST = ("100", "2", "252")
+NUMBER_WHITELIST = ("100", "2", "252", "10000", "10,000")
+#: 10000 joined the list after the first successful live render. The packs'
+#: own formulas convert to basis points with `1e4`, but the whitelist did not
+#: carry it and the tokenizer cannot read scientific notation -- `1e4` scans as
+#: the two tokens `1` and `4`, so even the honest spelling was a violation.
+#: The teacher, boxed in, wrote the conversion as `1.27% x sqrt(0.010197) x
+#: 10.0 x 10.0 x 10.0 x 10.0` -- legal, because 10.0 happened to be a pack
+#: value, and unreadable. A gate that makes a correct answer ugly is measuring
+#: the wrong thing. Both spellings are listed because matching is on the token
+#: as written, commas and all.
 
 TEACHER_BASE_URL_ENV = "TEACHER_BASE_URL"
 TEACHER_API_KEY_ENV = "TEACHER_API_KEY"
 TEACHER_REASONING_ENV = "TEACHER_REASONING"
 TEACHER_PROSE_ENV = "TEACHER_PROSE"
 TEACHER_TIMEOUT_ENV = "TEACHER_TIMEOUT_S"
+#: Completion budget per call. Overridable because it is a property of the
+#: *teacher*, not of the corpus: a reasoning model bills its chain of thought
+#: against this budget before it emits a single answer token, and the first
+#: live run died entirely on that -- deepseek-v4-flash spent 4,851 completion
+#: tokens to produce a 109-word answer, so at the old 1024 it returned
+#: `content: null` with `finish_reason: length` on every attempt, three
+#: attempts a row, forever.
+TEACHER_MAX_TOKENS_ENV = "COSIMO_V3_MAX_TOKENS"
 TEACHER_FIXTURE_ENV = "COSIMO_V3_TEACHER_FIXTURE"
 DEFAULT_TEACHER_TIMEOUT_S = 120
 OUT_ENV = "COSIMO_V3_OUT"

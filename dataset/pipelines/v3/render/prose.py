@@ -111,16 +111,26 @@ def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
     exchange: list[dict] = list(messages)
     violations: list[str] = []
     attempts = 0
+    truncations = 0
     while attempts < config.PROSE_ATTEMPTS:
         temperature = config.PROSE_TEMPERATURES[attempts]
+        # Two different failures share this ladder, and they want opposite
+        # responses. A draft that broke the contract is usually the model
+        # padding, and a cooler temperature helps. A draft that came back
+        # *empty* is a reasoning teacher that spent its whole completion budget
+        # thinking and never reached the answer -- cooling that does nothing at
+        # all, and the first live runs proved it: three attempts, three empty
+        # drafts, one dead letter, repeatedly. Truncation gets headroom instead.
         result = teacher.complete(
             exchange,
             model=route.model,
             temperature=temperature,
-            max_tokens=DEFAULT_MAX_TOKENS,
+            max_tokens=DEFAULT_MAX_TOKENS * (1 + truncations),
             think=route.think,
         )
         attempts += 1
+        if not (result.text or "").strip():
+            truncations += 1
         violations = gate_violations(pack, result.text, kind)
         if not violations:
             return {

@@ -143,7 +143,14 @@ def test_http_transport_posts_json_with_authorisation(monkeypatch):
     assert seen["url"] == "https://teacher.example/api/v1/chat/completions"
     assert seen["method"] == "POST"
     assert seen["headers"]["Authorization"] == "bearer sekret"
-    assert seen["headers"]["Contenttype"] == "application/json"
+    # `Content-Type`, hyphenated, as urllib normalises it. This assertion used
+    # to read `Contenttype` -- it pinned the misspelling rather than the
+    # contract, so it passed against a header no HTTP server would honour, and
+    # a strict endpoint answered 400 on the first live call. Asserted through
+    # `urllib`'s own lookup so the spelling that reaches the wire is the
+    # spelling under test.
+    assert seen["headers"]["Content-type"] == "application/json"
+    assert "Contenttype" not in seen["headers"], "the misspelling is back"
     assert seen["timeout"] == 7
     assert json.loads(seen["data"].decode("utf8"))["model"] == "m"
     assert result.text == "hello"

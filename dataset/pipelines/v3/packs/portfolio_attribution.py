@@ -164,9 +164,9 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "interaction effects can be dropped",
         ],
         must_mention=[
-            "the Carino factor as the consistency bridge",
-            "allocation vs selection split of the active return",
-            "single-period attribution is not a skill signal",
+            "Carino factor",
+            "allocation versus selection",
+            "skill signal",
         ],
         register="ic_memo",
         as_of=pick_as_of(rng),
