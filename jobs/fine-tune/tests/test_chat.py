@@ -280,6 +280,8 @@ def test_override_installs_the_harness_template(cfg, fake_tokenizer):
 class _InnerTokenizer:
     """The text tokenizer a processor carries on ``.tokenizer``."""
 
+    padding_side = "right"
+
     def encode(self, text, add_special_tokens=False):
         return [248045, 74455, 198]
 
@@ -350,3 +352,55 @@ def test_a_target_never_starts_with_whitespace():
     assert completion.endswith("FINAL ANSWER: 2,355.49")
     # and the rendered turn therefore carries exactly one newline after the role
     assert "assistant\n\n" not in f"<|im_start|>assistant\n{completion}"
+
+
+class _StrictProcessor:
+    """A processor that fails the way the real one does when handed text.
+
+    ``Qwen3VLProcessor.__call__`` takes ``images`` first, so passing a rendered
+    prompt positionally sends it to an image loader. The real error is
+    ``ValueError: Incorrect image source ... Got <|im_start|>system``, raised
+    from deep inside ``transformers.image_utils.load_image`` -- which is not a
+    hint anybody reads as "you used the wrong object".
+    """
+
+    def __init__(self):
+        self.tokenizer = _InnerTokenizer()
+        self.padding_side = "right"  # accepted and ignored, the silent half
+
+    def __call__(self, images=None, text=None, **kw):
+        if isinstance(images, (str, list)):
+            raise ValueError(f"Incorrect image source. Got {images!r}")
+        return {"input_ids": [[1, 2, 3]]}
+
+
+def test_text_goes_to_the_tokenizer_never_positionally_to_a_processor():
+    """The invariant `generation.generate` depends on.
+
+    ``generate`` itself cannot be exercised here -- it imports torch, which the
+    harness test environment does not carry -- so the contract is pinned at the
+    accessor instead: whatever ``text_tokenizer`` returns must accept a prompt
+    as its first positional argument.
+    """
+    processor = _StrictProcessor()
+    with pytest.raises(ValueError, match="Incorrect image source"):
+        processor("<|im_start|>system\nSYS<|im_end|>")
+
+    resolved = chat.text_tokenizer(processor)
+    assert resolved is processor.tokenizer
+    assert resolved.encode("<|im_start|>assistant\n") == [248045, 74455, 198]
+
+
+def test_padding_side_is_set_where_it_takes_effect():
+    """Setting it on the processor is accepted and does nothing.
+
+    A decoder-only model fed right-padded batches generates from the padding, so
+    this one fails silently and produces plausible-looking garbage rather than an
+    error -- the worst shape a bug can have.
+    """
+    processor = _StrictProcessor()
+    chat.text_tokenizer(processor).padding_side = "left"
+    assert processor.tokenizer.padding_side == "left"
+    assert processor.padding_side == "right", (
+        "the stray attribute is not the one that counts"
+    )
