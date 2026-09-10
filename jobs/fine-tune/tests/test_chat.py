@@ -272,3 +272,81 @@ def test_override_installs_the_harness_template(cfg, fake_tokenizer):
     assert chat.apply_chat_template_override(fake_tokenizer, cfg) is True
     assert fake_tokenizer.chat_template == chat.load_chat_template(cfg)
     assert "Microsoft" not in fake_tokenizer.chat_template
+
+
+# --------------------------------------------------------------------- processors
+
+
+class _InnerTokenizer:
+    """The text tokenizer a processor carries on ``.tokenizer``."""
+
+    def encode(self, text, add_special_tokens=False):
+        return [248045, 74455, 198]
+
+    def get_vocab(self):
+        return {"<|im_start|>": 248045, "<|im_end|>": 248046}
+
+
+class _Processor:
+    """A ``Qwen3VLProcessor``-shaped object: no encode, no get_vocab, no pad_token.
+
+    The attribute set is what was measured on the real
+    ``unsloth/Qwen3.8-27B-unsloth-bnb-4bit`` processor, which is why a plain
+    ``tokenizer.encode`` raised AttributeError on the v3 student's first trainer
+    construction.
+    """
+
+    def __init__(self):
+        self.tokenizer = _InnerTokenizer()
+
+    def apply_chat_template(self, *a, **k):  # processors do have this
+        return ""
+
+
+def test_a_plain_tokenizer_is_returned_untouched(fake_tokenizer):
+    class Plain:
+        def encode(self, text, add_special_tokens=False):
+            return [1, 2]
+
+    plain = Plain()
+    assert chat.text_tokenizer(plain) is plain
+
+
+def test_a_vlm_processor_is_unwrapped_to_its_text_tokenizer():
+    processor = _Processor()
+    inner = chat.text_tokenizer(processor)
+    assert inner is processor.tokenizer
+    assert inner.encode("<|im_start|>assistant\n") == [248045, 74455, 198]
+    assert "<|im_end|>" in inner.get_vocab()
+
+
+def test_an_object_that_cannot_tokenize_fails_loudly():
+    """Silence here masks every label to -100: an empty marker matches nothing,
+    and the run looks healthy until the loss is NaN."""
+
+    class Useless:
+        pass
+
+    with pytest.raises(TypeError, match="neither encode"):
+        chat.text_tokenizer(Useless())
+
+
+def test_the_render_fake_is_not_mistaken_for_a_processor(fake_tokenizer):
+    """The template fake has no encode and no .tokenizer, so it must raise rather
+    than be silently accepted -- it is only ever used for rendering."""
+    with pytest.raises(TypeError, match="neither encode"):
+        chat.text_tokenizer(fake_tokenizer)
+
+
+def test_a_target_never_starts_with_whitespace():
+    """A leading newline in the target merges with the template's own newline
+    into one "\\n\\n" token, the response marker stops matching, and the row is
+    masked out of training entirely. 39 of 701 rows vanished this way."""
+    completion = chat.build_completion(
+        "\n\nthe half-spread 1.30", "2,355.49", "FINAL ANSWER:"
+    )
+    assert not completion[:1].isspace()
+    assert completion.startswith("the half-spread")
+    assert completion.endswith("FINAL ANSWER: 2,355.49")
+    # and the rendered turn therefore carries exactly one newline after the role
+    assert "assistant\n\n" not in f"<|im_start|>assistant\n{completion}"

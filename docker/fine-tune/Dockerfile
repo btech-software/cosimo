@@ -85,11 +85,17 @@ RUN set -eux \
 # and the pins installed above; the group already provides everything unsloth actually needs.
 # The torch guard is repeated so a bad unsloth release cannot slip a torch past it either.
 #
+# The two versions are NOT in lockstep -- unsloth 2026.9.4 pairs with unsloth_zoo 2026.9.3, and
+# asking for a matching zoo release fails the build outright ("No matching distribution").
+# 2026.9.x is the floor for the v3 student: 2026.8.1 knows 1603 models and none of them is a
+# Qwen3.8, so it refused Qwen/Qwen3.8-27B before downloading a byte. 2026.9.4 reports
+# "Fast Qwen3_5 patching" and loads it.
+#
 # pip freeze is written into the image afterwards so an operator can pin or diff a build:
 #   docker run --rm cosimo-fine-tune:latest cat /opt/cosimo/pip-freeze.txt > freeze-$(date +%F).txt
 # It is the resolved transitive closure, which pyproject.toml's direct pins do not record.
 RUN set -eux \
- && pip install --no-deps --no-cache-dir unsloth==2026.8.1 unsloth_zoo==2026.8.1 \
+ && pip install --no-deps --no-cache-dir unsloth==2026.9.4 unsloth_zoo==2026.9.3 \
  && python /usr/local/bin/torch_arch_guard.py --stage "the unsloth install" \
       --expect-torch-version "$(cat /tmp/torch-version-before)" \
  && mkdir -p /opt/cosimo \

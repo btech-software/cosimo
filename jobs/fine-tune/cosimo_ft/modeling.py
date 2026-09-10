@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from . import chat
 from . import config as config_mod
 
 logger = logging.getLogger(__name__)
@@ -85,8 +86,13 @@ def resolve_target_modules(model: Any, requested: str | list[str]) -> list[str]:
 def _ensure_pad_token(tokenizer: Any) -> None:
     if tokenizer.pad_token is not None:
         return
+    # Through the text tokenizer: a VLM processor has no get_vocab (chat
+    # .text_tokenizer). Only this probe needs unwrapping -- pad_token and
+    # eos_token read and write on the object unsloth handed back, which is what
+    # the trainer and the collator are given.
+    vocab = chat.text_tokenizer(tokenizer).get_vocab() or {}
     for candidate in ("<|endofprompt|>", "<|finetune_right_pad_id|>"):
-        if candidate in (tokenizer.get_vocab() or {}):
+        if candidate in vocab:
             tokenizer.pad_token = candidate
             logger.info("tokenizer had no pad token; set pad_token=%s", candidate)
             return

@@ -142,6 +142,18 @@ sft:
 
   # 3% warmup (~118 steps on the full mixed set). Enough to get the freshly
   # initialised LoRA B matrices off zero before the peak rate arrives.
+  #
+  # transformers 5.x warns that `warmup_ratio` is deprecated in favour of
+  # `warmup_steps`, and it is deliberately NOT migrated here. The two are not
+  # the same knob: a ratio is a fraction of the total step count, which depends
+  # on the corpus size, the batch size and the epoch count, so pinning an
+  # absolute step count now would silently change the schedule the moment the
+  # corpus grows -- and the v3 corpus is about to grow by an order of magnitude.
+  # The warning is the cheaper problem. Revisit when the published row count is
+  # fixed (PR6). The same reasoning applies to `logging_dir`, which 5.x wants
+  # replaced by the TENSORBOARD_LOGGING_DIR environment variable: the path is
+  # per-run and derived from the run directory, and a global env var is a worse
+  # fit for that than a deprecated argument that still works.
   warmup_ratio: 0.03
 
   # One epoch over ~128k rows (~126k corpus + 2k tool rows). The dataset is
@@ -204,6 +216,12 @@ sft:
 
   # Length grouping reduces padding but correlates batch content with length,
   # which biases the loss curve. Off: correctness of the curve beats throughput.
+  #
+  # Kept under this name even though transformers 5.x renamed the underlying
+  # field to `train_sampling_strategy`: 04_train_sft.py translates it to
+  # whichever name the installed SFTConfig honours, because the 5.x build
+  # accepts the old flag and then ignores it. Turning this on without that
+  # translation would change nothing and say nothing.
   group_by_length: false
 
   # Dataset .map() worker count for TRL's tokenisation pass. 4 matches the

@@ -202,6 +202,37 @@ def test_final_answer_closes_the_item_and_points_at_the_right_seat():
         )
 
 
+def test_no_exam_turn_opens_with_whitespace_in_any_trace_style():
+    """A supervised target may not begin with a newline, in any style.
+
+    The student's chat template closes the role header with a newline, so a turn
+    that starts with one makes the tokenizer emit a single "\n\n" where
+    `train_on_responses_only` looks for "\n". The marker then matches nowhere,
+    every label masks to -100, and the harness drops the row while attributing it
+    to truncation. The `short_table` style opened with "" and cost 45 of 163 exam
+    rows on the first real trainer construction.
+
+    Swept across styles rather than pinned to one, because the style is drawn per
+    variant and the next shape added is the one nobody will re-check by hand.
+    """
+    styles = set()
+    for work_type, families in _train_families().items():
+        for family in families:
+            for variant in range(12):
+                if not _computable(work_type, family, variant):
+                    continue
+                row = build_exam_row(_pack_line(work_type, family, variant))["row"]
+                answer = row["answer"]
+                assert not answer[:1].isspace(), (
+                    f"{row['scenario_id']} v{variant} "
+                    f"({row['verification']['render']['style']}) opens with "
+                    f"{answer[:12]!r}"
+                )
+                assert row["messages"][-1]["content"] == answer
+                styles.add(row["verification"]["render"]["style"])
+    assert len(styles) > 1, f"only exercised {styles}; the sweep found no variety"
+
+
 def test_a_collapsed_item_is_dead_lettered_as_a_pack_finding():
     """When the wrong models all print the same figure, the item is not an
     item: dead-letter it, naming the collapse, do not inflate the card."""

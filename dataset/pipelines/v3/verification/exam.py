@@ -185,7 +185,14 @@ def _trace_lines(style: str, spec: dict, pack: dict, printed_answer: str) -> lis
     if style == "short_table":
         rows = [f"  {label:>34}  {value}" for label, value in parts]
         rows.append(f"  {spec['answer_label']:>34}  {printed_answer}")
-        return ["", "\n".join(rows).strip()]
+        # No leading blank line. This used to open with "", which put a newline
+        # at the very start of the assistant turn -- and the student's chat
+        # template already ends the role header with one. The two merge into a
+        # single "\n\n" token, so `train_on_responses_only` stops finding its
+        # "<|im_start|>assistant\n" marker, masks every label to -100, and the
+        # harness drops the row: 45 of 163 exam rows, silently, blamed on
+        # truncation. A supervised target may not begin with whitespace.
+        return ["\n".join(rows).strip()]
     if style == "liturgy":
         lines = ["ASSUMPTIONS: the pack's own, taken as stated."]
         for step, (label, value) in enumerate(parts, start=1):
