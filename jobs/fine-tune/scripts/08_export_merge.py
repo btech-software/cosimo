@@ -284,6 +284,9 @@ def main() -> None:
         max_seq_length=int(config_mod.get(cfg, "model.max_seq_length", 2048)),
         load_in_4bit=False,
         dtype=dtype,
+        use_exact_model_name=bool(
+            config_mod.get(cfg, "model.use_exact_model_name", False)
+        ),
     )
 
     # The tokenizer comes from the base model, so it arrives with the vendor

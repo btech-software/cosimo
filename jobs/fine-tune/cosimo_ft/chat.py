@@ -149,10 +149,10 @@ def apply_chat_template_override(tokenizer: Any, cfg: dict) -> bool:
     if template is None:
         logger.warning(
             "chat.template_path is null: falling back to the tokenizer's own chat "
-            "template. For unsloth/Phi-4-mini-reasoning that template hardcodes the "
-            "vendor identity preamble ('Your name is Phi, an AI math expert developed "
-            "by Microsoft.') ahead of every system message, which contradicts the "
-            "Cosimo identity being trained."
+            "template. A vendor template may inject its own identity preamble ahead "
+            "of every system message, which would contradict the Cosimo identity "
+            "being trained, and it is not guaranteed to match what the base model "
+            "was compared against."
         )
         return False
     tokenizer.chat_template = template

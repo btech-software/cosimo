@@ -31,10 +31,6 @@ def test_every_config_file_is_a_yaml_mapping():
     files = sorted(CONFIG_DIR.glob("*.yaml"))
     assert {f.name for f in files} == {
         "base.yaml",
-        # The archived Phi-4 / v2 build contract. It is a config file like any
-        # other -- loadable as an `--config` extra layer -- so it belongs in
-        # this set rather than being special-cased out of it.
-        "base.phi4.yaml",
         "data.yaml",
         "eval.yaml",
         "sft.yaml",
@@ -224,33 +220,6 @@ def test_chat_template_override_is_configured(base):
     assert base["chat"]["response_part"] == "<|im_start|>assistant\n"
 
 
-def test_the_phi4_archive_replays_the_v2_build_contract():
-    """configs/base.phi4.yaml restores every value v3 changed.
-
-    Decision log #7: the Phi-4 configs stay so published v2 runs replay. That
-    is only true if ONE `--config` flag moves the model, the corpus, the
-    persona, the grading contract, the chat template and the holdout axis back
-    together -- a partial archive would replay a run that never happened.
-    """
-    cfg = config_mod.load_config(
-        stage="data", extra=[str(CONFIG_DIR / "base.phi4.yaml")]
-    )
-    assert cfg["model"]["base_id"] == "unsloth/Phi-4-mini-reasoning"
-    assert cfg["model"]["load_in_4bit"] is False
-    assert cfg["dataset"]["hub_id"] == "btech-software/cosimo-quant-reasoning-v2"
-    assert [m["hub_id"] for m in cfg["dataset"]["mix"]] == [
-        "btech-software/cosimo-cfa-frm-71k"
-    ]
-    assert cfg["prompt"]["exam_protocol"].rstrip().endswith("FINAL ANSWER: <value>")
-    assert "Head of Quantitative Asset Management" in cfg["prompt"]["identity"]
-    assert cfg["chat"]["instruction_part"] == "<|user|>"
-    assert config_mod.harness_path(cfg["chat"]["template_path"]).is_file()
-    # The extra layer beats the stage layer, so data.yaml's v3 families do not
-    # leak into a v2 replay -- and its own six-family list comes back.
-    assert len(cfg["data"]["holdout_families"]) == 6
-    assert "fi_modified_duration" in cfg["data"]["holdout_families"]
-
-
 # --------------------------------------------------------------------------
 # data.yaml
 # --------------------------------------------------------------------------
@@ -280,8 +249,9 @@ def test_holdout_entries_are_v3_scenario_families():
             f"{family} carries a v_/cr_/m_ wrapper prefix; holding out a wrapper "
             "leaves the base stem in training"
         )
-    # v3 has no stem wrappers, so the v1/v2 axis is empty unless a replay layer
-    # (configs/base.phi4.yaml) puts it back.
+    # v3 has no stem wrappers, so the v1/v2 axis stays empty. The key itself
+    # remains because it is the union input `splits.assign` takes -- v3's
+    # scenario families flow through the same parameter.
     assert data["holdout_families"] == []
 
 

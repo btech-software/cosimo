@@ -274,6 +274,9 @@ def main() -> None:
         load_in_4bit=bool(config_mod.get(cfg, "model.load_in_4bit", False)),
         dtype=config_mod.get(cfg, "model.dtype", "bfloat16"),
         revision=config_mod.get(cfg, "model.revision"),
+        use_exact_model_name=bool(
+            config_mod.get(cfg, "model.use_exact_model_name", False)
+        ),
     )
     chat.apply_chat_template_override(tokenizer, cfg)
 

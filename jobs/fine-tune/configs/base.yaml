@@ -1,7 +1,9 @@
 seed: 3407
 model:
-  # The v3 student (spec §8.1, decision log #5). The Phi-4 build contract is
-  # archived verbatim as configs/base.phi4.yaml so published v2 runs replay.
+  # The v3 student (spec §8.1, decision log #5). Phi-4 support was dropped
+  # (decision log #7): no v2 model was ever pushed, so the archived build
+  # contract guarded nothing, and a 3.8B student cannot reach the analytical
+  # standard this corpus is built for.
   base_id: Qwen/Qwen3.8-27B
   revision: null            # pin a commit sha to make training AND evaluation reproducible
   # 8192 on Spark to start; 16384 later. The served target is a LangGraph ReAct
@@ -14,6 +16,24 @@ model:
   # room for an 8k sequence and its activations inside 128 GB of unified memory.
   # This is the knob to revisit first if the LoRA smoke is memory-bound.
   load_in_4bit: true
+
+  # Take `base_id` literally instead of letting unsloth swap in its own
+  # pre-quantized mirror. With load_in_4bit and this left false, unsloth
+  # rewrites Qwen/Qwen3.8-27B to unsloth/Qwen3.8-27B-unsloth-bnb-4bit -- and
+  # that checkpoint's quantization state does not survive loading here: all 352
+  # quantizable linears arrive with no quant_state ("Skipping ...: no
+  # quant_state found"), so the first forward pass hands a packed 4-bit tensor
+  # to F.linear and dies on the shape. Measured on unsloth 2026.9.4 /
+  # unsloth_zoo 2026.9.3 (both the newest releases) against bitsandbytes 0.49.2
+  # and 0.50.2 alike, in a file unsloth itself files under `temporary_patches`.
+  #
+  # True means the bf16 weights are fetched and bitsandbytes quantizes them at
+  # load time -- the classic QLoRA path, which builds the quant_state instead of
+  # trying to recover one. It costs a 55.6 GB download rather than 22.4 GB.
+  #
+  # It must be the same for training and inference: an adapter fitted to one set
+  # of base weights does not belong on the other, and the swap is silent.
+  use_exact_model_name: true
   dtype: bfloat16
 dataset:
   # The v3 corpus: eight record types keyed on work_type / scenario family
@@ -61,11 +81,9 @@ prompt:
   # buying behaviour: the served checkpoint still answered an open-ended
   # question in exam form. What it did buy was a large fixed prefix that DPO's
   # keep_end truncation cuts from the START, and a persona so specific that the
-  # model had to be brittle to it. The full block is archived verbatim in
-  # configs/base.phi4.yaml so v2 runs replay against the exact bytes they
-  # trained on. Every clause below is load-bearing: ranges over false
-  # precision, no invented prints, tools for retrieval, and exam liturgy kept
-  # in its lane.
+  # model had to be brittle to it. Every clause below is load-bearing: ranges
+  # over false precision, no invented prints, tools for retrieval, and exam
+  # liturgy kept in its lane.
   identity: |-
     You are Cosimo, a quantitative finance assistant at Btech Software.
     Prefer ranges when the inputs do not identify a point. Do not invent
@@ -131,9 +149,9 @@ tools:
   no_call_rate: 0.2
 
 chat:
-  # ChatML, the Qwen3.8 turn format. The Phi template is archived as
-  # configs/chat_template.phi4.jinja and referenced by configs/base.phi4.yaml.
-  # Set to null to fall back to the tokenizer's own template (logged loudly).
+  # ChatML, the Qwen3.8 turn format. Set to null to fall back to the
+  # tokenizer's own template (logged loudly) -- which is not what the base model
+  # was compared against, so comparability goes with it.
   template_path: configs/chat_template.jinja
   # The markers train_on_responses_only masks on. They include the trailing
   # newline because ChatML puts the role on its own line: `<|im_start|>user` on

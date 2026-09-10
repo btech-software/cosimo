@@ -252,6 +252,9 @@ def run_evaluation(
         load_in_4bit=bool(config_mod.get(cfg, "model.load_in_4bit", False)),
         dtype=config_mod.get(cfg, "model.dtype", "bfloat16"),
         revision=config_mod.get(cfg, "model.revision"),
+        use_exact_model_name=bool(
+            config_mod.get(cfg, "model.use_exact_model_name", False)
+        ),
     )
     # Must happen before any rendering: the vendor template would otherwise inject
     # the Microsoft identity preamble ahead of the Cosimo system message. The
