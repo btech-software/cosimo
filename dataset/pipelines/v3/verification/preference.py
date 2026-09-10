@@ -47,6 +47,7 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):  # verification; repo root
 from verification import nums  # noqa: E402
 from verification.gates import FINAL_ANSWER_TAG  # noqa: E402
 
+from .. import config  # noqa: E402
 from ..seed import render_seed, rng_for  # noqa: E402
 from .exam import LITURGY_MARKERS  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
@@ -190,12 +191,20 @@ def _agrees(value: float, table, tolerance: float) -> bool:
 
 
 def _printed_depth(value: float) -> int:
-    """The decimal places the pack's own print carries for *value*.
+    """The decimal places the *brief* spells *value* to.
 
-    Every figure the pack quotes travels the fixed-point, zero-trimmed spell
-    the prose lane prints in (``:.10f``, trailing zeros and a bare point
-    stripped): ``26.66 -> "26.66"`` is two places, ``3.0 -> "3"`` none,
-    ``0.048555 -> "0.048555"`` six. This count is one half of the
+    Measured on the figure as the model is shown it, not as the pack stores it:
+    ``teacher.prompts.desk_figures`` rounds the brief to
+    ``config.PROSE_MAX_DECIMALS`` before the teacher reads a byte, and that is
+    the only spelling a rejected side can be over-quoting. The stored pack is
+    deeper -- ``assemble_numbers`` cleans to 12 dp to kill binary noise, and
+    1,522 figures on disk sit at 9-12 places. Measuring against *those* made
+    this detector unsatisfiable for them: a rejected side would have had to write
+    thirteen decimals to out-print the pack, while the brief asks for eight.
+
+    Every figure travels the fixed-point, zero-trimmed spell the prose lane
+    prints in (trailing zeros and a bare point stripped): ``26.66 -> "26.66"``
+    is two places, ``3.0 -> "3"`` none, ``0.048555 -> "0.048555"`` six. This count is one half of the
     false-precision detector's test: a rejected side that writes a pack figure
     with *more* decimals than the pack printed it has quoted past the print --
     the crime -- while one that writes it at or under that depth has merely
@@ -207,7 +216,8 @@ def _printed_depth(value: float) -> int:
     ``_FALSE_PRECISION_PLACES``) before it calls, which no pack figure's own
     print ever does.
     """
-    text = f"{float(value):.10f}".rstrip("0")
+    value = round(float(value), config.PROSE_MAX_DECIMALS)
+    text = f"{value:.10f}".rstrip("0")
     if text.endswith("."):
         text = text[:-1]
     return len(text.split(".", 1)[1]) if "." in text else 0
@@ -215,8 +225,9 @@ def _printed_depth(value: float) -> int:
 
 #: The depth the false-precision brief commands -- "quote one figure of the
 #: pack to eight decimal places" -- and the depth the fixture's over-quoting
-#: rejected side actually writes (``:.8f``). No pack figure's own print
-#: reaches it: the deepest the corpus carries is six (a participation). The
+#: rejected side actually writes (``:.8f``). No figure the brief shows reaches
+#: it, and that is enforced now rather than assumed: ``desk_figures`` caps the
+#: brief at ``config.PROSE_MAX_DECIMALS`` (six, a participation). The
 #: detector calls the crime only where a token reaches this depth *and* runs
 #: deeper than the pack's print of that figure, so neither the pack's honest
 #: six-place figures nor a conventional trailing zero are mistaken for it.

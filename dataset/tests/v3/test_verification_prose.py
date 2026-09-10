@@ -19,10 +19,12 @@ for _p in (_HERE, os.path.join(_HERE, "fixtures")):
         sys.path.insert(0, _p)
 
 import make_prose_fixture as prose_harness  # noqa: E402
+from pipelines.v3 import config  # noqa: E402
 from pipelines.v3.verification.prose import (  # noqa: E402
     forbidden_hits,
     gate_violations,
     missing_mentions,
+    overprecise_numbers,
     stems,
     whitelist_for,
 )
@@ -111,6 +113,39 @@ def test_stemming_does_not_collapse_words_that_mean_different_things():
         ("participation", "the participants disagreed"),
     ]:
         assert not stems(anchor_text) <= stems(prose), f"{anchor_text!r} vs {prose!r}"
+
+
+def test_a_figure_spelled_past_desk_precision_is_a_violation():
+    """Sourced and unpublishable are different verdicts.
+
+    The first live run on qwen3.8-flash-next wrote a Brinson-Carino attribution
+    quoting a portfolio weight as ``0.472041725693``. Every digit came from
+    ``allowed_numbers``, so the invented-number axis passed it -- correctly. It is
+    still not a figure a desk would print, and a reader handed twelve decimals is
+    being told the book is known to a picometre.
+    """
+    assert overprecise_numbers("the weight is 0.472041725693 of the book") == [
+        "0.472041725693"
+    ]
+    # Deduplicated: a figure repeated is one thing to fix.
+    once = overprecise_numbers("0.13874892827 versus 0.13874892827 again")
+    assert once == ["0.13874892827"]
+
+
+def test_precision_that_the_desk_actually_needs_is_left_alone():
+    """Six places is a participation rate, not sloppiness -- the ceiling has to
+    sit above the deepest figure the corpus legitimately carries."""
+    assert overprecise_numbers("participation is 0.017381 of ADV") == []
+    assert overprecise_numbers("impact 26.66 bp on 8,867,535 shares at 296.61") == []
+    assert config.PROSE_MAX_DECIMALS == 6
+
+
+def test_the_precision_axis_reaches_the_gate():
+    """Wired into gate_violations, not merely available beside it."""
+    pack = dict(PACK)
+    pack["allowed_numbers"] = list(PACK["allowed_numbers"]) + [0.472041725693]
+    violations = gate_violations(pack, "the weight is 0.472041725693 here", "analysis")
+    assert any("past 6 decimals" in v for v in violations), violations
 
 
 def test_forbidden_claim_is_caught_even_buried():

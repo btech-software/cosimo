@@ -138,6 +138,21 @@ AGENTIC_FAULT_RESIDUE = 2
 AGENTIC_ATTEMPTS = 3
 AGENTIC_TEMPERATURES = (0.3, 0.2, 0.1)
 
+# The deepest a *written* figure may go in prose, regardless of how the pack
+# spells it. An absolute ceiling rather than a relative one, because the packs
+# themselves publish raw division results: 1,522 of the figures on disk carry
+# 9-12 decimal places, and a rule of "no deeper than the pack printed it" would
+# wave through an answer quoting a portfolio weight as 0.472041725693. Six is
+# the deepest any figure legitimately needs -- a participation rate (0.017381,
+# 1.74% of ADV) -- and every figure past that is a float that escaped rounding,
+# not a measurement.
+#
+# This is a presentation rule, not a correctness one: the invented-number gate
+# still decides whether the VALUE is the pack's. This decides whether the desk
+# would have written it that way. A reader who is handed twelve decimals is
+# being told the book is known to a picometre.
+PROSE_MAX_DECIMALS = 6
+
 # The analysis spec's "tiny whitelist": quantities that are arithmetic
 # furniture rather than pack facts -- the multiplicative identity, the percent
 # denominator, the two of a two-way bridge, the trading-day convention -- plus

@@ -129,6 +129,35 @@ def _pin_pre(monkeypatch):
     monkeypatch.delenv(config.LIVE_ENV, raising=False)
 
 
+# ----------------------------------------------------- the false-precision rule
+
+
+def test_false_precision_is_detectable_on_a_pack_that_stores_deep_floats():
+    """The crime has to be committable against every figure, not just shallow ones.
+
+    `assemble_numbers` cleans to 12 dp to kill binary noise, so 1,522 figures on
+    disk sit at 9-12 places. Measuring "deeper than the pack printed it" against
+    the *stored* depth made the crime unsatisfiable for exactly those: a rejected
+    side would have needed thirteen decimals to out-print the pack, while the
+    brief asks for eight. The depth is measured against the brief instead, which
+    `desk_figures` caps at six -- so eight decimals is always an over-quote.
+    """
+    from pipelines.v3 import config
+    from pipelines.v3.verification.preference import (
+        _FALSE_PRECISION_PLACES,
+        _printed_depth,
+    )
+
+    deep = 0.472041725693  # a portfolio weight as the pack stores it
+    assert _printed_depth(deep) <= config.PROSE_MAX_DECIMALS
+    assert _FALSE_PRECISION_PLACES > config.PROSE_MAX_DECIMALS, (
+        "the brief's commanded depth must exceed anything the brief itself shows, "
+        "or a faithful quote would read as the crime"
+    )
+    # A conventional trailing zero is still not a precision claim.
+    assert _printed_depth(3.0) == 0
+
+
 # ------------------------------------------------------------------ the draw
 
 

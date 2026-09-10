@@ -75,13 +75,21 @@ DUMMY_MODEL = "fixture-prose"
 def _dec(value: float) -> str:
     """Fixed-point rendering, no sci notation, no thousands separators.
 
-    ``%.10f`` then trimmed: every pack value the harness quotes is a number
-    the pack's own ``assemble_numbers`` walked into ``allowed_numbers``, so
-    the token only has to *round-trip inside the gate's tolerance*, and plain
-    decimal notation is the spelling whose tokens the number gate parses
-    without ambiguity.
+    Trimmed fixed-point: every pack value the harness quotes is a number the
+    pack's own ``assemble_numbers`` walked into ``allowed_numbers``, so the token
+    only has to *round-trip inside the gate's tolerance*, and plain decimal
+    notation is the spelling whose tokens the number gate parses without
+    ambiguity.
+
+    Capped at ``config.PROSE_MAX_DECIMALS`` because the dummy has to satisfy the
+    same prose gate a live teacher does, and the gate now refuses a figure spelled
+    past desk precision. The cap bites on real packs: 1,522 published figures
+    carry 9-12 decimals, so rendering at ``%.10f`` made the dummy quote portfolio
+    weights like ``0.472041725693`` -- which the build assertion below caught the
+    moment the axis existed. Rounding here keeps it inside the gate's 0.5%
+    tolerance by a wide margin.
     """
-    text = f"{float(value):.10f}".rstrip("0")
+    text = f"{float(value):.{config.PROSE_MAX_DECIMALS}f}".rstrip("0")
     if text.endswith("."):
         text = text[:-1]
     return text or "0"

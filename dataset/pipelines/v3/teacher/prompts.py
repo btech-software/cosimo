@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 
+from .. import config
+
 #: The stable system turn (spec §5.6). Versioned inside the text because the
 #: fixture hashes cover the whole message list: editing this string must
 #: invalidate stale fixtures loudly (the drift test fails), never silently.
@@ -93,6 +95,45 @@ _REGISTER_HINTS = {
 }
 
 
+def desk_figures(node):
+    """*node* with every float rounded to the depth a desk would print.
+
+    The teacher quotes what the brief shows it, so the brief is where rounding
+    has to happen. ``assemble_numbers`` rounds to 12 dp -- a deliberate choice,
+    but a noise-suppression one ("0.30000000000000004 must not appear twice"),
+    never a decision to publish twelve significant decimals. The consequence only
+    surfaced with a teacher good enough to quote the pack faithfully: the first
+    qwen3.8-flash-next run wrote a portfolio weight as ``0.472041725693``,
+    straight from ``allowed_numbers``, and no reviewer would accept it.
+
+    Applied to the brief's copy and nowhere else, because the stored pack's
+    ``computed`` figures are load-bearing at full precision: the exam answer is
+    ``computed[answer_key]`` verbatim, the oracle returns them as tool results,
+    and ``verification.implementation`` pins them into generated hidden tests
+    that compare within 1e-9 relative. Rounding there would quietly break every
+    one of those. Rounding here changes only what the model reads, and the
+    invented-number gate still admits the rounded spelling: its tolerance is
+    0.5%, and six decimals on any figure in the corpus is far inside that.
+    """
+    if isinstance(node, bool):
+        return node
+    if isinstance(node, float):
+        return round(node, config.PROSE_MAX_DECIMALS)
+    if isinstance(node, dict):
+        return {key: desk_figures(value) for key, value in node.items()}
+    if isinstance(node, list):
+        rounded = [desk_figures(value) for value in node]
+        # allowed_numbers is a sorted set; rounding can collide two spellings of
+        # the same economic figure, and two identical entries would read as a
+        # contradiction in a list the model is told is exhaustive.
+        if rounded and all(isinstance(v, (int, float)) for v in rounded):
+            return sorted({float(v) for v in rounded})
+        return rounded
+    if isinstance(node, tuple):
+        return tuple(desk_figures(value) for value in node)
+    return node
+
+
 def render_brief(pack: dict, *, kind: str) -> list[dict]:
     """The messages list for one prose render, facts locked (spec §5.6).
 
@@ -109,7 +150,7 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
     hint = _REGISTER_HINTS.get(register or "", f"register: {register}")
     low, high = WORD_BUDGETS[kind]
     contract = {
-        "fact_pack": pack,
+        "fact_pack": desk_figures(pack),
         "task": kind,
         "register": register,
         "register_hint": hint,
