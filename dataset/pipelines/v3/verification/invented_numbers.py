@@ -45,6 +45,24 @@ REL_TOLERANCE = 0.005
 SCALE_FACTORS = (1.0, 100.0, 0.01)
 
 
+def decimal_places(token: str) -> int:
+    """Decimal places a *written* number token carries, as the desk reads it.
+
+    On the token as spelled, not on its float value: ``"0.472041725693"`` is
+    twelve places whether or not the pack stores it that way, and ``"3.0"`` is
+    one. Trailing zeros count, because a figure spelled ``0.10`` claims two
+    places of precision and a reader is entitled to believe it.
+
+    Shared so the two rules that care about precision cannot drift: the prose
+    gate's absolute ceiling (:data:`config.PROSE_MAX_DECIMALS`) and the
+    preference lane's relative over-quoting detector measure depth the same way.
+    """
+    token = str(token).strip().lstrip("+-").replace(",", "")
+    if "." not in token:
+        return 0
+    return len(token.split(".", 1)[1])
+
+
 def _allowed_set(allowed) -> frozenset[float]:
     values = frozenset(float(a) for a in allowed if a is not None)
     if not values or not all(math.isfinite(v) for v in values):

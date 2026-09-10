@@ -39,8 +39,10 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):  # verification; repo root
 from verification import nums  # noqa: E402
 from verification.gates import FINAL_ANSWER_TAG  # noqa: E402
 
+from .. import config  # noqa: E402
 from ..config import NUMBER_WHITELIST  # noqa: E402
 from ..teacher.prompts import WORD_BUDGETS  # noqa: E402
+from .invented_numbers import decimal_places  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
 
 
@@ -131,6 +133,34 @@ def stems(text: str) -> set[str]:
     """
     words = re.findall(r"[a-z0-9]+", _norm(text).replace("-", " "))
     return {_stem(w) for w in words if w not in _STOPWORDS}
+
+
+def overprecise_numbers(text: str) -> list[str]:
+    """Figures *written* past :data:`config.PROSE_MAX_DECIMALS`, in order.
+
+    A presentation axis, not a correctness one. The invented-number gate already
+    decides whether a value belongs to the pack; this decides whether the desk
+    would have spelled it that way. They are genuinely separate: a figure can be
+    impeccably sourced and still unpublishable, and the first live run on
+    qwen3.8-flash-next produced exactly that -- a Brinson-Carino attribution
+    quoting a portfolio weight as ``0.472041725693``, every digit of it straight
+    from ``allowed_numbers``, which the four existing axes passed without
+    comment.
+
+    Absolute rather than relative to the pack's own print, because the packs are
+    where the raw floats come from: 1,522 published figures carry 9-12 decimals,
+    so "no deeper than the pack printed it" licenses the very thing this is for.
+    Fixing the packs is the root cure (they should round at computation time);
+    this is the gate that stops the symptom shipping in the meantime, and it
+    stays useful afterwards as the rule that says what prose may look like.
+
+    Deduplicated, because a figure repeated three times is one thing to fix.
+    """
+    seen: list[str] = []
+    for token in nums.TOKEN.findall(str(text)):
+        if decimal_places(token) > config.PROSE_MAX_DECIMALS and token not in seen:
+            seen.append(token)
+    return seen
 
 
 def missing_mentions(pack: dict, text: str) -> list[str]:
@@ -232,6 +262,13 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
         violations.append(
             "invented numbers not in the fact pack: "
             + ", ".join(repr(t) for t in offenders)
+        )
+    overprecise = overprecise_numbers(text)
+    if overprecise:
+        violations.append(
+            f"figures written past {config.PROSE_MAX_DECIMALS} decimals: "
+            + ", ".join(repr(t) for t in overprecise)
+            + " -- round them the way a desk would print them"
         )
     missing = missing_mentions(pack, text)
     if missing:
