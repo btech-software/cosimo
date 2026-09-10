@@ -303,13 +303,26 @@ def test_a_waiver_in_words_is_an_honest_way_to_proceed_without():
 
 
 def test_an_ignored_must_mention_is_missed_by_name():
+    """Dropping a point's content from the answer must be named by the gate.
+
+    The tamper deletes every word of the anchor, not the one line that used to
+    equal it verbatim. That older tamper stopped meaning anything when
+    ``must_mention`` became anchors matched on content words in any order
+    (verification/prose.py): removing a single line left the anchor's terms
+    scattered through the rest of the answer, so the gate correctly still saw
+    coverage and the test failed while measuring nothing.
+    """
+    import re
+
     pack, row = _row(RANK_CLEAN)
     point = pack["must_mention"][0]
-    tampered = "\n".join(
-        line
-        for line in row["answer"].splitlines()
-        if " ".join(line.casefold().split()).rstrip(".")
-        != " ".join(point.casefold().split()).rstrip(".")
+    terms = {w for w in re.findall(r"[a-z0-9]+", point.casefold().replace("-", " "))}
+    tampered = " ".join(
+        word
+        for word in row["answer"].split()
+        if not any(
+            term in word.casefold().replace("-", " ") for term in terms if len(term) > 3
+        )
     )
     row["answer"] = tampered
     row["messages"][-1]["content"] = tampered

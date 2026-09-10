@@ -145,9 +145,11 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "cost is linear in participation",
         ],
         must_mention=[
-            "the square-root impact scaling",
-            "participation near the ADV cap as the schedule constraint",
-            "arrival versus decision benchmark choice",
+            # Anchors, not sentences: content words a correct answer must
+            # use, matched on stems in any order (verification/prose.py).
+            "square-root impact scaling",
+            "participation against ADV",
+            "arrival versus decision benchmark",
         ],
         register="desk_chat",
         as_of=pick_as_of(rng),

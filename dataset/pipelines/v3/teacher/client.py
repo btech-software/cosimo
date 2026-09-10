@@ -34,7 +34,26 @@ from .. import config
 #: the renderer passes it explicitly and the fixture harness hashes bodies
 #: built with it -- the bytes that key the replay table must be the bytes the
 #: renderer sends.
-DEFAULT_MAX_TOKENS = 1024
+#:
+#: 16384, not the original 1024. A reasoning teacher spends this budget on its
+#: chain of thought *first* and emits the answer from what is left, and the
+#: first live run proved 1024 does not survive that: deepseek-v4-flash burned
+#: 4,851 completion tokens (~16k characters of `reasoning`) to write a
+#: 109-word answer, so at 1024 -- and at 4096 -- every call returned
+#: `content: null` with `finish_reason: length`. Three attempts per row, every
+#: row dead-lettered, and the repair loop cooling the temperature at a model
+#: that had never written a word.
+#:
+#: 8192 was not enough either. Reasoning length varies run to run, and at 8192
+#: the same brief converged sometimes and ran out mid-thought other times --
+#: 19,343 characters of reasoning on one call, 26,639 on the next. 16384 gives
+#: the headroom that makes the lane reliable rather than lucky.
+#:
+#: Overridable via COSIMO_V3_MAX_TOKENS because the right number is a property
+#: of the teacher rather than of the corpus; a non-reasoning model wants far
+#: less. Changing it rekeys every replay fixture, which is why it is read once
+#: here and not per call site.
+DEFAULT_MAX_TOKENS = int(os.environ.get(config.TEACHER_MAX_TOKENS_ENV) or 16384)
 
 
 class TeacherError(RuntimeError):
@@ -88,19 +107,46 @@ class HttpTransport:
         self.api_key = api_key
         self.timeout_s = float(timeout_s)
 
+    def _deadline(self, body: dict) -> float:
+        """How long this particular call may take, in seconds.
+
+        A fixed wall clock against a variable token budget is the wrong
+        shape, and the reference box makes that concrete: it generates about
+        23.6 tok/s, so a fully-consumed 16384-token call needs ~694s and fits
+        inside a 900s deadline, while the 32768 the renderer buys on
+        truncation needs ~1388s and cannot. A transport timeout aborts the
+        whole render stage, so a deadline that cannot cover the budget it is
+        waiting on converts a recoverable truncation into a lost run -- which
+        is exactly how the first five-lane run died.
+
+        ``timeout_s`` is therefore the allowance for one *default-sized*
+        call, scaled up in proportion for a bigger one. Never scaled down: a
+        small budget does not make the queue shorter or the prefill faster.
+        """
+        budget = int(body.get("max_tokens") or DEFAULT_MAX_TOKENS)
+        return self.timeout_s * max(1.0, budget / DEFAULT_MAX_TOKENS)
+
     def post(self, body: dict) -> dict:
         request = urllib.request.Request(
             f"{self.base_url}/v1/chat/completions",
             data=json.dumps(body, ensure_ascii=False).encode("utf8"),
             headers={
-                "contenttype": "application/json",
+                # `Content-Type`, with the hyphen. Without it urllib falls back
+                # to application/x-www-form-urlencoded for a request that has a
+                # body, and a strict OpenAI-compatible server answers 400
+                # "Unsupported Media Type: Only 'application/json' is allowed".
+                # The header name was misspelled `contenttype` until the first
+                # live run: every test monkeypatches `_urlopen` or replays a
+                # fixture, so nothing here had ever been handed to a real HTTP
+                # stack.
+                "content-type": "application/json",
                 "accept": "application/json",
                 "authorization": f"bearer {self.api_key}",
             },
             method="POST",
         )
         try:
-            with _urlopen(request, timeout=self.timeout_s) as response:
+            with _urlopen(request, timeout=self._deadline(body)) as response:
                 payload = response.read()
         except urllib.error.HTTPError as exc:  # auth/429/5xx: the caller decides
             snippet = _read_snippet(exc)

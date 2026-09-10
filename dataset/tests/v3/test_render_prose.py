@@ -30,7 +30,11 @@ from pipelines.v3.render.prose import (  # noqa: E402
     select_prose_jobs,
 )
 from pipelines.v3.teacher import Teacher  # noqa: E402
-from pipelines.v3.teacher.client import FixtureTransport, TeacherError  # noqa: E402
+from pipelines.v3.teacher.client import (  # noqa: E402
+    DEFAULT_MAX_TOKENS,
+    FixtureTransport,
+    TeacherError,
+)
 from pipelines.v3.verification.prose import gate_violations  # noqa: E402
 
 PINNED = ("valuation.equity.dcf", "mature_consumer", 0)
@@ -157,6 +161,114 @@ def test_three_strikes_write_the_dead_letter_whole():
     assert [m["role"] for m in dead["exchange"]][-1] == "user"
     assert len(dead["exchange"]) == 2 + 2 * config.PROSE_ATTEMPTS
     assert dead["temperatures"] == list(config.PROSE_TEMPERATURES)
+
+
+def test_the_dead_letter_keeps_the_best_draft_not_merely_the_last():
+    """A truncated last attempt must not erase the real draft in the middle.
+
+    The live shape this reproduces: attempt 1 came back empty (the reasoning
+    teacher spent its budget thinking), attempt 2 produced a full draft that
+    failed on content, attempt 3 truncated again. Recording only the final
+    round put "0 words" in the post-mortem and hid both the draft and the
+    only violations anybody could act on.
+    """
+    _, pack_line, clean = _pinned()
+    bad = clean + INVENTED
+    transport = Scripted([_reply(""), _reply(bad), _reply("")])
+    outcome = render_prose_row(Teacher(transport), pack_line, kind="analysis")
+    dead = outcome["dead_letter"]
+    assert dead["attempts"] == 3
+    assert dead["best_attempt"] == 2, "the middle draft is the one worth reading"
+    assert "invented numbers" in dead["reason"], "not a word-budget complaint"
+    assert "8153.7729" in " | ".join(dead["violations"])
+    assert [h["words"] for h in dead["history"]] == [0, len(bad.split()), 0]
+    assert [h["attempt"] for h in dead["history"]] == [1, 2, 3]
+    assert dead["history"][0]["violations"], "an empty draft still has a verdict"
+
+
+def test_an_all_empty_dead_letter_says_truncated_not_gate():
+    """Nothing was ever judged, so the reason may not read like a judgement."""
+    _, pack_line, _ = _pinned()
+    transport = Scripted([_reply("")] * config.PROSE_ATTEMPTS)
+    dead = render_prose_row(Teacher(transport), pack_line, kind="analysis")[
+        "dead_letter"
+    ]
+    assert dead["reason"].startswith("truncated:")
+    assert dead["best_attempt"] is None
+    assert all(h["words"] == 0 for h in dead["history"])
+
+
+def test_every_repair_turn_is_given_more_room_than_the_one_before():
+    """The budget tracks the transcript, which grows on every attempt.
+
+    Measured, not assumed. Across a five-lane live run, every row whose first
+    attempt produced a real draft then truncated on attempt 2 at the same
+    16384 that had just worked -- three of three -- and two of those three
+    recovered on attempt 3 once the budget doubled. The repair turn carries
+    the whole failed draft and the violation list on top of the original
+    brief, and a reasoning teacher re-reads all of it before writing a word,
+    so the attempt that has the most to read must not be the one given the
+    least room.
+
+    This replaces an earlier rule that escalated only *after* an empty draft.
+    That rule could not help here: attempt 2 is where the first truncation
+    happens, so paying for it afterwards buys the headroom one attempt too
+    late and wastes the round that had the teacher's own draft in front of it.
+    """
+    _, pack_line, clean = _pinned()
+    transport = Scripted([_reply(clean + INVENTED)] * config.PROSE_ATTEMPTS)
+    render_prose_row(Teacher(transport), pack_line, kind="analysis")
+    budgets = [call["max_tokens"] for call in transport.calls]
+    assert budgets == sorted(set(budgets)), "strictly increasing, never repeating"
+    assert budgets[0] == DEFAULT_MAX_TOKENS, "the first attempt pays the base rate"
+    assert budgets == [DEFAULT_MAX_TOKENS * n for n in (1, 2, 3)]
+
+
+def test_a_first_attempt_always_pays_the_base_rate():
+    """Whatever went wrong last time, a fresh brief starts from the default --
+    otherwise a slow lane would ratchet its own cost up across rows."""
+    _, pack_line, clean = _pinned()
+    for replies in ([_reply(clean)], [_reply(""), _reply(clean)]):
+        transport = Scripted(replies)
+        render_prose_row(Teacher(transport), pack_line, kind="analysis")
+        assert transport.calls[0]["max_tokens"] == DEFAULT_MAX_TOKENS
+
+
+def test_an_outage_keeps_the_rows_already_paid_for(tmp_path, monkeypatch):
+    """A timeout on job N must not throw away jobs 1..N-1.
+
+    The stage buffered every row and wrote once at the end, so the first
+    five-lane live run -- forty minutes of teacher time, several rows already
+    clean through the gate -- put nothing on disk when a later call timed
+    out. The resume contract exists precisely so an outage costs the run and
+    not the bill; buffering defeated it at the only moment it mattered.
+    """
+    _pin_lane(monkeypatch)
+    out = str(tmp_path)
+    payload, selected = _fixture_slice(4)
+    entries = payload["entries"]
+
+    class DiesOnTheThird(CountingFixture):
+        def post(self, body):
+            if self.calls >= 2:
+                raise TeacherError("teacher unreachable: timed out")
+            return super().post(body)
+
+    transport = DiesOnTheThird(entries)
+    for job in selected:
+        write.append_unique(
+            write.path_for("fact_packs", job.work_type, out),
+            [stage.pack_record(job.work_type, job.family, job.variant)],
+        )
+    with pytest.raises(TeacherError, match="timed out"):
+        run_render_stage(out, selected, Teacher(transport), types=("analysis",))
+    survived = write.existing_ids(write.path_for("sft", "analysis", out))
+    assert len(survived) == 2, "the rows the teacher was already paid for"
+
+    # ...and the retry does not buy them a second time.
+    replay = CountingFixture(entries)
+    report = run_render_stage(out, selected, Teacher(replay), types=("analysis",))
+    assert report["existing"] == 2 and replay.calls == len(selected) - 2
 
 
 def test_an_outage_is_an_outage_not_a_verdict():

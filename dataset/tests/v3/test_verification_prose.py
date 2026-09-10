@@ -23,6 +23,7 @@ from pipelines.v3.verification.prose import (  # noqa: E402
     forbidden_hits,
     gate_violations,
     missing_mentions,
+    stems,
     whitelist_for,
 )
 from pipelines.v3.verification.invented_numbers import invented_numbers  # noqa: E402
@@ -79,6 +80,37 @@ def test_missing_mention_is_reported_point_by_point():
 def test_mention_matching_ignores_case_and_runs_of_spaces():
     text = "capex   IS  rising. and the   DCF value SITS below PRICE."
     assert missing_mentions(PACK, text) == []
+
+
+def test_a_nominalised_anchor_matches_the_verb_the_desk_actually_writes():
+    """ "normality assumption" must match "normality ... it assumes ...".
+
+    Live evidence: a correct VaR answer wrote "The square-root scaling is the
+    first thing normality hides: it assumes daily returns are independent and
+    identically distributed", and the gate reported the "normality assumption"
+    point as not covered -- "assumption" stemmed to "assumpt", "assumes" to
+    "assum". Nobody writes "the normality assumption assumption"; the desk
+    nominalises in the anchor and conjugates in the prose, and an instrument
+    that cannot see through that is selecting for quotation again.
+    """
+    pairs = [
+        ("normality assumption", "normality hides: it assumes iid returns"),
+        ("assumption", "the answer assumed a flat curve"),
+        ("assumptions", "what it assumes"),
+        ("consumption", "the model consumes the whole budget"),
+    ]
+    for anchor_text, prose in pairs:
+        assert stems(anchor_text) <= stems(prose), f"{anchor_text!r} vs {prose!r}"
+
+
+def test_stemming_does_not_collapse_words_that_mean_different_things():
+    """The mercy above must not become a matcher that agrees with anything."""
+    for anchor_text, prose in [
+        ("normality assumption", "the option is priced off a normal curve"),
+        ("liquidity", "the position is liquidated"),
+        ("participation", "the participants disagreed"),
+    ]:
+        assert not stems(anchor_text) <= stems(prose), f"{anchor_text!r} vs {prose!r}"
 
 
 def test_forbidden_claim_is_caught_even_buried():

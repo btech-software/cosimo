@@ -15,6 +15,7 @@ import pytest
 
 from pipelines.v3 import config
 from pipelines.v3.teacher.client import (
+    DEFAULT_MAX_TOKENS,
     FixtureTransport,
     HttpTransport,
     Teacher,
@@ -143,7 +144,14 @@ def test_http_transport_posts_json_with_authorisation(monkeypatch):
     assert seen["url"] == "https://teacher.example/api/v1/chat/completions"
     assert seen["method"] == "POST"
     assert seen["headers"]["Authorization"] == "bearer sekret"
-    assert seen["headers"]["Contenttype"] == "application/json"
+    # `Content-Type`, hyphenated, as urllib normalises it. This assertion used
+    # to read `Contenttype` -- it pinned the misspelling rather than the
+    # contract, so it passed against a header no HTTP server would honour, and
+    # a strict endpoint answered 400 on the first live call. Asserted through
+    # `urllib`'s own lookup so the spelling that reaches the wire is the
+    # spelling under test.
+    assert seen["headers"]["Content-type"] == "application/json"
+    assert "Contenttype" not in seen["headers"], "the misspelling is back"
     assert seen["timeout"] == 7
     assert json.loads(seen["data"].decode("utf8"))["model"] == "m"
     assert result.text == "hello"
@@ -175,6 +183,41 @@ def test_http_errors_become_teachererrors_naming_the_endpoint(monkeypatch):
         )
 
 
+def test_the_deadline_scales_with_the_budget_it_is_waiting_on(monkeypatch):
+    """A wall clock against a variable token budget is the wrong shape.
+
+    Measured on the reference box: the teacher generates ~23.6 tok/s, so a
+    fully-consumed 16384-token call needs ~694s and fits inside a 900s
+    deadline -- but the renderer buys headroom on truncation, and a 32768
+    call needs ~1388s and cannot. The whole render stage aborts on a
+    transport timeout, so an escalation that outruns the deadline turns a
+    recoverable truncation into a lost run.
+
+    TEACHER_TIMEOUT_S therefore means "how long one default-sized call may
+    take", and a call that asks for more tokens is allowed proportionally
+    more time. It is never allowed *less*: queueing and prefill do not shrink
+    with the budget.
+    """
+    seen = {}
+
+    def fake_urlopen(request, timeout):
+        seen[json.loads(request.data)["max_tokens"]] = timeout
+        return FakeResponse(json.dumps(_reply()).encode())
+
+    monkeypatch.setattr("pipelines.v3.teacher.client._urlopen", fake_urlopen)
+    teacher = Teacher(HttpTransport("https://t.example", "k", timeout_s=100))
+    messages = [{"role": "user", "content": "q"}]
+    for budget in (DEFAULT_MAX_TOKENS // 4, DEFAULT_MAX_TOKENS, DEFAULT_MAX_TOKENS * 3):
+        teacher.complete(messages, model="m", max_tokens=budget)
+    assert seen[DEFAULT_MAX_TOKENS] == 100
+    assert seen[DEFAULT_MAX_TOKENS * 3] == 300, (
+        "three times the tokens, three times the wait"
+    )
+    assert seen[DEFAULT_MAX_TOKENS // 4] == 100, (
+        "a small budget never shortens the deadline"
+    )
+
+
 def test_non_json_reply_is_refused(monkeypatch):
     monkeypatch.setattr(
         "pipelines.v3.teacher.client._urlopen",
@@ -188,7 +231,16 @@ def test_non_json_reply_is_refused(monkeypatch):
 
 def test_fixture_transport_hits_exact_wildcards_and_misses_loudly():
     messages = [{"role": "user", "content": "hi"}]
-    body = {"model": "m", "messages": messages, "temperature": 0.7, "max_tokens": 1024}
+    # The budget is the client's own default, not a literal: this test is
+    # about exact-beats-wildcard, and pinning a number here made it fail for
+    # the unrelated reason that the default moved (1024 -> 16384 when the
+    # teacher became a reasoning model).
+    body = {
+        "model": "m",
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": DEFAULT_MAX_TOKENS,
+    }
     entries = {
         canonical_request(body): {"choices": [{"message": {"content": "matched"}}]},
         "*": {"choices": [{"message": {"content": "wildcard"}}]},
@@ -210,7 +262,7 @@ def test_fixture_transport_hits_exact_wildcards_and_misses_loudly():
             "model": "m",
             "messages": [{"role": "user", "content": "?"}],
             "temperature": 0.7,
-            "max_tokens": 1024,
+            "max_tokens": DEFAULT_MAX_TOKENS,
         }
     ) in str(err.value), (
         "a miss must name the hash the operator will need to extend the fixture"

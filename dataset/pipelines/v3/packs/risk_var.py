@@ -140,9 +140,9 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "VaR is a loss forecast",
         ],
         must_mention=[
-            "the normality assumption behind the z-scores",
-            "iid scaling by the square root of the horizon",
-            "expected shortfall as the coherent tail read",
+            "normality assumption",
+            "square-root horizon scaling",
+            "expected shortfall tail",
         ],
         register="risk_committee",
         as_of=pick_as_of(rng),

@@ -51,6 +51,14 @@ for _p in (DATASET, os.path.dirname(DATASET)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+# The completion budget is part of every request body this file hashes, and
+# `client.DEFAULT_MAX_TOKENS` reads COSIMO_V3_MAX_TOKENS at import time. A
+# developer with that set -- `.env.example` ships it -- would otherwise
+# capture their own budget into the committed table and rekey every entry.
+# Dropping it here keeps the promise this module's docstring makes: the bytes
+# hash the same on every box.
+os.environ.pop("COSIMO_V3_MAX_TOKENS", None)
+
 from pipelines.v3 import config, inventory  # noqa: E402
 from pipelines.v3.oracle import faults, runtime  # noqa: E402
 from pipelines.v3.oracle.runtime import _entity_identity  # noqa: E402

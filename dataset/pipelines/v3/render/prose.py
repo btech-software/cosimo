@@ -18,6 +18,15 @@ corpus. ``verification.render.attempts`` on every row is what makes that
 auditable: an attempt histogram per lane is how you notice a teacher
 degrading before 20k rows of it ship.
 
+A dead letter carries the whole ladder, not its last rung. Recording only
+the final round was actively misleading: a run whose drafts ran [0 words,
+163 words, 0 words] filed a post-mortem reading "0 words", hiding both the
+one real draft and the only violations anybody could act on. ``history``
+holds every attempt's temperature, budget, finish reason, word count and
+verdict; ``best_attempt`` names the round worth reading; and ``reason``
+distinguishes a teacher that broke the contract from one that never
+finished thinking, because those want opposite fixes.
+
 Holdout families are not rendered here: their packs are the gold bar
 (PR4's eval slice), and prose for them must never pass through a training
 shard -- the leakage axis would catch it, and refusing at the gate is
@@ -92,6 +101,39 @@ def select_prose_jobs(jobs, *, types=None, limit=None) -> list:
     return selected
 
 
+def _best_attempt(history: list[dict]) -> dict | None:
+    """The attempt worth reading, or ``None`` if the teacher never wrote a word.
+
+    "Best" is the non-empty draft with the fewest violations, latest wins a
+    tie -- a later attempt has seen the repair feedback, so when two rounds
+    break the same number of rules the later one is the more informative
+    failure. Empty drafts are not candidates at all: a truncated round has no
+    faults of its own, only the word-budget floor its emptiness trips, and
+    letting it win the comparison is exactly how the real draft got lost.
+    """
+    scored = [h for h in history if h["words"]]
+    if not scored:
+        return None
+    return min(scored, key=lambda h: (len(h["violations"]), -h["attempt"]))
+
+
+def _dead_letter_reason(history: list[dict], best: dict | None) -> str:
+    """One line saying which of the two failures this was.
+
+    A teacher that cannot obey the contract and a teacher that never finished
+    thinking need opposite fixes -- reword the pack, or raise the budget --
+    and a post-mortem that files both under "gate: word budget" costs a day
+    to tell apart.
+    """
+    if best is None:
+        budgets = " -> ".join(str(h["max_tokens"]) for h in history)
+        return (
+            f"truncated: {len(history)} attempts returned no text at all "
+            f"(budgets {budgets}); the teacher never reached an answer"
+        )
+    return "gate: " + " | ".join(best["violations"])
+
+
 def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
     """One stored pack line + one kind -> ``{"row": .., "dead_letter": ..}``.
 
@@ -110,18 +152,48 @@ def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
     messages = render_brief(pack, kind=kind)
     exchange: list[dict] = list(messages)
     violations: list[str] = []
+    history: list[dict] = []
     attempts = 0
     while attempts < config.PROSE_ATTEMPTS:
         temperature = config.PROSE_TEMPERATURES[attempts]
+        # Two different failures share this ladder, and they want opposite
+        # responses. A draft that broke the contract is usually the model
+        # padding, and a cooler temperature helps. A draft that came back
+        # *empty* is a reasoning teacher that spent its whole completion budget
+        # thinking and never reached the answer -- cooling that does nothing at
+        # all, and the first live runs proved it: three attempts, three empty
+        # drafts, one dead letter, repeatedly.
+        #
+        # So the budget tracks the transcript instead, and the transcript grows
+        # on every attempt: a repair turn carries the whole failed draft and the
+        # violation list on top of the original brief, and a reasoning teacher
+        # re-reads all of it before writing a word. Escalating only *after* an
+        # empty draft was one attempt too late -- across a five-lane live run,
+        # every row that drafted cleanly on attempt 1 then truncated on attempt
+        # 2 at the same budget that had just worked, three of three, and two of
+        # them recovered on attempt 3 once it doubled. The attempt with the most
+        # to read must not be the one given the least room.
+        budget = DEFAULT_MAX_TOKENS * (attempts + 1)
         result = teacher.complete(
             exchange,
             model=route.model,
             temperature=temperature,
-            max_tokens=DEFAULT_MAX_TOKENS,
+            max_tokens=budget,
             think=route.think,
         )
         attempts += 1
+        text = (result.text or "").strip()
         violations = gate_violations(pack, result.text, kind)
+        history.append(
+            {
+                "attempt": attempts,
+                "temperature": temperature,
+                "max_tokens": budget,
+                "finish_reason": result.finish_reason,
+                "words": len(text.split()),
+                "violations": violations,
+            }
+        )
         if not violations:
             return {
                 "row": {
@@ -147,17 +219,20 @@ def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
                 "dead_letter": None,
             }
         exchange = render_repair(exchange, result.text, violations)
+    best = _best_attempt(history)
     return {
         "row": None,
         "dead_letter": {
             "id": row_id(kind, pack),
             "record_type": kind,
-            "reason": "gate: " + " | ".join(violations),
+            "reason": _dead_letter_reason(history, best),
             "work_type": pack["work_type"],
             "scenario_id": pack["scenario_id"],
             "attempts": attempts,
             "temperatures": list(config.PROSE_TEMPERATURES[:attempts]),
-            "violations": violations,
+            "violations": (best or history[-1])["violations"],
+            "best_attempt": None if best is None else best["attempt"],
+            "history": history,
             "exchange": exchange,
         },
     }
@@ -213,56 +288,67 @@ def run_render_stage(out_dir: str, jobs, teacher, *, types=None, limit=None) -> 
     deads: dict[str, list[dict]] = {}
     known: dict[str, frozenset[str]] = {}
     seen_ids: set[str] = set()
-    for job in selected:
-        kind = job.record_type
-        rid = row_id_from_coords(kind, job.work_type, job.family, job.variant)
-        if rid in seen_ids:
-            continue
-        seen_ids.add(rid)
-        if kind not in known:
-            known[kind] = write.existing_ids(
-                write.path_for("sft", kind, out_dir)
-            ) | write.existing_ids(write.path_for("dead_letter", kind, out_dir))
-        if rid in known[kind]:
-            report["existing"] += 1
-            report["by_kind"].setdefault(kind, {"rendered": 0, "existing": 0})[
-                "existing"
-            ] += 1
-            continue
-        pack_line, file_existed = pack_for(job)
-        if pack_line is None:
-            entry = {
-                "id": rid,
-                "work_type": job.work_type,
-                "family": job.family,
-                "record_type": kind,
-                "variant": job.variant,
-            }
-            bucket = (
-                report["skipped_by_pack_gate"]
-                if file_existed
-                else report["missing_packs"]
+    try:
+        for job in selected:
+            kind = job.record_type
+            rid = row_id_from_coords(kind, job.work_type, job.family, job.variant)
+            if rid in seen_ids:
+                continue
+            seen_ids.add(rid)
+            if kind not in known:
+                known[kind] = write.existing_ids(
+                    write.path_for("sft", kind, out_dir)
+                ) | write.existing_ids(write.path_for("dead_letter", kind, out_dir))
+            if rid in known[kind]:
+                report["existing"] += 1
+                report["by_kind"].setdefault(kind, {"rendered": 0, "existing": 0})[
+                    "existing"
+                ] += 1
+                continue
+            pack_line, file_existed = pack_for(job)
+            if pack_line is None:
+                entry = {
+                    "id": rid,
+                    "work_type": job.work_type,
+                    "family": job.family,
+                    "record_type": kind,
+                    "variant": job.variant,
+                }
+                bucket = (
+                    report["skipped_by_pack_gate"]
+                    if file_existed
+                    else report["missing_packs"]
+                )
+                entry["reason"] = (
+                    "the pack guard rejected this parameter set (PackError at the "
+                    "packs stage); the fact never existed, nothing to render"
+                    if file_existed
+                    else "no fact-pack file for this work type at all; run the packs "
+                    "stage for this plan before rendering"
+                )
+                bucket.append(entry)
+                continue
+            outcome = render_prose_row(teacher, pack_line, kind=kind)
+            cell = report["by_kind"].setdefault(kind, {"rendered": 0, "existing": 0})
+            if outcome["row"] is not None:
+                rows.setdefault(kind, []).append(outcome["row"])
+                report["rendered"] += 1
+                cell["rendered"] += 1
+            else:
+                deads.setdefault(kind, []).append(outcome["dead_letter"])
+                report["dead_lettered"] += 1
+    finally:
+        # Whatever the teacher already answered is written even when a later
+        # call takes the stage down. A transport outage still propagates --
+        # that contract is deliberate -- but it may not also discard the rows
+        # it was already billed for: the first five-lane live run lost forty
+        # minutes of clean output to a timeout on a later job, and the resume
+        # contract that was supposed to make that cheap never got the chance,
+        # because nothing had reached the disk to resume from.
+        for kind in sorted(rows):
+            write.append_unique(write.path_for("sft", kind, out_dir), rows[kind])
+        for kind in sorted(deads):
+            write.append_unique(
+                write.path_for("dead_letter", kind, out_dir), deads[kind]
             )
-            entry["reason"] = (
-                "the pack guard rejected this parameter set (PackError at the "
-                "packs stage); the fact never existed, nothing to render"
-                if file_existed
-                else "no fact-pack file for this work type at all; run the packs "
-                "stage for this plan before rendering"
-            )
-            bucket.append(entry)
-            continue
-        outcome = render_prose_row(teacher, pack_line, kind=kind)
-        cell = report["by_kind"].setdefault(kind, {"rendered": 0, "existing": 0})
-        if outcome["row"] is not None:
-            rows.setdefault(kind, []).append(outcome["row"])
-            report["rendered"] += 1
-            cell["rendered"] += 1
-        else:
-            deads.setdefault(kind, []).append(outcome["dead_letter"])
-            report["dead_lettered"] += 1
-    for kind in sorted(rows):
-        write.append_unique(write.path_for("sft", kind, out_dir), rows[kind])
-    for kind in sorted(deads):
-        write.append_unique(write.path_for("dead_letter", kind, out_dir), deads[kind])
     return report

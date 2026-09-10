@@ -56,6 +56,14 @@ for _p in (DATASET, os.path.dirname(DATASET), _HERE):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+# The completion budget is part of every request body this file hashes, and
+# `client.DEFAULT_MAX_TOKENS` reads COSIMO_V3_MAX_TOKENS at import time. A
+# developer with that set -- `.env.example` ships it -- would otherwise
+# capture their own budget into the committed table and rekey every entry.
+# Dropping it here keeps the promise this module's docstring makes: the bytes
+# hash the same on every box.
+os.environ.pop("COSIMO_V3_MAX_TOKENS", None)
+
 import make_prose_fixture as prose_harness  # noqa: E402
 from pipelines.v3 import config, inventory  # noqa: E402
 from pipelines.v3.packs import PackError, compute_pack  # noqa: E402
@@ -75,7 +83,7 @@ from pipelines.v3.verification.preference import (  # noqa: E402
     pair_draw,
     rejected_brief,
 )
-from pipelines.v3.verification.prose import whitelist_for  # noqa: E402
+from pipelines.v3.verification.prose import stems, whitelist_for  # noqa: E402
 
 PREF_FIXTURE_NAME = "preference_fixture.json"
 DUMMY_MODEL = "fixture-pref"
@@ -199,6 +207,38 @@ def _norm(text: str) -> str:
     return " ".join(str(text).casefold().split())
 
 
+def _silence_a_contract_point(pack: dict, base: str) -> str | None:
+    """*base* with one ``must_mention`` point genuinely dropped, or ``None``.
+
+    Deleting the line that quoted the anchor used to be enough, because the
+    gate matched anchors verbatim. It matches on content-word stems now (see
+    ``verification.prose.missing_mentions``, and the anchors it forced the
+    packs to shorten), so a dropped line leaves the point's own words strewn
+    through the rest of the answer and the "ignored" constraint reads as
+    covered -- which is how this maker's own build assertion caught it.
+
+    So silence the point the way the gate reads it: strike the stems that
+    belong to this point *and to no other*, wherever they occur. Restricting
+    to exclusive stems is what keeps the crime singular -- a shared word
+    would take a second contract point down with it, and the pair would then
+    be evidence for a different accusation than the one it is labelled with.
+    """
+    points = list(pack.get("must_mention") or [])
+    for index, point in enumerate(points):
+        mine = stems(point)
+        if not mine:
+            continue
+        if not mine <= stems(base):
+            return base  # already silenced; the detector will see it so
+        others = set().union(*(stems(p) for i, p in enumerate(points) if i != index))
+        exclusive = mine - others
+        if not exclusive:
+            continue
+        kept = [w for w in base.split() if not stems(w) & exclusive]
+        return " ".join(kept)
+    return None
+
+
 def compose_rejected(
     pack: dict, work_type: str, pitfall: str, answer: str, chosen: str
 ) -> str:
@@ -227,22 +267,14 @@ def compose_rejected(
             + f" Printed to eight decimals, {key.replace('_', ' ')} is {float(value):.8f}."
         )
     if pitfall == "ignored_constraint":
-        for point in pack.get("must_mention") or []:
-            probe = _norm(point).rstrip(".")
-            if probe and probe not in _norm(base):
-                return base  # already silenced; the detector will see it so
-        for index, line in enumerate(base.splitlines()):
-            for point in pack.get("must_mention") or []:
-                if _norm(point).rstrip(".") in _norm(line):
-                    kept = [
-                        txt for i, txt in enumerate(base.splitlines()) if i != index
-                    ]
-                    return "\n".join(kept)
-        raise AssertionError(
-            f"{pack['scenario_id']} ({pitfall}): no contract point to silence -- "
-            "every point rides unquoted in the base text; the pair would be a "
-            "lie of omission the other way"
-        )
+        silenced = _silence_a_contract_point(pack, base)
+        if silenced is None:
+            raise AssertionError(
+                f"{pack['scenario_id']} ({pitfall}): no contract point to silence "
+                "-- every point shares all its content words with another, so "
+                "dropping one drops two and the pair stops being about this crime"
+            )
+        return silenced
     if pitfall == "look_ahead":
         if not str(pack.get("as_of") or "") < _LOOK_AHEAD_DATE:
             raise AssertionError(
