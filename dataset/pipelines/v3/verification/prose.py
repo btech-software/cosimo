@@ -67,14 +67,41 @@ def _norm(text: str) -> str:
 #: "normality" must accept "normal". No stemmer library and no synonym table --
 #: the gate still refuses to guess at meaning it was never given, it just stops
 #: insisting on a particular conjugation.
-_SUFFIXES = ("ingly", "edly", "ing", "ies", "ion", "ity", "ed", "es", "s", "y")
+#: Longest first, so "-ption" is tried before the "-ion" inside it: the desk
+#: nominalises in an anchor ("normality assumption") and conjugates in the
+#: prose ("it assumes"), and stripping only "-ion" leaves "assumpt" against
+#: "assum" -- which cost a correct VaR answer its row on the first five-lane
+#: live run.
+_SUFFIXES = (
+    "ingly",
+    "edly",
+    "ption",
+    "ing",
+    "ies",
+    "ion",
+    "ity",
+    "ed",
+    "es",
+    "s",
+    "y",
+)
 
 
 def _stem(word: str) -> str:
-    for suffix in _SUFFIXES:
-        if len(word) > len(suffix) + 2 and word.endswith(suffix):
-            return word[: -len(suffix)]
-    return word
+    """Strip suffixes until the word stops changing.
+
+    One pass is not enough once "-ption" is in the table: "assumptions" would
+    lose its "s" and stop, never reaching the "assum" that "assumes" reduces
+    to. Looping is what makes the singular and the plural of a nominalisation
+    land in the same place.
+    """
+    while True:
+        for suffix in _SUFFIXES:
+            if len(word) > len(suffix) + 2 and word.endswith(suffix):
+                word = word[: -len(suffix)]
+                break
+        else:
+            return word
 
 
 #: Function words carry no analytical content, so requiring them would make an
@@ -89,8 +116,13 @@ _STOPWORDS = frozenset(
 )
 
 
-def _stems(text: str) -> set[str]:
+def stems(text: str) -> set[str]:
     """Content-word stems of *text*, hyphens treated as spaces.
+
+    Public because the preference fixture maker has to silence a
+    ``must_mention`` point the way this gate reads one; a second copy of the
+    rule there would drift from this one, and a drifted copy makes the
+    fixture claim a crime it no longer commits.
 
     Symmetric on both sides of the comparison, which is the point: an anchor
     written "square-root" has to match an answer that writes "square root",
@@ -122,11 +154,11 @@ def missing_mentions(pack: dict, text: str) -> list[str]:
     Anchors are therefore short and distinctive (see the pack modules), and
     matching is on content: all terms present, any order, any inflection.
     """
-    haystack = _stems(text)
+    haystack = stems(text)
     return [
         point
         for point in pack.get("must_mention") or []
-        if not _stems(point) <= haystack
+        if not stems(point) <= haystack
     ]
 
 

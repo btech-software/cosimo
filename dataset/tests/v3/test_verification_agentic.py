@@ -316,9 +316,7 @@ def test_an_ignored_must_mention_is_missed_by_name():
 
     pack, row = _row(RANK_CLEAN)
     point = pack["must_mention"][0]
-    terms = {
-        w for w in re.findall(r"[a-z0-9]+", point.casefold().replace("-", " "))
-    }
+    terms = {w for w in re.findall(r"[a-z0-9]+", point.casefold().replace("-", " "))}
     tampered = " ".join(
         word
         for word in row["answer"].split()

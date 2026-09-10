@@ -139,11 +139,22 @@ AGENTIC_ATTEMPTS = 3
 AGENTIC_TEMPERATURES = (0.3, 0.2, 0.1)
 
 # The analysis spec's "tiny whitelist": quantities that are arithmetic
-# furniture rather than pack facts -- the percent denominator, the two of a
-# two-way bridge, the trading-day convention -- plus every number spelled in
-# the pack's own as-of date. Token-level (the string as the model wrote it),
-# shared by the render gate and the verify board so both read the same mercy.
-NUMBER_WHITELIST = ("100", "2", "252", "10000", "10,000")
+# furniture rather than pack facts -- the multiplicative identity, the percent
+# denominator, the two of a two-way bridge, the trading-day convention -- plus
+# every number spelled in the pack's own as-of date. Token-level (the string as
+# the model wrote it), shared by the render gate and the verify board so both
+# read the same mercy.
+#
+# "1" earns its place the way "10000" did, by a measurement: a 170-word desk
+# answer that got every figure from the pack, covered every contract point and
+# named its own hidden assumption was dead-lettered for inventing the number 1
+# -- from `296.61 * (1 - 28.16 / 10000)`, the identity that turns a basis-point
+# cost into a fill price. A gate that rejects the best answer it has yet seen,
+# over notation that asserts nothing about the world, is measuring the wrong
+# thing. The cost is real and accepted: a teacher may now write "1 basis point"
+# uncaught. That is a weaker claim than the "252" already forgiven here, and
+# the alternative is selecting against arithmetic the desk actually writes.
+NUMBER_WHITELIST = ("1", "100", "2", "252", "10000", "10,000")
 #: 10000 joined the list after the first successful live render. The packs'
 #: own formulas convert to basis points with `1e4`, but the whitelist did not
 #: carry it and the tokenizer cannot read scientific notation -- `1e4` scans as

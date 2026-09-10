@@ -21,3 +21,13 @@ REPO = os.path.dirname(DATASET)
 for _p in (DATASET, REPO):
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+# The offline suite replays request *hashes*, and the completion budget is part
+# of every hashed body -- `client.DEFAULT_MAX_TOKENS` reads COSIMO_V3_MAX_TOKENS
+# once, at import time. `.env.example` ships that variable, so a developer who
+# has followed the setup instructions and exported it would watch 27 tests fail
+# for a reason that has nothing to do with their change. The committed fixtures
+# are built against the client's *built-in* default (the makers drop the
+# variable for the same reason), so the suite drops it too. This must run before
+# anything imports the client, which is what a conftest is for.
+os.environ.pop("COSIMO_V3_MAX_TOKENS", None)

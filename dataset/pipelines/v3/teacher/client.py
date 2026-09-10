@@ -107,6 +107,25 @@ class HttpTransport:
         self.api_key = api_key
         self.timeout_s = float(timeout_s)
 
+    def _deadline(self, body: dict) -> float:
+        """How long this particular call may take, in seconds.
+
+        A fixed wall clock against a variable token budget is the wrong
+        shape, and the reference box makes that concrete: it generates about
+        23.6 tok/s, so a fully-consumed 16384-token call needs ~694s and fits
+        inside a 900s deadline, while the 32768 the renderer buys on
+        truncation needs ~1388s and cannot. A transport timeout aborts the
+        whole render stage, so a deadline that cannot cover the budget it is
+        waiting on converts a recoverable truncation into a lost run -- which
+        is exactly how the first five-lane run died.
+
+        ``timeout_s`` is therefore the allowance for one *default-sized*
+        call, scaled up in proportion for a bigger one. Never scaled down: a
+        small budget does not make the queue shorter or the prefill faster.
+        """
+        budget = int(body.get("max_tokens") or DEFAULT_MAX_TOKENS)
+        return self.timeout_s * max(1.0, budget / DEFAULT_MAX_TOKENS)
+
     def post(self, body: dict) -> dict:
         request = urllib.request.Request(
             f"{self.base_url}/v1/chat/completions",
@@ -127,7 +146,7 @@ class HttpTransport:
             method="POST",
         )
         try:
-            with _urlopen(request, timeout=self.timeout_s) as response:
+            with _urlopen(request, timeout=self._deadline(body)) as response:
                 payload = response.read()
         except urllib.error.HTTPError as exc:  # auth/429/5xx: the caller decides
             snippet = _read_snippet(exc)
