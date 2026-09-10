@@ -83,9 +83,11 @@ data:
     - risk.market.var_es.equity_longonly         # market risk, risk_var
 
   # The v1/v2 axis: stem families, stripped of their v_/cr_/m_ wrapper prefix.
-  # Empty by default because v3 has no stem wrappers. configs/base.phi4.yaml
-  # sets it to the six-family v2 list, and 01_prepare_data.py reads both keys,
-  # so a v2 replay holds out exactly what it used to.
+  # Permanently empty now -- v3 has no stem wrappers, and the Phi-4/v2 build
+  # contract that used to restore this list is gone (no v2 model was ever
+  # pushed, so there was nothing to replay). The key stays because it is the
+  # union input `splits.assign` takes: v3's `holdout_scenario_families` flow
+  # through the same parameter, and 01_prepare_data.py reads both.
   holdout_families: []
 
   # Drop rows whose `verified` flag is false. These failed the generator's own

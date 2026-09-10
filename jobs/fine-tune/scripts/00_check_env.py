@@ -52,18 +52,28 @@ GB10_RUNNABLE_ARCHS = ("sm_121", "sm_120", "compute_121", "compute_120")
 DEPENDENCY_GROUP = "fine-tune"
 
 # unsloth and unsloth_zoo are installed with --no-deps in docker/fine-tune/Dockerfile and are
-# deliberately outside the locked dependency group, so their expected version cannot be read from
-# pyproject.toml. Keep this in sync with that Dockerfile; it is the only version stated in code.
-UNSLOTH_EXPECTED = "2026.8.1"
+# deliberately outside the locked dependency group, so their expected versions cannot be read from
+# pyproject.toml. Keep these in sync with that Dockerfile; they are the only versions stated in code.
+#
+# Two constants, not one: the packages are NOT released in lockstep. unsloth 2026.9.4 pairs with
+# unsloth_zoo 2026.9.3, and asking for a matching zoo version fails the install outright with
+# "No matching distribution". Comparing the zoo against the unsloth version -- which this file did
+# -- turns a correct pairing into a permanent warning.
+UNSLOTH_EXPECTED = "2026.9.4"
+UNSLOTH_ZOO_EXPECTED = "2026.9.3"
 
 # A version mismatch on these is a hard failure: they define the training API surface the harness
 # was written against (TRL 0.24.0 SFTConfig/DPOConfig fields, unsloth's supported ranges).
 CRITICAL_PACKAGES = ("transformers", "trl", "unsloth")
 
-# huggingface-hub 1.x dropped APIs that transformers 4.56.2 still calls, so a 1.x hub breaks the
-# whole stack at import time. The dependency group carries the same bound; this is the explicit
-# cross-check, because a stray `pip install -U huggingface_hub` is a common way to lose an image.
-HF_HUB_MAX_EXCLUSIVE = "1.0"
+# The hub bound is a floor now, not a ceiling, and it flipped with the student. transformers 4.56.2
+# called APIs that huggingface-hub 1.x had dropped, so the guard used to read `< 1.0`; transformers
+# 5.5.0 -- required because Qwen3.8-27B is `model_type: qwen3_5`, which first ships in 5.2.0 --
+# declares `huggingface-hub >=1.5.0,<2.0` instead. Pinning the old ceiling against the new
+# transformers is unresolvable, and the image build says so outright (ResolutionImpossible).
+# The dependency group carries the same bound; this is the explicit cross-check, because a stray
+# `pip install` of either package is a common way to lose an image.
+HF_HUB_RANGE = (">=", "1.5.0"), ("<", "2.0")
 
 MIN_FREE_DISK_GB = (
     50.0  # base weights + tokenized data + adapters + checkpoints + merged export
@@ -472,12 +482,12 @@ def check_packages(requirements: list[dict]) -> list[dict]:
 
 
 def check_hf_hub() -> dict:
-    """huggingface-hub must stay below 1.0 for transformers 4.56.2."""
+    """huggingface-hub must sit in the range transformers 5.5.0 declares."""
     version = installed_version("huggingface-hub")
     return {
         "version": version,
-        "max_exclusive": HF_HUB_MAX_EXCLUSIVE,
-        "ok": bool(version) and satisfies(version, [("<", HF_HUB_MAX_EXCLUSIVE)]),
+        "required": ",".join(f"{op}{bound}" for op, bound in HF_HUB_RANGE),
+        "ok": bool(version) and satisfies(version, list(HF_HUB_RANGE)),
     }
 
 
@@ -487,6 +497,7 @@ def check_unsloth() -> dict:
         "version": installed_version("unsloth"),
         "zoo_version": installed_version("unsloth_zoo"),
         "expected": UNSLOTH_EXPECTED,
+        "zoo_expected": UNSLOTH_ZOO_EXPECTED,
         "version_ok": False,
         "error": None,
     }
@@ -755,12 +766,12 @@ def evaluate(report: dict) -> tuple[list[str], list[str]]:
     if hub["version"] is None:
         failures.append(
             f"huggingface-hub is not installed; transformers needs it and requires "
-            f"< {hub['max_exclusive']}"
+            f"{hub['required']}"
         )
     elif not hub["ok"]:
         failures.append(
-            f"huggingface-hub {hub['version']} is installed but transformers 4.56.2 requires "
-            f"< {hub['max_exclusive']}; 1.x removed APIs it still calls and breaks the stack at "
+            f"huggingface-hub {hub['version']} is installed but transformers 5.5.0 requires "
+            f"{hub['required']}; a 0.x hub is missing APIs it calls and breaks the stack at "
             "import time"
         )
 
@@ -773,10 +784,10 @@ def evaluate(report: dict) -> tuple[list[str], list[str]]:
             f"{UNSLOTH_EXPECTED} required"
         )
     elif unsloth["zoo_version"] and not version_equal(
-        unsloth["zoo_version"], UNSLOTH_EXPECTED
+        unsloth["zoo_version"], UNSLOTH_ZOO_EXPECTED
     ):
         warnings.append(
-            f"unsloth_zoo {UNSLOTH_EXPECTED} expected, {unsloth['zoo_version']} found"
+            f"unsloth_zoo {UNSLOTH_ZOO_EXPECTED} expected, {unsloth['zoo_version']} found"
         )
 
     bnb = report["bnb_4bit"]
@@ -901,7 +912,7 @@ def print_report(report: dict) -> None:
         (
             "huggingface-hub",
             state(hub["ok"]),
-            f"{hub['version'] or 'not installed'} (requires < {hub['max_exclusive']})",
+            f"{hub['version'] or 'not installed'} (requires {hub['required']})",
         )
     )
     checks.append(

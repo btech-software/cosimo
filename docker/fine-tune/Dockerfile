@@ -103,7 +103,7 @@ RUN set -eux \
  && wc -l /opt/cosimo/pip-freeze.txt
 
 ENV HF_HOME=/workspace/.hf \
-    HF_HUB_ENABLE_HF_TRANSFER=1 \
+    HF_XET_HIGH_PERFORMANCE=1 \
     TOKENIZERS_PARALLELISM=false \
     PYTHONUNBUFFERED=1
 

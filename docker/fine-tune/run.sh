@@ -9,8 +9,9 @@
 # The repository is bind-mounted at /workspace/cosimo and the working directory is the harness
 # root (/workspace/cosimo/jobs/fine-tune), so every script can be invoked exactly as written in
 # the README, edits on the host take effect immediately, and data/ + runs/ land on the host
-# filesystem. The host Hugging Face cache is mounted at /workspace/.hf to match HF_HOME in the
-# image, so model weights are downloaded once.
+# filesystem. The host Hugging Face cache (HF_HOME when the host sets it, else ~/.cache/huggingface)
+# is mounted at /workspace/.hf to match HF_HOME in the image, so model weights are
+# downloaded once.
 #
 # --ipc=host and the memlock/stack ulimits are the standard NGC flags: dataloader workers use
 # shared memory, and pinned-memory allocation on the 128 GB unified-memory GB10 needs an
@@ -38,7 +39,13 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-HF_CACHE="${HOME}/.cache/huggingface"
+# Which host cache to mount. HF_HOME wins when the host sets it, so a box that
+# keeps its weights on a big data volume (the DGX Spark puts them on
+# /mnt/ai_models/huggingface, beside the served models) does not end up with a
+# second 29 GB copy under $HOME -- which is exactly what happened once, and the
+# two caches then disagreed about which 27B was downloaded. The fallback is the
+# huggingface_hub default, so a machine that sets nothing behaves as before.
+HF_CACHE="${HF_HOME:-${HOME}/.cache/huggingface}"
 mkdir -p "${HF_CACHE}"
 
 # -t only when both stdin and stdout are terminals; see the TTY note above.

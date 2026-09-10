@@ -85,14 +85,6 @@ def test_the_template_carries_no_vendor_identity(chat_template_text):
     assert "Your name is" not in chat_template_text
 
 
-def test_the_archived_phi_template_still_exists(cfg):
-    """configs/base.phi4.yaml points at it; a v2 replay renders through it."""
-    archived = config_mod.harness_path("configs/chat_template.phi4.jinja")
-    assert archived.is_file()
-    text = archived.read_text(encoding="utf-8")
-    assert "<|user|>" in text and "<|im_start|>" not in text
-
-
 # --------------------------------------------------------------------------
 # the invariants render_example / to_pref_row depend on
 # --------------------------------------------------------------------------

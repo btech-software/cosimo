@@ -1,10 +1,12 @@
 {#- Cosimo chat template (Qwen3.8 / ChatML).
 
-     Replaces the Phi-4 template archived alongside configs/base.phi4.yaml. The
-     turn markers are Qwen's ChatML pair -- <|im_start|>role\n ... <|im_end|> --
-     because those are real tokens in the student's vocabulary; the Phi markers
-     (<|system|>, <|user|>, <|end|>) are not, and would tokenise as multi-token
-     text on every turn boundary.
+     The turn markers are Qwen's ChatML pair -- <|im_start|>role\n ... <|im_end|>
+     -- because those are real single tokens in the student's vocabulary (248045
+     and 248046, and <|im_end|> is its eos_token). Markers that are not real
+     tokens, such as the <|system|>/<|user|>/<|end|> set the previous student
+     used, tokenise as multi-token text on every turn boundary and make the
+     response-only mask match on a sequence that can shift under its own
+     context.
 
      No vendor identity preamble is emitted. That was the reason the Phi vendor
      template was overridden in the first place, and the rule survives the model

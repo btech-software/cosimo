@@ -21,10 +21,6 @@ Default pipeline: **LoRA SFT → DPO**, with a complete **ORPO** single-stage al
 > `dataset.local_dir` at a local v3 shard tree — see
 > [Preparing from a local v3 tree](#preparing-from-a-local-v3-tree).
 
-> **Replaying a v2 run.** The Phi-4 build contract is archived whole in `configs/base.phi4.yaml`
-> (model, corpus, persona, grading contract, chat template and holdout axis). One flag restores it:
-> `--config configs/base.phi4.yaml`.
-
 ---
 
 ## Contents
@@ -350,7 +346,7 @@ masking configuration.
 ### Two properties of a mixed corpus that are still handled explicitly
 
 Neither applies at the v3 defaults (`dataset.mix: []`), and both are live again the moment a mix is
-configured or `configs/base.phi4.yaml` replays the v2 run.
+configured.
 
 * **1 840 exam questions are byte-identical across v1 and v2 under different ids.** Splits are
   keyed by `id`, so without intervention the same question could sit in v2's test slice and v1's
@@ -473,9 +469,9 @@ Three things about the rewrite:
 * **The masking markers gained a newline** (`<|im_start|>user\n`), because ChatML puts the role on
   its own line. `04_train_sft.py` masks on the token ids of these exact strings.
 
-The Phi template is archived as `configs/chat_template.phi4.jinja` and referenced by
-`configs/base.phi4.yaml`. Response-only masking and the `text == prompt + completion` invariant hold
-under both.
+Response-only masking and the `text == prompt + completion` invariant are asserted against the
+shipped template, and `04_train_sft.py` refuses to train if the mask boundary lands anywhere but
+immediately after the response marker.
 
 It is applied in **every** entry point: data preparation, SFT, DPO, ORPO, evaluation and export.
 In particular **the base model is evaluated through the same template as the fine-tuned model** —
@@ -614,7 +610,7 @@ python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | `model.base_id` | `Qwen/Qwen3.8-27B` | The base checkpoint. `lora.target_modules: auto` resolves its projections; a hardcoded list matches only one model family. |
 | `model.revision` | `null` | Pin a commit SHA to make training *and* evaluation reproducible against a moving Hub repo. |
 | `model.max_seq_length` | `8192` | Sequence budget. Sized for the agentic path, not the exam corpus: a typical exam row is ~1200 tokens, but a tool conversation adds a JSON schema list and a call/result round-trip, and the served ReAct loop stacks more on top. Raise it further if `split_manifest.json` shows meaningful truncation. |
-| `model.load_in_4bit` | `true` | QLoRA. 27 B parameters at bf16 leave no room for an 8k sequence and its activations in 128 GB of unified memory. The first knob to revisit if the LoRA smoke is memory-bound. The archived Phi-4 run used `false`. |
+| `model.load_in_4bit` | `true` | QLoRA. 27 B parameters at bf16 leave no room for an 8k sequence and its activations in 128 GB of unified memory. The first knob to revisit if the LoRA smoke is memory-bound -- and see `model.use_exact_model_name`, because unsloth's pre-quantized mirror of this student loads with no quantization state. |
 | `model.dtype` | `bfloat16` | Native on Blackwell; the base checkpoint is already bf16. |
 | `dataset.hub_id` / `.revision` | `btech-software/cosimo-quant-assistant-v3` / `main` | The primary corpus. Pin a SHA for a frozen result; the manifest records the resolved SHA of **every** source. Not yet published — see `dataset.local_dir`. |
 | `dataset.preference_config` | `preference` | Which config carries the pairs, or `null` for none. v3's pair ids (`cosimov3pref_`) are disjoint from its supervised ids (`cosimov3_`), which is what keeps DPO from training on traces SFT already fit. |
@@ -638,7 +634,7 @@ python scripts/04_train_sft.py --set sft.per_device_train_batch_size=2 --set sft
 | `data.max_train_records` | `null` | Cap on SFT training rows (seeded subsample). The knob to reach for when wall clock is the problem. Does not affect DPO. |
 | `data.preference_holdout_frac` | `0.5` | Fraction of preference-carrying records **reserved** for the preference stage: excluded from `sft_*.jsonl`, written to `pref_*.jsonl`. **Inert at the defaults** — it only applies to a corpus whose pairs share ids with its supervised rows, and v2's do not. Kept, with its validation gate, for the case where v1's pairs are re-enabled. |
 | `data.holdout_scenario_families` | two scenario ids | The v3 holdout axis: `<work_type>.<family>`, excluded from **all** training across **every** record type; see [`unseen_stems`](#why-unseen_stems-exists). |
-| `data.holdout_families` | `[]` | The v1/v2 axis: `v_`/`cr_`/`m_` stem families. Empty for v3, restored by `configs/base.phi4.yaml`. Both keys are read and unioned, so a replay holds out what it always did. |
+| `data.holdout_families` | `[]` | The v1/v2 axis: `v_`/`cr_`/`m_` stem families. Permanently empty -- v3 has no stem wrappers. The key stays because `splits.assign` takes it as the union input that `holdout_scenario_families` also flows through. |
 | `data.drop_unverified` | `true` | Drop rows that failed the generator's own answer-recomputation check. The dropped count is logged and recorded in the manifest. |
 
 ### `configs/sft.yaml` — `04_train_sft.py`

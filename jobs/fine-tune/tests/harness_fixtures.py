@@ -37,9 +37,9 @@ if str(HARNESS_ROOT) not in sys.path:
 CONFIG_DIR = HARNESS_ROOT / "configs"
 CHAT_TEMPLATE_PATH = CONFIG_DIR / "chat_template.jinja"
 
-# The vendor template shipped with unsloth/Phi-4-mini-reasoning, verbatim. The
-# student moved to Qwen3.8 (configs/base.yaml; the Phi run is archived as
-# configs/base.phi4.yaml), but this stays as the negative control: the tests
+# A vendor template that injects its own identity preamble, verbatim from the one
+# unsloth/Phi-4-mini-reasoning shipped. That model is no longer a training target
+# (decision log #7), but this stays as the negative control: the tests
 # asserting the harness template is free of a vendor identity preamble are
 # meaningless unless the same assertion fails for a template that carries one.
 VENDOR_CHAT_TEMPLATE = (

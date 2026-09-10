@@ -74,7 +74,7 @@ the source of truth so a Spark box and CI can run without Airflow.
 | `dataset/taxonomy/work_types.yaml` | **New** primary axis. Keep `taxonomy.json` as LOS metadata. |
 | `dataset/publish/` | Add v3 card + hub id. Do not overwrite v2 card. |
 | `cosimo/tools/` | **Extract** canonical tool schemas from `jobs/fine-tune/cosimo_ft/tools.py`. |
-| `jobs/fine-tune/configs/base.yaml` | Point student + dataset at v3. Keep a `base.phi4.yaml` archive. |
+| `jobs/fine-tune/configs/base.yaml` | Point student + dataset at v3. ~~Keep a `base.phi4.yaml` archive.~~ (dropped -- decision log #7) |
 | `jobs/fine-tune/configs/chat_template.jinja` | Qwen3.8 template (thinking + tool call). |
 | `jobs/fine-tune/scripts/01_prepare_data.py` | Teach it v3 record types + `fact_pack`. |
 | `ops/airflow/` | Optional DAG. Not required to generate. |
@@ -151,7 +151,7 @@ dataset/
 jobs/fine-tune/
   configs/
     base.yaml                      # Qwen3.8-27B + v3 hub
-    base.phi4.yaml                 # archived
+    (base.phi4.yaml was archived here, then dropped -- decision log #7)
     data.yaml                      # holdout_families → holdout_scenario_families
     chat_template.jinja            # Qwen3.8
   cosimo_ft/
@@ -451,7 +451,9 @@ prompt:
   exam_protocol: ...            # unchanged, exam rows only
 ```
 
-Archive the Phi-4 block as `configs/base.phi4.yaml` so old runs replay.
+~~Archive the Phi-4 block as `configs/base.phi4.yaml` so old runs replay.~~ Done in
+PR5, then dropped: no v2 model was ever pushed, so nothing replayed. See decision
+log #7.
 
 ### 8.2 Chat template
 
@@ -585,7 +587,7 @@ Gate: `verify_v3.py` on a 500-row slice; publish dry-run
 - chat template
 - `01_prepare_data.py` family holdout
 - `09_assistant_eval.py` new metrics
-- `base.phi4.yaml` archive
+- ~~`base.phi4.yaml` archive~~ (dropped -- decision log #7)
 
 Gate: `04_train_sft.py --dry-run` and a 200-row LoRA smoke on Spark
 
@@ -663,4 +665,12 @@ into Airflow on day one. One orchestrator per subsystem.
 4. Shared code lives in `cosimo/`, not in `dataset`↔`jobs` imports.
 5. Student is Qwen3.8-27B; teacher is DeepSeek-V4-Flash unless the memo bake-off says otherwise.
 6. First publish is thousands of good rows, not 113k.
-7. Phi-4 configs remain as `base.phi4.yaml` for replay of published v2 runs.
+7. ~~Phi-4 configs remain as `base.phi4.yaml` for replay of published v2 runs.~~
+   **Reversed.** No v2 model was ever pushed, so there was no published run to
+   replay and the archive guarded nothing. Phi-4 support is dropped: a 3.8B
+   student cannot reach the analytical standard the corpus is built for (the
+   teacher spends 16k-49k completion tokens to write 150 words of it). The
+   harness stays model-agnostic -- there were no Phi-specific code branches to
+   remove, only two config files -- so a different student remains a config
+   change. The limit is capacity, not architecture, which is why a mid-size
+   Qwen3 is still a legitimate fallback if the 27B proves impractical.

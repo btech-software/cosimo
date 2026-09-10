@@ -355,8 +355,8 @@ def check_masking(report: dict, tag: str) -> None:
             "template. For the shipped ChatML template (Qwen3.8) they must be "
             "'<|im_start|>user\\n' and '<|im_start|>assistant\\n' -- including "
             "the trailing newline, because ChatML puts the role on its own "
-            "line. The archived Phi-4 template uses '<|user|>' / "
-            "'<|assistant|>' instead; see configs/base.phi4.yaml.\n"
+            "line -- and a target that itself starts with a newline merges with "
+            "it into one token, which masks the whole row.\n"
             f"question was: {question!r}"
         )
 
@@ -365,7 +365,7 @@ def check_masking(report: dict, tag: str) -> None:
         f"{report['response_part']!r}, so the mask boundary is in the wrong place "
         "and prompt tokens are being trained on (or answer tokens dropped).\n"
         "Check chat.response_part against the markers configs/chat_template.jinja "
-        "emits; for unsloth/Phi-4-mini-reasoning it must be '<|assistant|>'.\n"
+        "emits, token for token -- the marker is matched on token ids, not text.\n"
         f"masked span ends: {report['masked_text'][-120:]!r}\n"
         f"supervised span starts: {supervised[:120]!r}"
     )
