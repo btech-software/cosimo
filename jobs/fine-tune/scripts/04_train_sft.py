@@ -196,8 +196,12 @@ def contains_subsequence(haystack: list[int], needle: list[int]) -> bool:
 
 
 def marker_ids(tokenizer: Any, marker: str) -> list[int]:
-    """Token ids for a chat marker, as train_on_responses_only matches them."""
-    return list(tokenizer.encode(marker, add_special_tokens=False))
+    """Token ids for a chat marker, as train_on_responses_only matches them.
+
+    Through ``chat.text_tokenizer`` because a vision-language student loads as a
+    processor, which has no ``encode`` (see that function).
+    """
+    return list(chat.text_tokenizer(tokenizer).encode(marker, add_special_tokens=False))
 
 
 def resolve_masking_report(
@@ -455,6 +459,20 @@ def build_sft_config(cfg: dict, output_dir: Path, logging_dir: Path, has_eval: b
     # Trainer for periodic eval would then crash mid-run.
     eval_strategy = s("eval_strategy", "steps") if has_eval else "no"
 
+    # Length grouping moved house in transformers 5.x: `group_by_length` is
+    # accepted and then *silently ignored*, replaced by
+    # `train_sampling_strategy="group_by_length"`. A setting that is dropped
+    # without an error is the worst kind -- it never appears in a diff and the
+    # run looks normal -- so pick the name the installed SFTConfig actually
+    # honours, and pass nothing at all when the knob is off (its default on
+    # both stacks). Observed on transformers 5.5.0 + TRL 0.24.0.
+    length_grouping: dict[str, Any] = {}
+    if bool(s("group_by_length", False)):
+        if "train_sampling_strategy" in getattr(SFTConfig, "__dataclass_fields__", {}):
+            length_grouping["train_sampling_strategy"] = "group_by_length"
+        else:
+            length_grouping["group_by_length"] = True
+
     return SFTConfig(
         output_dir=str(output_dir),
         logging_dir=str(logging_dir),
@@ -493,7 +511,7 @@ def build_sft_config(cfg: dict, output_dir: Path, logging_dir: Path, has_eval: b
         save_steps=int(s("save_steps", 250)),
         save_total_limit=int(s("save_total_limit", 3)),
         dataloader_num_workers=int(s("dataloader_num_workers", 4)),
-        group_by_length=bool(s("group_by_length", False)),
+        **length_grouping,
     )
 
 

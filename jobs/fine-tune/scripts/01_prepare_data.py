@@ -858,9 +858,22 @@ def validate(
             is_exam = row.get("record_type") == data_schema.EXAM
             if exam_protocol and (exam_protocol in row["prompt"]) is not is_exam:
                 wrong_protocol[row.get("record_type", "?")] += 1
-            targets = (
-                [row["chosen"], row["rejected"]] if "chosen" in row else [row["completion"]]
-            )
+            # Only the *chosen* side of a pair is a supervised target. DPO
+            # lowers the likelihood of the rejected one, so a rejected memo that
+            # does carry `FINAL ANSWER:` teaches "no exam shape in a memo" --
+            # the very lesson this rule exists to enforce. The v3 corpus
+            # manufactures precisely that as its `wrong_register` crime, and
+            # judging the dispreferred text by a contract written for training
+            # targets rejected 27 legitimate pairs and blocked the whole offline
+            # preparation path.
+            #
+            # Note for whoever adds exam-parented pairs: a preference row is
+            # stamped `record_type: "preference"`, so `is_exam` is False for
+            # every pair and an exam pair's chosen side -- which *must* end with
+            # the tag -- would fail here. `prefer` draws no exam parents today,
+            # so that path is unreachable; it needs the parent record type
+            # carried on the row before it can be checked properly.
+            targets = [row["chosen"]] if "chosen" in row else [row["completion"]]
             if any((tag in target) is not is_exam for target in targets):
                 wrong_tag[row.get("record_type", "?")] += 1
         if wrong_protocol:

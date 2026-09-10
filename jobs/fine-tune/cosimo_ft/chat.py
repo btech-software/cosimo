@@ -3,7 +3,10 @@
 Rendering always goes through the tokenizer's chat template, so the harness
 makes no assumption about marker strings and the base model and every fine-tuned
 checkpoint are prompted identically. Only ``apply_chat_template`` is required of
-the tokenizer object, which lets the unit tests pass a fake.
+the tokenizer object, which lets the unit tests pass a fake. The one place that
+needs more -- turning a marker *string* into ids -- goes through
+:func:`text_tokenizer`, which also copes with the multimodal processor a
+vision-language student loads as.
 
 Two things are deliberate here:
 
@@ -30,6 +33,38 @@ logger = logging.getLogger(__name__)
 
 # 2**64, the denominator for turning a 16-hex-digit digest prefix into [0, 1).
 _HASH_SPACE = 1 << 64
+
+
+def text_tokenizer(tokenizer: Any) -> Any:
+    """The text tokenizer inside *tokenizer*, which may be a VLM processor.
+
+    Unsloth hands back a plain tokenizer for a text model and a multimodal
+    *processor* for a vision-language one. The v3 student is the latter:
+    ``Qwen/Qwen3.8-27B`` is a ``Qwen3_5ForConditionalGeneration`` with a vision
+    tower, so ``FastLanguageModel.from_pretrained`` returns a
+    ``Qwen3VLProcessor``, and that object has no ``encode`` and no
+    ``get_vocab`` -- it carries both on ``.tokenizer``. Everything that tokenizes
+    a *string* (marker ids, vocabulary probes) has to go through here, or it
+    raises ``AttributeError`` the first time a real VLM is loaded. That is
+    exactly how the Qwen3.8 switch failed its first trainer construction.
+
+    ``encode`` is the probe rather than the class name: a plain tokenizer has it
+    and is returned untouched (test fakes included), a processor does not and is
+    unwrapped once. Anything else is a loud failure, because silently carrying on
+    with an object that cannot tokenize produces an empty marker, and an empty
+    marker masks every label to -100 -- a wrong answer that looks like a
+    successful run until the loss is NaN.
+    """
+    if hasattr(tokenizer, "encode"):
+        return tokenizer
+    inner = getattr(tokenizer, "tokenizer", None)
+    if inner is None or not hasattr(inner, "encode"):
+        raise TypeError(
+            f"{type(tokenizer).__name__} exposes neither encode() nor a "
+            ".tokenizer that does; the harness cannot tokenize marker strings "
+            "with it"
+        )
+    return inner
 
 
 def compose_system(cfg: dict, *, short: bool = False, exam: bool = True) -> str:
@@ -129,8 +164,18 @@ def apply_chat_template_override(tokenizer: Any, cfg: dict) -> bool:
 
 
 def build_completion(reasoning_trace: str, answer: str, tag: str) -> str:
-    """Assemble the supervised target: reasoning, blank line, final-answer line."""
-    return f"{(reasoning_trace or '').rstrip()}\n\n{tag} {(answer or '').strip()}"
+    """Assemble the supervised target: reasoning, blank line, final-answer line.
+
+    Both ends of the trace are stripped, and the leading end is not cosmetic. The
+    chat template puts a newline after ``<|im_start|>assistant``, so a target
+    that itself starts with a newline makes the tokenizer emit one ``"\n\n"``
+    token where ``train_on_responses_only`` is looking for ``"\n"``. The response
+    marker then matches nowhere, every label in the row masks to -100, and the
+    row is dropped from training -- silently, save for a line attributing it to
+    truncation. That cost 39 of 701 rows on the first real trainer construction,
+    all of them exam rows whose rendered turn began with a blank line.
+    """
+    return f"{(reasoning_trace or '').strip()}\n\n{tag} {(answer or '').strip()}"
 
 
 def build_messages(question: str, system: str) -> list[dict]:
