@@ -10,6 +10,8 @@ import logging
 import random
 from typing import Any
 
+from . import chat
+
 logger = logging.getLogger(__name__)
 
 
@@ -146,17 +148,29 @@ def generate(
 
     seed_everything(seed)
     stop_ids = set(_normalize_stop_ids(model, stop_token_ids))
-    pad_id = tokenizer.pad_token_id
-    if pad_id is None:
-        pad_id = getattr(tokenizer, "eos_token_id", None)
 
-    previous_padding_side = getattr(tokenizer, "padding_side", None)
-    tokenizer.padding_side = "left"
+    # Everything below tokenizes *text*, so it goes through the text tokenizer
+    # rather than whatever `tokenizer` happens to be. A vision-language student
+    # loads as a processor, and a processor's first positional argument is
+    # `images`: `tokenizer(prompt)` then hands the rendered ChatML to an image
+    # loader, which fails with "Incorrect image source ... Got <|im_start|>
+    # system". `padding_side` has the same problem in reverse and is worse,
+    # because it does not fail -- setting it on the processor creates a stray
+    # attribute while the real tokenizer keeps padding on the right, and a
+    # decoder-only model fed right-padded batches generates from padding.
+    text_tok = chat.text_tokenizer(tokenizer)
+
+    pad_id = getattr(text_tok, "pad_token_id", None)
+    if pad_id is None:
+        pad_id = getattr(text_tok, "eos_token_id", None)
+
+    previous_padding_side = getattr(text_tok, "padding_side", None)
+    text_tok.padding_side = "left"
 
     # Bucket by tokenized length so each batch pads as little as possible, then
     # write results back into the caller's positions.
     lengths = [
-        len(tokenizer(prompt, add_special_tokens=False)["input_ids"])
+        len(text_tok(prompt, add_special_tokens=False)["input_ids"])
         for prompt in prompts
     ]
     order = sorted(range(len(prompts)), key=lambda i: (lengths[i], i))
@@ -183,7 +197,7 @@ def generate(
     )
     try:
         for batch in _progress_iter(batches, progress, len(batches)):
-            encoded = tokenizer(
+            encoded = text_tok(
                 [prompts[i] for i in batch],
                 return_tensors="pt",
                 padding=True,
@@ -216,7 +230,7 @@ def generate(
                 results[index] = {"text": text, "new_tokens": new_tokens}
     finally:
         if previous_padding_side is not None:
-            tokenizer.padding_side = previous_padding_side
+            text_tok.padding_side = previous_padding_side
 
     missing = [i for i, row in enumerate(results) if row is None]
     if missing:  # defensive: the reorder must cover every prompt

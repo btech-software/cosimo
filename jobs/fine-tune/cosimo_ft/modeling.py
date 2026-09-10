@@ -122,7 +122,10 @@ def load_for_training(cfg: dict) -> tuple[Any, Any]:
         ),
     )
     _ensure_pad_token(tokenizer)
-    tokenizer.padding_side = "right"
+    # On the text tokenizer, not the object unsloth returned: a VLM processor
+    # accepts the attribute and ignores it, leaving the real tokenizer to pad
+    # wherever it already did. Right for training, left for generation.
+    chat.text_tokenizer(tokenizer).padding_side = "right"
     logger.info("loaded %s for training", base_id)
     return model, tokenizer
 
@@ -175,7 +178,7 @@ def load_for_inference(
     except AttributeError:
         model.eval()
     _ensure_pad_token(tokenizer)
-    tokenizer.padding_side = "left"
+    chat.text_tokenizer(tokenizer).padding_side = "left"
     logger.info("loaded %s for inference", model_id)
     return model, tokenizer
 
