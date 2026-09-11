@@ -112,19 +112,27 @@ class HttpTransport:
 
         A fixed wall clock against a variable token budget is the wrong
         shape, and the reference box makes that concrete: it generates about
-        23.6 tok/s, so a fully-consumed 16384-token call needs ~694s and fits
-        inside a 900s deadline, while the 32768 the renderer buys on
-        truncation needs ~1388s and cannot. A transport timeout aborts the
-        whole render stage, so a deadline that cannot cover the budget it is
-        waiting on converts a recoverable truncation into a lost run -- which
-        is exactly how the first five-lane run died.
+        20-35 tok/s, so a fully-consumed budget needs `budget / rate` seconds
+        and a flat ceiling below that converts a recoverable truncation into a
+        lost run -- which is how the first five-lane run died, and how three of
+        four probe calls died again after the amendment shortened the ceiling.
 
-        ``timeout_s`` is therefore the allowance for one *default-sized*
-        call, scaled up in proportion for a bigger one. Never scaled down: a
-        small budget does not make the queue shorter or the prefill faster.
+        ``timeout_s`` is the floor for a small call; above it the deadline is
+        the work divided by :data:`config.TEACHER_TOKENS_PER_SECOND`. Never
+        scaled down: a small budget does not make the queue shorter or the
+        prefill faster.
         """
         budget = int(body.get("max_tokens") or DEFAULT_MAX_TOKENS)
-        return self.timeout_s * max(1.0, budget / DEFAULT_MAX_TOKENS)
+        # Derived from the budget and a declared throughput, not from a ratio
+        # against DEFAULT_MAX_TOKENS. That ratio made sense while every call
+        # asked for 16384; once the lanes carry their own budgets it scaled the
+        # deadline *down* toward the flat 120s for exactly the calls that
+        # needed patience -- three of four probe calls at 20,000 tokens timed
+        # out while the fourth returned 5,080 tokens in 144s.
+        #
+        # `timeout_s` stays the floor, so a small call is never given less than
+        # the configured allowance; above that the deadline follows the work.
+        return max(self.timeout_s, budget / config.TEACHER_TOKENS_PER_SECOND)
 
     def post(self, body: dict) -> dict:
         request = urllib.request.Request(

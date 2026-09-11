@@ -145,6 +145,31 @@ def register_violations(register: str, text: str, *, kind: str = "") -> list[str
     return []
 
 
+#: The headings that *are* a call, as opposed to introducing one.
+_CALL_HEADINGS = frozenset({"call", "recommendation"})
+
+
+def makes_a_call(text: str) -> bool:
+    """Whether this passage decides something, in either form a desk uses.
+
+    Two forms, and missing the second cost three of four live ic_memo rows
+    their place in the corpus. The model writes its decision under a heading --
+    ``Call: use 21.98 as the central case, but flag the dispersion`` -- which
+    is not merely *a* way to make a call, it is the form §C's own table
+    licenses for this register ("Finding + Evidence + Call allowed").
+
+    The gate already recognised that heading; it just recognised it in the
+    wrong place. ``_MEMO_HEADINGS`` matched ``Call:`` to permit memo
+    scaffolding while this check, reading only a phrase list, concluded the
+    memo had reached no decision. One regex saying yes and one list saying no
+    about the same four characters.
+    """
+    lowered = str(text or "").casefold()
+    if any(term in lowered for term in _CALL_TERMS):
+        return True
+    return bool(_CALL_HEADINGS & set(_headings(text)))
+
+
 def _headings(text: str) -> list[str]:
     return sorted({m.group(1).lower() for m in _MEMO_HEADINGS.finditer(text)})
 
@@ -188,7 +213,7 @@ def _ic_memo(text: str) -> list[str]:
     #
     # Safe to require because it is already asked for: the teacher's system
     # turn ends "what would move your conclusion, and your call".
-    if not any(term in text.casefold() for term in _CALL_TERMS):
+    if not makes_a_call(text):
         out.append(
             "register ic_memo states no call -- an investment-committee memo "
             "ends in a decision, not a survey; say what you would do"

@@ -34,6 +34,7 @@ from pipelines.v3.verification.prose import (  # noqa: E402
 )
 from pipelines.v3.verification.register import (  # noqa: E402
     DESK_CHAT_MAX_SENTENCES,
+    makes_a_call,
     DESK_CHAT_WORDS_PER_SENTENCE,
     REGISTER_MIN_SEPARATION,
     desk_chat_ceiling,
@@ -395,3 +396,26 @@ def test_the_desk_chat_ceiling_is_reachable_inside_every_lanes_word_floor():
         ceiling = desk_chat_ceiling(kind)
         assert ceiling >= DESK_CHAT_MAX_SENTENCES
         assert low / ceiling <= DESK_CHAT_WORDS_PER_SENTENCE + 1e-9, kind
+
+
+def test_a_memo_that_states_its_call_as_a_heading_is_making_a_call():
+    """The form the teacher actually uses, which the first version missed.
+
+    Three of four live ic_memo rows were dead-lettered for "states no call"
+    while every one of them ended `Call: <decision>`. The heading *is* the
+    call -- it is the form §C's own table licenses for this register -- and
+    the gate was already matching it in `_MEMO_HEADINGS` to permit memo
+    scaffolding. One regex said yes and one phrase list said no about the same
+    four characters, and the phrase list won.
+    """
+    pack = {**PACK, "register": "ic_memo"}
+    heading = _clean_text() + "\nCall: use 2500 as the central case."
+    assert makes_a_call(heading)
+    assert not any(
+        "states no call" in v for v in gate_violations(pack, heading, "abstention")
+    )
+    # The phrase form still counts, and so does Recommendation:.
+    assert makes_a_call("We would trim the overweight.")
+    assert makes_a_call("Recommendation: hold at the current weight.")
+    # A survey that reaches no decision is still a survey.
+    assert not makes_a_call("Finding: the book is long. Evidence: the bridge shows it.")

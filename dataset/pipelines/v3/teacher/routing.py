@@ -141,3 +141,82 @@ def agentic_turn_think(route_: Route, *, tool_results_seen: bool) -> bool:
     pays for it on every hop of every conversation.
     """
     return route_.think and not tool_results_seen
+
+
+# --------------------------------------------------------------------------
+# The observed floor: what this teacher has actually shown it needs
+# --------------------------------------------------------------------------
+#
+# §B's caps are an opening offer, and against a teacher that honours the think
+# flag they are the whole story -- 800 tokens, cheap rows, nothing wasted. This
+# is what happens when the offer is refused.
+#
+# A call that comes back with no text and `finish_reason: length` has not
+# failed the *contract*; it has run out of room mid-thought, and asking the
+# same question at the same budget again is how a render spends forty-eight
+# minutes to produce nothing. So the budget that truncated is recorded, the
+# lane's floor rises, and every later row in the process opens at the number
+# the teacher has already demonstrated it needs.
+#
+# Per process and never persisted, deliberately. It is a measurement of *this
+# endpoint right now*, and a number cached to disk would outlive the serving
+# config that produced it -- which is how the 900s timeout in `dataset_build.sh`
+# came to exist. `COSIMO_V3_THINK_OVERHEAD` is the durable knob; this is the
+# safety net for when nobody has set it yet.
+
+#: ``lane -> tokens``. Empty at import; raised only by observed truncation.
+_OBSERVED_FLOOR: dict[str, int] = {}
+
+
+def observed_floor(lane: str) -> int:
+    """What this lane has been shown to need, or 0 if it has never truncated."""
+    return _OBSERVED_FLOOR.get(lane, 0)
+
+
+def note_truncation(lane: str, budget: int) -> int:
+    """Record that *lane* truncated at *budget*; return the new floor.
+
+    Raising the floor is what makes the *next* row cheap. Without it every row
+    rediscovers the same number from the same too-small start, which is three
+    wasted full-budget calls apiece -- the difference between a slice that
+    costs one row's worth of probing and one that costs all of them.
+    """
+    grown = int(budget * config.TRUNCATION_GROWTH)
+    ceiling = config.MAX_TOKENS_THINK_ON * config.MAX_TOKENS_TRUNCATION_CEILING
+    floor = min(max(_OBSERVED_FLOOR.get(lane, 0), grown), ceiling)
+    _OBSERVED_FLOOR[lane] = floor
+    return floor
+
+
+def reset_observed_floors() -> None:
+    """Forget what was learned; the tests need one run not to colour the next."""
+    _OBSERVED_FLOOR.clear()
+
+
+def budget_for_attempt(route_: Route, *, truncations: int) -> int:
+    """The budget for one ask, given how often *this row* has truncated.
+
+    Three inputs, in order of authority: the lane's cap plus whatever overhead
+    an operator declared, the floor this process has already observed, and the
+    escalation this particular row has earned. A row that has never truncated
+    pays the cap -- so a teacher that honours the flag is charged exactly what
+    §B intends and this function is invisible.
+    """
+    base = max(route_.max_tokens, observed_floor(route_.lane))
+    grown = int(base * (config.TRUNCATION_GROWTH**truncations))
+    ceiling = config.MAX_TOKENS_THINK_ON * config.MAX_TOKENS_TRUNCATION_CEILING
+    return min(grown, ceiling)
+
+
+def truncated(result) -> bool:
+    """True when a reply ran out of room before it wrote anything.
+
+    Both halves matter. ``finish_reason == "length"`` alone is a long answer
+    that got clipped -- real text, gradeable, and the gate should judge it.
+    Empty text alone is a teacher that had nothing to say. Together they are
+    the one failure that more room can fix.
+    """
+    return (
+        str(getattr(result, "finish_reason", "")) == "length"
+        and not str(getattr(result, "text", "") or "").strip()
+    )

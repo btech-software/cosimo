@@ -118,6 +118,13 @@ VALID_REGISTERS = ("desk_chat", "ic_memo", "risk_committee", "auditor", "code_re
 # silently shipped.
 PROSE_ATTEMPTS = 3
 PROSE_TEMPERATURES = (0.7, 0.3, 0.1)
+#: How many times one row may be handed more room before its budget failure is
+#: called a verdict. Separate from PROSE_ATTEMPTS because they measure
+#: different things: an attempt is a try at the *contract*, a truncation retry
+#: is a try at the *budget*, and conflating them spends a row's contract
+#: allowance discovering a number the process could have learned once.
+#: Four doublings take 800 to 12,800, which covers the measured spread.
+PROSE_TRUNCATION_RETRIES = 4
 
 # The agentic loop's budgets (analysis spec §5.8: "a real multi-step loop,
 # 6-16 turns"). Measured over the *non-system* messages, so the band bounds
@@ -232,6 +239,23 @@ MEMO_THINK_ENV = "COSIMO_V3_MEMO_THINK"
 MAX_TOKENS_THINK_OFF = 800
 MAX_TOKENS_THINK_ON = 2048
 
+#: How far the budget may climb when a teacher is observed to truncate, as a
+#: multiple of the lane's cap. The caps above are the *opening* offer, not a
+#: ceiling: §B sized them for a teacher whose think flag decides whether a
+#: chain of thought exists at all, and against one that reasons regardless they
+#: are an order of magnitude short.
+#:
+#: Measured on `qwen3.8-flash-next`: nine live rows wanted 4,084-13,167
+#: completion tokens with think=False, a 3.2x spread. A flat cap anywhere in
+#: that range ships the lucky rows and truncates the rest -- which is exactly
+#: what a 4,000 cap did, nine times out of nine. 24x of 800 is 19,200, past the
+#: worst case with headroom.
+MAX_TOKENS_TRUNCATION_CEILING = 24
+#: What a budget is multiplied by when a call truncates before writing a word.
+#: Doubling, because the quantity being searched for varies by 3x between rows
+#: and a linear probe would spend the run discovering it.
+TRUNCATION_GROWTH = 2.0
+
 #: Tokens this teacher spends *before* it writes a word, added to both caps.
 #: Zero by default, because the amendment's two numbers are what an *answer*
 #: costs and that is a property of the corpus.
@@ -267,6 +291,18 @@ TEACHER_TIMEOUT_ENV = "TEACHER_TIMEOUT_S"
 TEACHER_MAX_TOKENS_ENV = "COSIMO_V3_MAX_TOKENS"
 TEACHER_FIXTURE_ENV = "COSIMO_V3_TEACHER_FIXTURE"
 DEFAULT_TEACHER_TIMEOUT_S = 120
+#: Completion tokens per second the slowest acceptable teacher emits. The HTTP
+#: deadline is derived from this and the call's budget, so a timeout means the
+#: endpoint is slower than declared -- not that some brief is mysteriously long.
+#:
+#: Measured on the reference box: 5,080 completion tokens in 144s is ~35 tok/s,
+#: and three of four probe calls timed out at the old deadline. 20 is that with
+#: room for a queue, which is the condition a 120s flat ceiling silently failed
+#: to cover. §B's "delete the 900s timeout, 120s is the ceiling, a live slice
+#: that exceeds it is a brief bug" assumed a lane that does not reason; against
+#: a teacher that reasons regardless, the call is long because the *model* is
+#: long, and no amount of rewording the brief shortens it.
+TEACHER_TOKENS_PER_SECOND = 20.0
 OUT_ENV = "COSIMO_V3_OUT"
 LIVE_ENV = "COSIMO_V3_LIVE"
 

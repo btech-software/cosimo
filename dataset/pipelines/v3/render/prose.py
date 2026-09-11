@@ -184,6 +184,7 @@ def render_prose_row(
     violations: list[str] = []
     history: list[dict] = []
     attempts = 0
+    truncations = 0
     while attempts < config.PROSE_ATTEMPTS:
         temperature = config.PROSE_TEMPERATURES[attempts]
         # The budget is the lane's, flat across attempts, and the escalating
@@ -202,7 +203,7 @@ def render_prose_row(
         # Cooling the temperature stays, because the *other* failure the ladder
         # answered is real and unchanged: a draft that broke the contract is
         # usually the model padding, and cold models pad less.
-        budget = route.max_tokens
+        budget = routing.budget_for_attempt(route, truncations=truncations)
         result = teacher.complete(
             exchange,
             model=route.model,
@@ -210,8 +211,35 @@ def render_prose_row(
             max_tokens=budget,
             think=route.think,
         )
-        attempts += 1
         text = (result.text or "").strip()
+
+        # A truncation is not a strike. The teacher ran out of room before it
+        # wrote a word, which says nothing about whether it *can* satisfy the
+        # contract -- and spending one of three gate attempts on it, then
+        # sending a repair turn that quotes an empty draft, is how nine live
+        # rows cost forty-eight minutes and produced nothing.
+        #
+        # So: give it more room, on the same brief, without cooling the
+        # temperature (there is no draft to cool *toward*) and without counting
+        # it against the contract. The lane's floor rises with it, so the next
+        # row opens where this one ended up rather than rediscovering it.
+        if routing.truncated(result) and truncations < config.PROSE_TRUNCATION_RETRIES:
+            truncations += 1
+            floor = routing.note_truncation(route.lane, budget)
+            history.append(
+                {
+                    "attempt": f"{attempts + 1}t{truncations}",
+                    "temperature": temperature,
+                    "max_tokens": budget,
+                    "finish_reason": result.finish_reason,
+                    "words": 0,
+                    "violations": [],
+                    "note": f"truncated before writing; lane floor now {floor}",
+                }
+            )
+            continue
+
+        attempts += 1
         violations = gate_violations(pack, result.text, kind)
         history.append(
             {
