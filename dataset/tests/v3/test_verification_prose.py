@@ -419,3 +419,34 @@ def test_a_memo_that_states_its_call_as_a_heading_is_making_a_call():
     assert makes_a_call("Recommendation: hold at the current weight.")
     # A survey that reaches no decision is still a survey.
     assert not makes_a_call("Finding: the book is long. Evidence: the bridge shows it.")
+
+
+def test_desk_chat_may_not_label_its_call_even_mid_paragraph():
+    """The memo speech act, wherever it sits. Found in a live capture.
+
+    Two live desk_chat rows ended `... Call: execute under current
+    participation, but cap the schedule` on the same line as the prose before
+    it, and both scored `register_ok: true`. The heading regex is anchored at
+    a line start -- rightly, since "the finding: we are long" mid-sentence is
+    prose -- so the label escaped, and the register field was decoration for
+    exactly the rows it exists to judge.
+    """
+    desk = {**PACK, "register": "desk_chat"}
+    labelled = "Work it patiently at this size. Call: execute under the cap."
+    assert any(
+        "labels its call" in v for v in gate_violations(desk, labelled, "abstention")
+    )
+    # A line-start label is caught too -- by the heading rule, which still owns
+    # "this is scaffolded like a memo".
+    assert gate_violations(desk, "Work it patiently.\nCall: execute.", "abstention")
+    # The same decision, unlabelled, is what the desk actually writes.
+    plain = _clean_text() + " Work it patiently and cap the schedule."
+    assert not any(
+        "labels its call" in v for v in gate_violations(desk, plain, "abstention")
+    )
+    # ic_memo is unaffected: the label is its licensed form (§C's table).
+    memo = {**PACK, "register": "ic_memo"}
+    assert not any(
+        "labels its call" in v
+        for v in gate_violations(memo, _clean_text() + " Call: hold.", "abstention")
+    )

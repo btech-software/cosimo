@@ -145,8 +145,18 @@ def register_violations(register: str, text: str, *, kind: str = "") -> list[str
     return []
 
 
-#: The headings that *are* a call, as opposed to introducing one.
-_CALL_HEADINGS = frozenset({"call", "recommendation"})
+#: The memo's labelled-call device, *wherever it appears*. Distinct from
+#: ``_MEMO_HEADINGS`` on purpose: that one is anchored at a line start because
+#: it answers "is this scaffolded like a memo", and a mid-sentence "the finding:
+#: we are long" is prose. This answers a different question -- "did the writer
+#: reach for the memo's speech act" -- and the answer does not depend on where
+#: the label sits.
+#:
+#: Anchoring cost two live desk_chat rows their register. Both ended
+#: ``... Call: execute under current participation, but cap the schedule`` on
+#: the same line as the prose before it, both scored ``register_ok: true``, and
+#: the register field was decoration for exactly the rows it existed to judge.
+_CALL_LABEL = re.compile(r"\b(?:call|recommendation)\s*:", re.IGNORECASE)
 
 
 def makes_a_call(text: str) -> bool:
@@ -167,7 +177,7 @@ def makes_a_call(text: str) -> bool:
     lowered = str(text or "").casefold()
     if any(term in lowered for term in _CALL_TERMS):
         return True
-    return bool(_CALL_HEADINGS & set(_headings(text)))
+    return bool(_CALL_LABEL.search(str(text or "")))
 
 
 def _headings(text: str) -> list[str]:
@@ -182,6 +192,18 @@ def _desk_chat(text: str, kind: str) -> list[str]:
             "register desk_chat carries memo headings ("
             + ", ".join(f"{h.title()}:" for h in found)
             + ") -- the desk answers in prose, without section labels"
+        )
+    # The memo's labelled call, which the desk does not use. A desk note
+    # reaches its decision in the sentence it is already writing -- "work it
+    # patiently, cap the schedule" -- and labelling it `Call:` is the memo
+    # device wearing the desk's name. Checked anywhere in the text, not at a
+    # line start: see ``_CALL_LABEL`` for what anchoring cost.
+    label = _CALL_LABEL.search(text)
+    if label:
+        out.append(
+            f"register desk_chat labels its call ({label.group(0)!r}) -- the "
+            "desk states the call in the sentence it is writing, it does not "
+            "announce one; drop the label and keep the decision"
         )
     ceiling = desk_chat_ceiling(kind)
     sentences = sentence_count(text)
