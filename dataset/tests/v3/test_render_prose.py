@@ -136,8 +136,11 @@ def test_clean_first_attempt_ships_the_row_verbatim():
         row["verification"]["computed_by"] == pack_line["verification"]["computed_by"]
     )
     assert transport.calls[0]["temperature"] == config.PROSE_TEMPERATURES[0]
-    # §B: the prose lanes do not think, so no thinking block rides the body.
-    assert "thinking" not in transport.calls[0], "analysis no longer thinks"
+    # §B: the prose lanes do not think -- and the body must *say so* in both
+    # dialects rather than leaving the field out. Omitting it was the defect
+    # that let a server default turn thinking back on for every prose row.
+    assert transport.calls[0]["thinking"] == {"type": "disabled"}
+    assert transport.calls[0]["chat_template_kwargs"] == {"thinking": False}
     assert transport.calls[0]["model"]  # the routed lane name, not a literal here
 
 

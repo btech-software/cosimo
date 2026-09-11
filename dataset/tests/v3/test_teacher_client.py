@@ -15,6 +15,7 @@ import pytest
 
 from pipelines.v3 import config
 from pipelines.v3.teacher.client import (
+    build_body,
     DEFAULT_MAX_TOKENS,
     FixtureTransport,
     HttpTransport,
@@ -51,11 +52,16 @@ def test_complete_builds_the_openai_v1_body_exactly():
     result = Teacher(transport).complete(
         [{"role": "user", "content": "hi"}], model="m-1", temperature=0.3, max_tokens=64
     )
+    # The think state is always stated, in both dialects, even when nobody
+    # asked for thinking -- see `test_both_thinking_dialects_are_always_sent`
+    # for what omitting it cost.
     assert transport.calls[0] == {
         "model": "m-1",
         "messages": [{"role": "user", "content": "hi"}],
         "temperature": 0.3,
         "max_tokens": 64,
+        "thinking": {"type": "disabled"},
+        "chat_template_kwargs": {"thinking": False},
     }
     assert (result.text, result.model, result.finish_reason) == ("yes", "m-1", "stop")
     assert result.usage == {"total_tokens": 7}
@@ -243,12 +249,14 @@ def test_fixture_transport_hits_exact_wildcards_and_misses_loudly():
     # about exact-beats-wildcard, and pinning a number here made it fail for
     # the unrelated reason that the default moved (1024 -> 16384 when the
     # teacher became a reasoning model).
-    body = {
-        "model": "m",
-        "messages": messages,
-        "temperature": 0.7,
-        "max_tokens": DEFAULT_MAX_TOKENS,
-    }
+    # Built through `build_body`, not by hand: the replay key is a hash of the
+    # *whole* body, so a hand-written dict silently stops matching the moment a
+    # field is added -- and the test then passes on the wildcard while claiming
+    # to prove exact-beats-wildcard. That is precisely what happened when the
+    # thinking dialects were added.
+    body = build_body(
+        messages, model="m", temperature=0.7, max_tokens=DEFAULT_MAX_TOKENS
+    )
     entries = {
         canonical_request(body): {"choices": [{"message": {"content": "matched"}}]},
         "*": {"choices": [{"message": {"content": "wildcard"}}]},
@@ -266,12 +274,12 @@ def test_fixture_transport_hits_exact_wildcards_and_misses_loudly():
         Teacher(strict).complete([{"role": "user", "content": "?"}], model="m")
     assert canonical_request(body) not in str(err.value)
     assert canonical_request(
-        {
-            "model": "m",
-            "messages": [{"role": "user", "content": "?"}],
-            "temperature": 0.7,
-            "max_tokens": DEFAULT_MAX_TOKENS,
-        }
+        build_body(
+            [{"role": "user", "content": "?"}],
+            model="m",
+            temperature=0.7,
+            max_tokens=DEFAULT_MAX_TOKENS,
+        )
     ) in str(err.value), (
         "a miss must name the hash the operator will need to extend the fixture"
     )
@@ -338,3 +346,60 @@ def test_opt_in_absent_and_no_fixture_is_a_hard_stop(monkeypatch):
     monkeypatch.setenv(config.TEACHER_FIXTURE_ENV, "/nonexistent/echo.json")
     with pytest.raises(TeacherError, match="not found"):
         teacher_from_env()
+
+
+def test_both_thinking_dialects_are_always_sent(monkeypatch):
+    """The think flag must reach the model, whichever field the stack reads.
+
+    This is the regression guard for the most expensive defect in the project.
+    `build_body` sent only `thinking: {"type": "enabled"}` -- DeepSeek's *cloud*
+    dialect -- and sent nothing at all for think=False. A vLLM/SparkInfer serve
+    reads the toggle out of the model's chat template via
+    `chat_template_kwargs`, ignores the cloud field, and defaults to
+    `thinking: true` when the kwarg is absent.
+
+    So "think off" was never off. Every prose row paid for a full chain of
+    thought, and the resulting 3,212 reasoning tokens were read as "this
+    teacher reasons unconditionally" rather than "the client is talking to the
+    wrong field". Measured on deepseek-v4-flash-0731, same brief: 3,780
+    completion tokens with the kwarg omitted against 358 with it set false --
+    ten times the bill for a shorter answer.
+
+    Both dialects, both states, never omitted. An unread field is inert; an
+    absent one hands the decision to somebody else's default.
+    """
+    seen = {}
+
+    def fake_urlopen(request, timeout):
+        seen.update(json.loads(request.data))
+        return FakeResponse(json.dumps(_reply()).encode())
+
+    monkeypatch.setattr("pipelines.v3.teacher.client._urlopen", fake_urlopen)
+    teacher = Teacher(HttpTransport("https://t.example", "k"))
+    messages = [{"role": "user", "content": "q"}]
+
+    teacher.complete(messages, model="m", think=True)
+    assert seen["thinking"] == {"type": "enabled"}
+    assert seen["chat_template_kwargs"] == {"thinking": True}
+
+    teacher.complete(messages, model="m", think=False)
+    assert seen["thinking"] == {"type": "disabled"}, "off must be stated, not omitted"
+    assert seen["chat_template_kwargs"] == {"thinking": False}
+
+
+def test_extra_still_wins_over_the_thinking_defaults(monkeypatch):
+    """A caller probing a stack's dialect must be able to override both."""
+    seen = {}
+
+    def fake_urlopen(request, timeout):
+        seen.update(json.loads(request.data))
+        return FakeResponse(json.dumps(_reply()).encode())
+
+    monkeypatch.setattr("pipelines.v3.teacher.client._urlopen", fake_urlopen)
+    Teacher(HttpTransport("https://t.example", "k")).complete(
+        [{"role": "user", "content": "q"}],
+        model="m",
+        think=False,
+        extra={"chat_template_kwargs": {"thinking": True, "reasoning_effort": "low"}},
+    )
+    assert seen["chat_template_kwargs"] == {"thinking": True, "reasoning_effort": "low"}
