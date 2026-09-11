@@ -240,6 +240,7 @@ def cmd_render(args) -> int:
         )
         return EXIT_DATA
     types = _split_types(args.types)
+    work_types = _split_types(args.work_type)
     allowed = set(BRIEF_KINDS) | {AGENTIC_KIND, EXAM_KIND, IMPL_KIND}
     if types and not set(types) <= allowed:
         unknown = sorted(set(types) - allowed)
@@ -301,6 +302,18 @@ def cmd_render(args) -> int:
         )
     try:
         _, jobs = inventory.read_plan(plan_path)
+        if work_types:
+            known = {job.work_type for job in jobs}
+            unknown = sorted(set(work_types) - known)
+            if unknown:
+                print(
+                    f"render: unknown --work-type {', '.join(unknown)}; this plan "
+                    f"covers {', '.join(sorted(known))}",
+                    file=sys.stderr,
+                )
+                return EXIT_USAGE
+            wanted = set(work_types)
+            jobs = [job for job in jobs if job.work_type in wanted]
         teacher = teacher_from_env(live=True if args.live else None)
         boards = [(label, run()) for label, run in runs]
     except (inventory.PlanError, TeacherError, ValueError, OSError) as exc:
@@ -505,6 +518,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--types",
         help="comma list of record types (prose kinds, 'agentic', 'exam', "
         "'implementation')",
+    )
+    p.add_argument(
+        "--work-type",
+        help="comma list of work types to render (default: all). The register "
+        "is a property of the *family* (work_types.yaml), so this is how a "
+        "slice covers more than one voice: without it --limit takes the first "
+        "families in sort order and every row comes back in one register.",
     )
     p.add_argument("--limit", type=int)
     p.add_argument(

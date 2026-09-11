@@ -146,6 +146,12 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
         raise ValueError(
             f"no prose brief kind {kind!r} (known: {', '.join(BRIEF_KINDS)})"
         )
+    # Imported here, not at module scope: ``verification.register`` reads
+    # ``WORD_BUDGETS`` from this module to size the desk_chat ceiling, so
+    # the two are mutually dependent by construction -- the budget is the
+    # prompt's to state and the ceiling is the gate's to enforce.
+    from ..verification.register import register_shape
+
     register = pack.get("register")
     hint = _REGISTER_HINTS.get(register or "", f"register: {register}")
     low, high = WORD_BUDGETS[kind]
@@ -154,6 +160,12 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
         "task": kind,
         "register": register,
         "register_hint": hint,
+        # The register *gate*, in its own words, beside the hint that describes
+        # the voice. The hint says what the register sounds like; this says
+        # what it will be refused for -- which the brief had never carried, so
+        # every shape rule was a rule the teacher could only discover by
+        # failing it and paying for a retry.
+        "register_rules": register_shape(register or "", kind),
         "word_budget": f"{low}-{high} words",
         "number_policy": (
             "every numeric token in your answer must equal one of "
@@ -161,7 +173,11 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
             "divided by 100; no other number in any form. The unit-conversion "
             "constants 100 and 10000 may be written plainly when converting to "
             "percent or basis points -- write the conversion, do not build it "
-            "out of repeated allowed values"
+            "out of repeated allowed values. Do no arithmetic: no totals, no "
+            "differences, no ratios, no sum checks. If the parts of a "
+            "decomposition are given, quote them and say what they mean; "
+            "adding them up produces a number the pack does not contain. And "
+            "do not re-round: write each figure at the precision it is given"
         ),
         "as_of": pack.get("as_of"),
     }
@@ -199,6 +215,16 @@ def render_repair(
             "before writing."
         )
     else:
+        # "Do not shorten what was compliant" is right for a numbers or an
+        # anchor violation and exactly wrong for a length one: a draft told to
+        # cut sentences and to keep its length has been given two instructions
+        # it cannot both obey, and the first row of the corrected render spent
+        # all three attempts at 13 sentences against a ceiling of 12. So the
+        # clause is dropped when the fault *is* the length.
+        from ..verification.register import is_length_violation
+
+        too_long = any(is_length_violation(v) for v in violations)
+        keep = "" if too_long else " Do not shorten what was compliant."
         repair = (
             "Your draft failed the contract:\n"
             + lines
@@ -206,7 +232,7 @@ def render_repair(
             + draft
             + "\n\nRewrite the draft fixing every listed violation. Keep every "
             "number you keep from allowed_numbers; delete or re-round the rest to "
-            "an allowed value. Do not shorten what was compliant."
+            "an allowed value." + keep
         )
     return [
         *messages,

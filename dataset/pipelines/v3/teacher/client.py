@@ -303,8 +303,28 @@ def build_body(
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
-    if think:
-        body["thinking"] = {"type": "enabled"}
+    # Two dialects, both sent, because "which field turns thinking off" is a
+    # property of the *serving stack* and not of the corpus.
+    #
+    # `thinking: {"type": ...}` is DeepSeek's cloud API. `chat_template_kwargs`
+    # is what a vLLM/SparkInfer serve reads, because the toggle lives in the
+    # model's chat template rather than in the API layer. Sending only the
+    # first cost this project its entire §B economics and two wrong
+    # conclusions: the local stack ignored the cloud field, and *omitting* the
+    # template kwarg let the server default (`thinking: true`) stand -- so
+    # think=False was never off, every prose row paid for a chain of thought
+    # nobody asked for, and the measured 3,212 reasoning tokens were read as
+    # "this teacher reasons unconditionally" rather than "the client is
+    # talking to the wrong field".
+    #
+    # Measured on deepseek-v4-flash-0731, same brief: 3,780 completion tokens
+    # with the kwarg omitted against 358 with it set false. Ten times the bill
+    # for a *shorter* answer.
+    #
+    # Both are emitted for both states, never omitted. An unread field is
+    # inert on either stack; an absent one hands the decision to a default.
+    body["thinking"] = {"type": "enabled" if think else "disabled"}
+    body["chat_template_kwargs"] = {"thinking": bool(think)}
     if extra:
         body.update(extra)
     return body

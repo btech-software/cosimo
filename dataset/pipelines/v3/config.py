@@ -245,11 +245,12 @@ MAX_TOKENS_THINK_ON = 2048
 #: chain of thought exists at all, and against one that reasons regardless they
 #: are an order of magnitude short.
 #:
-#: Measured on `qwen3.8-flash-next`: nine live rows wanted 4,084-13,167
-#: completion tokens with think=False, a 3.2x spread. A flat cap anywhere in
-#: that range ships the lucky rows and truncates the rest -- which is exactly
-#: what a 4,000 cap did, nine times out of nine. 24x of 800 is 19,200, past the
-#: worst case with headroom.
+#: Sized against a teacher that was thinking when it should not have been
+#: (nine live rows wanting 4,084-13,167 tokens, a 3.2x spread) -- the headroom
+#: a *genuinely* reasoning lane needs. With the think flag reaching the model
+#: this ceiling is never approached: think-off rows land near 450 tokens.
+#: It stays because a lane that truncates must be able to recover, and the
+#: alternative is the run that spent forty-eight minutes producing nothing.
 MAX_TOKENS_TRUNCATION_CEILING = 24
 #: What a budget is multiplied by when a call truncates before writing a word.
 #: Doubling, because the quantity being searched for varies by 3x between rows
@@ -260,14 +261,20 @@ TRUNCATION_GROWTH = 2.0
 #: Zero by default, because the amendment's two numbers are what an *answer*
 #: costs and that is a property of the corpus.
 #:
-#: It exists because §B's caps rest on a premise that is not true of every
-#: endpoint: "with think off there is no chain of thought to run out of". The
-#: first live bake-off (2026-09-11, `qwen3.8-flash-next` on the reference box)
-#: returned `think_present: true` on all twenty *think-off* calls and
-#: `finish_reason: length` on all forty -- the model reasons unconditionally,
-#: the `thinking` block in the request body does not switch it off, and at 800
-#: tokens every prose row came back empty. The caps were measuring the budget
-#: rather than the flag.
+#: It exists for a stack whose reasoning genuinely cannot be switched off.
+#:
+#: It was *introduced* for the wrong reason, and the correction is worth
+#: keeping: the first live bake-off returned `think_present: true` on all
+#: twenty think-off calls, which was read as "this model reasons
+#: unconditionally". It did not. `build_body` was sending only DeepSeek's
+#: cloud dialect (`thinking: {"type": ...}`), which a vLLM/SparkInfer serve
+#: ignores, and sending *nothing* for think=False -- so the server's own
+#: `thinking: true` default stood and think-off was never off. With
+#: `chat_template_kwargs` also sent, the same endpoint answers in 391-469
+#: completion tokens and the 800-token cap fits with room to spare.
+#:
+#: So: before raising this, run `probe_teacher.py`. If it reports the flag
+#: unhonoured, suspect the request dialect first and the model second.
 #:
 #: Raising this is a statement about the deployment, not about the corpus, and
 #: it is deliberately separate from ``COSIMO_V3_MAX_TOKENS`` (which replaces a
@@ -297,11 +304,14 @@ DEFAULT_TEACHER_TIMEOUT_S = 120
 #:
 #: Measured on the reference box: 5,080 completion tokens in 144s is ~35 tok/s,
 #: and three of four probe calls timed out at the old deadline. 20 is that with
-#: room for a queue, which is the condition a 120s flat ceiling silently failed
-#: to cover. §B's "delete the 900s timeout, 120s is the ceiling, a live slice
-#: that exceeds it is a brief bug" assumed a lane that does not reason; against
-#: a teacher that reasons regardless, the call is long because the *model* is
-#: long, and no amount of rewording the brief shortens it.
+#: room for a queue.
+#:
+#: §B's "delete the 900s timeout, 120s is the ceiling, a live slice that
+#: exceeds it is a brief bug" is right *for a lane that is not thinking* -- a
+#: think-off row now finishes in 26-89s well inside the floor. The deadline
+#: still follows the budget because a think-on lane legitimately wants minutes,
+#: and a ceiling that cannot cover the budget it is waiting on turns a
+#: recoverable truncation into a lost run.
 TEACHER_TOKENS_PER_SECOND = 20.0
 OUT_ENV = "COSIMO_V3_OUT"
 LIVE_ENV = "COSIMO_V3_LIVE"

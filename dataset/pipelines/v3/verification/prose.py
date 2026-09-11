@@ -324,6 +324,14 @@ def integer_format_offenders(pack: dict, text: str) -> list[str]:
     reason it is worth having as its own axis: the repair can then say "write
     430,567 not 430567.0" instead of asking the teacher to intuit house style
     from a violation about decimals it did not commit.
+
+    The advice has to clear :func:`rounding_drift` as well as this rule, and it
+    did not. A live attribution memo wrote ``373.0`` for an ``active_bps`` of
+    372.6; this axis said "write 373", the model obeyed, and ``rounding_drift``
+    refused 373 on the next attempt as the question's spelling of the figure.
+    Two gates, opposite instructions, three attempts, one dead letter. So where
+    the stripped whole is a known *alias* of a fractional canonical, the
+    spelling offered is the canonical figure -- the only one both axes accept.
     """
     display = {
         str(v).replace(",", ""): str(v) for v in (pack.get("display") or {}).values()
@@ -336,9 +344,57 @@ def integer_format_offenders(pack: dict, text: str) -> list[str]:
             continue
         seen.add(token)
         whole = match.group(1)
-        spelled = display.get(whole.replace(",", "")) or whole
+        if _is_zero(whole):
+            # Zero is not a count wearing false precision; it is zero. A
+            # Brinson memo writes "allocation 0.0, selection -0.3, interaction
+            # +0.2" because the column is read down, and demanding a bare 0 in
+            # the middle of it makes the decomposition ragged for no gain.
+            #
+            # Measured: a live attribution row spent all three attempts at an
+            # identical 256 words, refusing to drop a `0.0` that is the pack's
+            # own canonical value for that effect. The gate was asking it to
+            # misreport the pack -- "a count is not known to a tenth" is an
+            # argument about 430567.0, and it does not reach this.
+            continue
+        spelled = (
+            _canonical_for_alias(pack, whole)
+            or display.get(whole.replace(",", ""))
+            or whole
+        )
         out.append(f"{token!r} -- write {spelled}")
     return out
+
+
+def _is_zero(whole: str) -> bool:
+    """Is *whole* a spelling of zero? ``-0`` and ``0`` both count."""
+    try:
+        return float(whole.replace(",", "")) == 0.0
+    except ValueError:
+        return False
+
+
+def _canonical_for_alias(pack: dict, whole: str) -> str | None:
+    """The official figure *whole* is a drifting alias of, if it is one.
+
+    ``None`` when the token is nobody's alias, or when it round-trips to its
+    canonical exactly (then it is a spelling, and both axes are content). Keeps
+    :func:`integer_format_offenders` from advising a token that
+    :func:`rounding_drift` will refuse.
+    """
+    canonical = pack.get("canonical") or {}
+    aliases = pack.get("aliases") or {}
+    bare = whole.replace(",", "")
+    for quantity, declared in aliases.items():
+        if quantity not in canonical:
+            continue
+        tokens = declared if isinstance(declared, (list, tuple)) else [declared]
+        if not any(str(t).replace(",", "") == bare for t in tokens):
+            continue
+        official = canonical[quantity]
+        if _round_trips_exactly(whole, official):
+            return None
+        return str(official)
+    return None
 
 
 def missing_mentions(pack: dict, text: str) -> list[str]:

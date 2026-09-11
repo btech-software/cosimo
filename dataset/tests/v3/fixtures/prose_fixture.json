@@ -1,921 +1,6 @@
 {
   "entries": {
-    "0569898add78318cd5406707ab8d259daf24e94e2d331fd4d4189655ce0525a5": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7, each as computed.\nReading the pack directly, impact bps at 56.98, participation at 0.088088, spread cost bps at 4.35, each as computed.\nReading the pack directly, avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7, each as computed.\nReading the pack directly, impact bps at 56.98, participation at 0.088088, spread cost bps at 4.35, each as computed.\nReading the pack directly, avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "09c61f801dfe3e064e89cd65a91dfa4b3490827ac2beff35e9a0cd0fc24aad65": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 34.6064, cost bps vs arrival at 41.31, dollar cost at 18136.2, each as computed.\nReading the pack directly, impact bps at 38.06, participation at 0.048402, spread cost bps at 3.25, each as computed.\nReading the pack directly, avg fill price at 34.6064, cost bps vs arrival at 41.31, dollar cost at 18136.2, each as computed.\nReading the pack directly, impact bps at 38.06, participation at 0.048402, spread cost bps at 3.25, each as computed.\nReading the pack directly, avg fill price at 34.6064, cost bps vs arrival at 41.31, dollar cost at 18136.2, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "0a98e4ce093c251e4795cf290691f006718934918313f6bd48fa109922f72f95": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48, each as computed.\nReading the pack directly, impact bps at 34.67, participation at 0.017381, spread cost bps at 3.4, each as computed.\nReading the pack directly, avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48, each as computed.\nReading the pack directly, impact bps at 34.67, participation at 0.017381, spread cost bps at 3.4, each as computed.\nReading the pack directly, avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "0d27f45de0d38d6796b89db38c97de75ff8ed54a97f8ba09d33b07ef04b4b706": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -87.9, allocation total bps at -0.8, benchmark return at 0.01781, each as computed.\nReading the pack directly, carino k at 0.017572, interaction total bps at -1, portfolio return at 0.00902, each as computed.\nReading the pack directly, selection total bps at -0.8, active bps at -87.9, allocation total bps at -0.8, each as computed.\nReading the pack directly, benchmark return at 0.01781, carino k at 0.017572, interaction total bps at -1, each as computed.\nReading the pack directly, portfolio return at 0.00902, selection total bps at -0.8, active bps at -87.9, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "0eb108ec52afd76053e0ed66dfbfeca8a8e051423fd71fb482796c8e4b67bd81": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 7.9, benchmark return at 0.00269, carino k at 0.002681, each as computed.\nReading the pack directly, interaction total bps at -0.1, portfolio return at 0.00348, allocation total bps at -0, each as computed.\nReading the pack directly, selection total bps at 0, active bps at 7.9, benchmark return at 0.00269, each as computed.\nReading the pack directly, carino k at 0.002681, interaction total bps at -0.1, portfolio return at 0.00348, each as computed.\nReading the pack directly, allocation total bps at -0, selection total bps at 0, active bps at 7.9, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "0f818dda2330843a3296cc978982c1ca5b64020885c72364c37436bbc5d941d6": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -164, allocation total bps at -0.4, benchmark return at 0.00519, each as computed.\nReading the pack directly, carino k at 0.005207, interaction total bps at -0.4, portfolio return at -0.01121, each as computed.\nReading the pack directly, selection total bps at -0.4, active bps at -164, allocation total bps at -0.4, each as computed.\nReading the pack directly, benchmark return at 0.00519, carino k at 0.005207, interaction total bps at -0.4, each as computed.\nReading the pack directly, portfolio return at -0.01121, selection total bps at -0.4, active bps at -164, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "10fd79dab0ddcc9552706c38a295096caec16ba94724d57806d0ee45dd518ac6": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -145.5, allocation total bps at 0.3, benchmark return at 0.01009, each as computed.\nReading the pack directly, carino k at 0.010058, interaction total bps at -0.1, portfolio return at -0.00447, each as computed.\nReading the pack directly, selection total bps at -1.7, active bps at -145.5, allocation total bps at 0.3, each as computed.\nReading the pack directly, benchmark return at 0.01009, carino k at 0.010058, interaction total bps at -0.1, each as computed.\nReading the pack directly, portfolio return at -0.00447, selection total bps at -1.7, active bps at -145.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "1296b10f8d804e539fd27fc5725c0ad93d8c201aa609e8e274cde26b96df569a": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 64.2, allocation total bps at 0.4, benchmark return at 0.00718, each as computed.\nReading the pack directly, carino k at 0.00711, portfolio return at 0.0136, interaction total bps at -0, each as computed.\nReading the pack directly, selection total bps at 0, active bps at 64.2, allocation total bps at 0.4, each as computed.\nReading the pack directly, benchmark return at 0.00718, carino k at 0.00711, portfolio return at 0.0136, each as computed.\nReading the pack directly, interaction total bps at -0, selection total bps at 0, active bps at 64.2, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "158b92abb9fd14044e49bd4b722d32d097862c4e6b1fb732693f5dc2c27952d6": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -80.5, allocation total bps at 1, benchmark return at 0.01267, each as computed.\nReading the pack directly, carino k at 0.012561, portfolio return at 0.00462, selection total bps at -2, each as computed.\nReading the pack directly, interaction total bps at 0, active bps at -80.5, allocation total bps at 1, each as computed.\nReading the pack directly, benchmark return at 0.01267, carino k at 0.012561, portfolio return at 0.00462, each as computed.\nReading the pack directly, selection total bps at -2, interaction total bps at 0, active bps at -80.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "192af14be47fd4a4df11a250293033f4323914c8a0cc473794bd4a4a1f677531": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 73.5, allocation total bps at 0.3, benchmark return at 0.0113, each as computed.\nReading the pack directly, carino k at 0.011131, interaction total bps at -0.4, portfolio return at 0.01865, each as computed.\nReading the pack directly, selection total bps at 0.5, active bps at 73.5, allocation total bps at 0.3, each as computed.\nReading the pack directly, benchmark return at 0.0113, carino k at 0.011131, interaction total bps at -0.4, each as computed.\nReading the pack directly, portfolio return at 0.01865, selection total bps at 0.5, active bps at 73.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "20e1add54c683ac11128805fc346a3a7c193796b828c9ff8e228a7ee2739c85b": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 260.1299, cost bps vs arrival at 13.82, dollar cost at 35972.86, each as computed.\nReading the pack directly, impact bps at 12.82, participation at 0.010197, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 260.1299, cost bps vs arrival at 13.82, dollar cost at 35972.86, each as computed.\nReading the pack directly, impact bps at 12.82, participation at 0.010197, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 260.1299, cost bps vs arrival at 13.82, dollar cost at 35972.86, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "25f335bab61ddb18eeab908d6258aec6b4305d429708f24ecab45149d612f221": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86, each as computed.\nReading the pack directly, impact bps at 44.76, participation at 0.070155, spread cost bps at 1.1, each as computed.\nReading the pack directly, avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86, each as computed.\nReading the pack directly, impact bps at 44.76, participation at 0.070155, spread cost bps at 1.1, each as computed.\nReading the pack directly, avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "2817425389a51afe674a9d74326096336575f3b283046ceaf96923c8aa66cd52": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 153.5764, cost bps vs arrival at 62.66, dollar cost at 62541.5, each as computed.\nReading the pack directly, impact bps at 59.71, participation at 0.040153, spread cost bps at 2.95, each as computed.\nReading the pack directly, avg fill price at 153.5764, cost bps vs arrival at 62.66, dollar cost at 62541.5, each as computed.\nReading the pack directly, impact bps at 59.71, participation at 0.040153, spread cost bps at 2.95, each as computed.\nReading the pack directly, avg fill price at 153.5764, cost bps vs arrival at 62.66, dollar cost at 62541.5, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "2837837a684dca96bcc038076c9ea795e7af430baf2bba7c2b5750358850e1f5": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -59.8, allocation total bps at -0.9, benchmark return at 0.00975, each as computed.\nReading the pack directly, carino k at 0.009686, interaction total bps at 0.1, portfolio return at 0.00377, each as computed.\nReading the pack directly, selection total bps at 0.3, active bps at -59.8, allocation total bps at -0.9, each as computed.\nReading the pack directly, benchmark return at 0.00975, carino k at 0.009686, interaction total bps at 0.1, each as computed.\nReading the pack directly, portfolio return at 0.00377, selection total bps at 0.3, active bps at -59.8, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "286de9e0adc0c6fe2be779b930780eab9cecb6759f90e559ccd472fcd4f30969": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 62.1, benchmark return at -0.00428, carino k at -0.004284, each as computed.\nReading the pack directly, interaction total bps at -0.1, portfolio return at 0.00193, selection total bps at -0.2, each as computed.\nReading the pack directly, allocation total bps at -0, active bps at 62.1, benchmark return at -0.00428, each as computed.\nReading the pack directly, carino k at -0.004284, interaction total bps at -0.1, portfolio return at 0.00193, each as computed.\nReading the pack directly, selection total bps at -0.2, allocation total bps at -0, active bps at 62.1, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "29314fec74b549faceb92301963815215e0da5ce77910d98c806e6dc40199d0f": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 111.0414, cost bps vs arrival at 83.82, dollar cost at 88574.68, each as computed.\nReading the pack directly, impact bps at 73.82, participation at 0.09382, spread cost bps at 10, each as computed.\nReading the pack directly, avg fill price at 111.0414, cost bps vs arrival at 83.82, dollar cost at 88574.68, each as computed.\nReading the pack directly, impact bps at 73.82, participation at 0.09382, spread cost bps at 10, each as computed.\nReading the pack directly, avg fill price at 111.0414, cost bps vs arrival at 83.82, dollar cost at 88574.68, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "2a17c3e86b847464ee3dbe7457a8a00b173e45b7786a0187b49d1c9690f5ab3b": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05, each as computed.\nReading the pack directly, impact bps at 33.71, participation at 0.041736, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05, each as computed.\nReading the pack directly, impact bps at 33.71, participation at 0.041736, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "2cd0e0673cf38237a12cd6648d8ce9f5ba93188753938fc77b75c64734cef54e": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 142.5, allocation total bps at -1.1, benchmark return at 0.02324, each as computed.\nReading the pack directly, carino k at 0.022553, portfolio return at 0.03749, selection total bps at 4.4, each as computed.\nReading the pack directly, interaction total bps at -0, active bps at 142.5, allocation total bps at -1.1, each as computed.\nReading the pack directly, benchmark return at 0.02324, carino k at 0.022553, portfolio return at 0.03749, each as computed.\nReading the pack directly, selection total bps at 4.4, interaction total bps at -0, active bps at 142.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "2d9a2ff0cd2840827ff30329a947444a28c307580d78324c7a14f7ed174041b1": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -257.4, allocation total bps at 0.8, benchmark return at -0.00693, each as computed.\nReading the pack directly, carino k at -0.007071, interaction total bps at 0.1, portfolio return at -0.03267, each as computed.\nReading the pack directly, selection total bps at 1, active bps at -257.4, allocation total bps at 0.8, each as computed.\nReading the pack directly, benchmark return at -0.00693, carino k at -0.007071, interaction total bps at 0.1, each as computed.\nReading the pack directly, portfolio return at -0.03267, selection total bps at 1, active bps at -257.4, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "37e9e6f26c38d65d011f8e7c88bc616412f596521f077ae03ee577d65f80feca": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 94.082, cost bps vs arrival at 67.63, dollar cost at 56084.31, each as computed.\nReading the pack directly, impact bps at 58.63, participation at 0.052861, spread cost bps at 9, each as computed.\nReading the pack directly, avg fill price at 94.082, cost bps vs arrival at 67.63, dollar cost at 56084.31, each as computed.\nReading the pack directly, impact bps at 58.63, participation at 0.052861, spread cost bps at 9, each as computed.\nReading the pack directly, avg fill price at 94.082, cost bps vs arrival at 67.63, dollar cost at 56084.31, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "3c037d9df16efb783a499d930b37547c0b60d9a86296a44bc42900d43c680ede": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 40.2873, cost bps vs arrival at 54.22, dollar cost at 68509.53, each as computed.\nReading the pack directly, impact bps at 51.17, participation at 0.079047, spread cost bps at 3.05, each as computed.\nReading the pack directly, avg fill price at 40.2873, cost bps vs arrival at 54.22, dollar cost at 68509.53, each as computed.\nReading the pack directly, impact bps at 51.17, participation at 0.079047, spread cost bps at 3.05, each as computed.\nReading the pack directly, avg fill price at 40.2873, cost bps vs arrival at 54.22, dollar cost at 68509.53, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "493520677146f132a13af7b8d7aa0ac31de58622527f91883b37ce38dd40426e": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25, each as computed.\nReading the pack directly, impact bps at 34, participation at 0.032366, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25, each as computed.\nReading the pack directly, impact bps at 34, participation at 0.032366, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "5044bbe201acf113b6407304ed8a8bcbfeeeb328a052538cabbbb8ae1ea90364": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 24.1113, cost bps vs arrival at 37.99, dollar cost at 7206.5, each as computed.\nReading the pack directly, impact bps at 32.99, participation at 0.019215, spread cost bps at 5, each as computed.\nReading the pack directly, avg fill price at 24.1113, cost bps vs arrival at 37.99, dollar cost at 7206.5, each as computed.\nReading the pack directly, impact bps at 32.99, participation at 0.019215, spread cost bps at 5, each as computed.\nReading the pack directly, avg fill price at 24.1113, cost bps vs arrival at 37.99, dollar cost at 7206.5, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "50941b525652fdbc9dadf907d11156967f847c3cce5a1c4913ac3187d9034c60": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 85.1906, cost bps vs arrival at 50.16, dollar cost at 88727.13, each as computed.\nReading the pack directly, impact bps at 45.36, participation at 0.074653, spread cost bps at 4.8, each as computed.\nReading the pack directly, avg fill price at 85.1906, cost bps vs arrival at 50.16, dollar cost at 88727.13, each as computed.\nReading the pack directly, impact bps at 45.36, participation at 0.074653, spread cost bps at 4.8, each as computed.\nReading the pack directly, avg fill price at 85.1906, cost bps vs arrival at 50.16, dollar cost at 88727.13, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "550061e80b53f62b0557ccda5e8a50c2a0b0ba9b4dcd0f6dd79f0dbabc9f946e": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 38.8, allocation total bps at -0.1, benchmark return at 0.00276, each as computed.\nReading the pack directly, carino k at 0.002743, interaction total bps at 0.1, portfolio return at 0.00664, each as computed.\nReading the pack directly, selection total bps at 0.2, active bps at 38.8, allocation total bps at -0.1, each as computed.\nReading the pack directly, benchmark return at 0.00276, carino k at 0.002743, interaction total bps at 0.1, each as computed.\nReading the pack directly, portfolio return at 0.00664, selection total bps at 0.2, active bps at 38.8, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "57d2b94d586cad570b8f83be1bd33f095549876bdc2cd47fb72f17cf56cfeac9": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 171.811, cost bps vs arrival at 29.25, dollar cost at 193891.23, each as computed.\nReading the pack directly, impact bps at 27.35, participation at 0.048632, spread cost bps at 1.9, each as computed.\nReading the pack directly, avg fill price at 171.811, cost bps vs arrival at 29.25, dollar cost at 193891.23, each as computed.\nReading the pack directly, impact bps at 27.35, participation at 0.048632, spread cost bps at 1.9, each as computed.\nReading the pack directly, avg fill price at 171.811, cost bps vs arrival at 29.25, dollar cost at 193891.23, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "591c8d62db3c6e896757a488236e6e49695b803de040045e40d8676a15c7d9d9": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -199.7, portfolio return at -0.01992, allocation total bps at -0, each as computed.\nReading the pack directly, benchmark return at 0.00006, carino k at 0.000059, interaction total bps at -0, each as computed.\nReading the pack directly, selection total bps at -0, active bps at -199.7, portfolio return at -0.01992, each as computed.\nReading the pack directly, allocation total bps at -0, benchmark return at 0.00006, carino k at 0.000059, each as computed.\nReading the pack directly, interaction total bps at -0, selection total bps at -0, active bps at -199.7, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "5e04c297f68dbdc0434830616a6f8651b4e2746648a64e9b1721a0dd5f3c6876": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 141.7483, cost bps vs arrival at 59.49, dollar cost at 262065.15, each as computed.\nReading the pack directly, impact bps at 55.69, participation at 0.08966, spread cost bps at 3.8, each as computed.\nReading the pack directly, avg fill price at 141.7483, cost bps vs arrival at 59.49, dollar cost at 262065.15, each as computed.\nReading the pack directly, impact bps at 55.69, participation at 0.08966, spread cost bps at 3.8, each as computed.\nReading the pack directly, avg fill price at 141.7483, cost bps vs arrival at 59.49, dollar cost at 262065.15, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "651e5bb995709af446b3486758f9967a3dcec5f53aa059126c1519ac7ec1ab85": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -103.8, allocation total bps at -0.1, benchmark return at 0.00392, each as computed.\nReading the pack directly, carino k at 0.003927, portfolio return at -0.00646, selection total bps at -0.3, each as computed.\nReading the pack directly, interaction total bps at -0, active bps at -103.8, allocation total bps at -0.1, each as computed.\nReading the pack directly, benchmark return at 0.00392, carino k at 0.003927, portfolio return at -0.00646, each as computed.\nReading the pack directly, selection total bps at -0.3, interaction total bps at -0, active bps at -103.8, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "663d37889b7964f8d9d4d9cf16beb33f6b1cd7c2067d38206d8646db779c633a": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -45.7, allocation total bps at 1.4, benchmark return at 0.03295, each as computed.\nReading the pack directly, carino k at 0.031971, interaction total bps at 0.5, portfolio return at 0.02838, each as computed.\nReading the pack directly, selection total bps at -2.8, active bps at -45.7, allocation total bps at 1.4, each as computed.\nReading the pack directly, benchmark return at 0.03295, carino k at 0.031971, interaction total bps at 0.5, each as computed.\nReading the pack directly, portfolio return at 0.02838, selection total bps at -2.8, active bps at -45.7, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "665ef687daab7cd0a567f94af67e0e4fa2134efa362257c78f095a989e76b9ca": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 79.8862, cost bps vs arrival at 51.54, dollar cost at 204511.6, each as computed.\nReading the pack directly, impact bps at 50.24, participation at 0.065028, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 79.8862, cost bps vs arrival at 51.54, dollar cost at 204511.6, each as computed.\nReading the pack directly, impact bps at 50.24, participation at 0.065028, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 79.8862, cost bps vs arrival at 51.54, dollar cost at 204511.6, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "748303df2790a37000c61438e122070802076a62e9470cddd9d3a73e99d2f3c4": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -95.6, allocation total bps at 1.8, benchmark return at 0.02911, each as computed.\nReading the pack directly, carino k at 0.028415, interaction total bps at -2.3, portfolio return at 0.01955, each as computed.\nReading the pack directly, selection total bps at -4.5, active bps at -95.6, allocation total bps at 1.8, each as computed.\nReading the pack directly, benchmark return at 0.02911, carino k at 0.028415, interaction total bps at -2.3, each as computed.\nReading the pack directly, portfolio return at 0.01955, selection total bps at -4.5, active bps at -95.6, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "759254cd63247da40810ab68fd53ac3aafc7057bfa1bcef1775c664f8beae257": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 53.1959, cost bps vs arrival at 80.72, dollar cost at 136263.37, each as computed.\nReading the pack directly, impact bps at 75.32, participation at 0.068393, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 53.1959, cost bps vs arrival at 80.72, dollar cost at 136263.37, each as computed.\nReading the pack directly, impact bps at 75.32, participation at 0.068393, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 53.1959, cost bps vs arrival at 80.72, dollar cost at 136263.37, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "76efd3b94847e7c7e75bf9ea92ee2f222cdc4f894d811c4261015240b027381b": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 246.984, cost bps vs arrival at 26.49, dollar cost at 447612.58, each as computed.\nReading the pack directly, impact bps at 25.74, participation at 0.050105, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 246.984, cost bps vs arrival at 26.49, dollar cost at 447612.58, each as computed.\nReading the pack directly, impact bps at 25.74, participation at 0.050105, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 246.984, cost bps vs arrival at 26.49, dollar cost at 447612.58, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "7725edc4a5492a2aaf5823ed4883ccd7527d5ddfb70451ff33adc5de85b3f59f": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 218.5823, cost bps vs arrival at 32.23, dollar cost at 300036.59, each as computed.\nReading the pack directly, impact bps at 30.63, participation at 0.040085, spread cost bps at 1.6, each as computed.\nReading the pack directly, avg fill price at 218.5823, cost bps vs arrival at 32.23, dollar cost at 300036.59, each as computed.\nReading the pack directly, impact bps at 30.63, participation at 0.040085, spread cost bps at 1.6, each as computed.\nReading the pack directly, avg fill price at 218.5823, cost bps vs arrival at 32.23, dollar cost at 300036.59, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "77514abfac370563a00ab9be71fb7cca795e1457e365b48217325fa3a3c91c06": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 3.5, allocation total bps at 1.7, benchmark return at 0.02578, each as computed.\nReading the pack directly, carino k at 0.025127, interaction total bps at -1.5, portfolio return at 0.02613, each as computed.\nReading the pack directly, selection total bps at -1.7, active bps at 3.5, allocation total bps at 1.7, each as computed.\nReading the pack directly, benchmark return at 0.02578, carino k at 0.025127, interaction total bps at -1.5, each as computed.\nReading the pack directly, portfolio return at 0.02613, selection total bps at -1.7, active bps at 3.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "79bef855e1cd96b0eaa62bfa021d795fcc6e9c68243dd9ec2cf36157bcbb8ba1": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 96.6416, cost bps vs arrival at 51.13, dollar cost at 76687.63, each as computed.\nReading the pack directly, impact bps at 46.43, participation at 0.054978, spread cost bps at 4.7, each as computed.\nReading the pack directly, avg fill price at 96.6416, cost bps vs arrival at 51.13, dollar cost at 76687.63, each as computed.\nReading the pack directly, impact bps at 46.43, participation at 0.054978, spread cost bps at 4.7, each as computed.\nReading the pack directly, avg fill price at 96.6416, cost bps vs arrival at 51.13, dollar cost at 76687.63, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "79d7baae673e6a8b6be289a959ec6886e573051535cc8078e69e8f536ebe1786": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 44.0063, cost bps vs arrival at 41.57, dollar cost at 39130.46, each as computed.\nReading the pack directly, impact bps at 35.42, participation at 0.045532, spread cost bps at 6.15, each as computed.\nReading the pack directly, avg fill price at 44.0063, cost bps vs arrival at 41.57, dollar cost at 39130.46, each as computed.\nReading the pack directly, impact bps at 35.42, participation at 0.045532, spread cost bps at 6.15, each as computed.\nReading the pack directly, avg fill price at 44.0063, cost bps vs arrival at 41.57, dollar cost at 39130.46, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "7ee552b1dd56407b53dcc60cea1a57b9aaf2393d3f3edb200531bb912d5b7396": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 92.9, allocation total bps at 2, benchmark return at 0.01598, each as computed.\nReading the pack directly, carino k at 0.015659, interaction total bps at -0.2, portfolio return at 0.02527, each as computed.\nReading the pack directly, selection total bps at -0.6, active bps at 92.9, allocation total bps at 2, each as computed.\nReading the pack directly, benchmark return at 0.01598, carino k at 0.015659, interaction total bps at -0.2, each as computed.\nReading the pack directly, portfolio return at 0.02527, selection total bps at -0.6, active bps at 92.9, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "7f6db7a34efcb64e3daab72e6abe231acc2516680dd681d61ef57bdedf7a6073": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 105.0944, cost bps vs arrival at 24.27, dollar cost at 95394.23, each as computed.\nReading the pack directly, impact bps at 22.42, participation at 0.024571, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 105.0944, cost bps vs arrival at 24.27, dollar cost at 95394.23, each as computed.\nReading the pack directly, impact bps at 22.42, participation at 0.024571, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 105.0944, cost bps vs arrival at 24.27, dollar cost at 95394.23, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "84ca5c0b98a1315c49e6d2b58318fe7eef0f274f1eafe4a406afdf6f5c778c3d": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 17.5, allocation total bps at 1.3, benchmark return at 0.01276, each as computed.\nReading the pack directly, carino k at 0.012592, interaction total bps at 0.2, portfolio return at 0.01452, each as computed.\nReading the pack directly, selection total bps at -1.1, active bps at 17.5, allocation total bps at 1.3, each as computed.\nReading the pack directly, benchmark return at 0.01276, carino k at 0.012592, interaction total bps at 0.2, each as computed.\nReading the pack directly, portfolio return at 0.01452, selection total bps at -1.1, active bps at 17.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "8b08bcc57f8b9d944f47a5c8d5249a5972dd79e4465c79bd18b30c3ff4bde804": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 183.8179, cost bps vs arrival at 28.32, dollar cost at 213428.54, each as computed.\nReading the pack directly, impact bps at 26.32, participation at 0.020463, spread cost bps at 2, each as computed.\nReading the pack directly, avg fill price at 183.8179, cost bps vs arrival at 28.32, dollar cost at 213428.54, each as computed.\nReading the pack directly, impact bps at 26.32, participation at 0.020463, spread cost bps at 2, each as computed.\nReading the pack directly, avg fill price at 183.8179, cost bps vs arrival at 28.32, dollar cost at 213428.54, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "8d6cb7aaba4ad049082a297e8b682e630c126527f7ed02f3b554e483dd2290ca": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -51.3, allocation total bps at -0.2, benchmark return at -0.02821, each as computed.\nReading the pack directly, carino k at -0.029108, interaction total bps at -0.8, portfolio return at -0.03334, each as computed.\nReading the pack directly, selection total bps at 1.6, active bps at -51.3, allocation total bps at -0.2, each as computed.\nReading the pack directly, benchmark return at -0.02821, carino k at -0.029108, interaction total bps at -0.8, each as computed.\nReading the pack directly, portfolio return at -0.03334, selection total bps at 1.6, active bps at -51.3, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "92167d78391de52617b8b97523b0542174e59c206e28e5395bad733c3a3ac2de": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 183.7, allocation total bps at 0.3, benchmark return at 0.00288, each as computed.\nReading the pack directly, carino k at 0.002851, portfolio return at 0.02125, selection total bps at 0.2, each as computed.\nReading the pack directly, interaction total bps at -0, active bps at 183.7, allocation total bps at 0.3, each as computed.\nReading the pack directly, benchmark return at 0.00288, carino k at 0.002851, portfolio return at 0.02125, each as computed.\nReading the pack directly, selection total bps at 0.2, interaction total bps at -0, active bps at 183.7, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "981af2f120daaa4e0d8881d3539de057f226f88f418e213c78397468fbae611f": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 238.1971, cost bps vs arrival at 45.42, dollar cost at 580964.88, each as computed.\nReading the pack directly, impact bps at 43.77, participation at 0.049877, spread cost bps at 1.65, each as computed.\nReading the pack directly, avg fill price at 238.1971, cost bps vs arrival at 45.42, dollar cost at 580964.88, each as computed.\nReading the pack directly, impact bps at 43.77, participation at 0.049877, spread cost bps at 1.65, each as computed.\nReading the pack directly, avg fill price at 238.1971, cost bps vs arrival at 45.42, dollar cost at 580964.88, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "aa110202d6be0cda0867211f8f349c292e68d6aca0bea744afc183e573100483": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58, each as computed.\nReading the pack directly, impact bps at 16.05, participation at 0.010062, spread cost bps at 0.55, each as computed.\nReading the pack directly, avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58, each as computed.\nReading the pack directly, impact bps at 16.05, participation at 0.010062, spread cost bps at 0.55, each as computed.\nReading the pack directly, avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "ae3cef9faf1d68368bb5719859aac45f18b898aa1a90a6caa670168b53768f8f": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 173.1, benchmark return at -0.00267, carino k at -0.002659, each as computed.\nReading the pack directly, portfolio return at 0.01464, selection total bps at -0.5, allocation total bps at 0, each as computed.\nReading the pack directly, interaction total bps at 0, active bps at 173.1, benchmark return at -0.00267, each as computed.\nReading the pack directly, carino k at -0.002659, portfolio return at 0.01464, selection total bps at -0.5, each as computed.\nReading the pack directly, allocation total bps at 0, interaction total bps at 0, active bps at 173.1, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "afbe46b4fe0082d4040bfe872fb07db2360a3361238831f78f23e8a64293c98e": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 107.2404, cost bps vs arrival at 87.51, dollar cost at 296560.29, each as computed.\nReading the pack directly, impact bps at 82.11, participation at 0.096745, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 107.2404, cost bps vs arrival at 87.51, dollar cost at 296560.29, each as computed.\nReading the pack directly, impact bps at 82.11, participation at 0.096745, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 107.2404, cost bps vs arrival at 87.51, dollar cost at 296560.29, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "b6f940a115b5a51588bdc907d07b731272737d2a4ec938dabbc979adeeeba1f5": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 126.4, benchmark return at 0.01006, carino k at 0.009894, each as computed.\nReading the pack directly, interaction total bps at -0.4, portfolio return at 0.0227, selection total bps at 1.2, each as computed.\nReading the pack directly, allocation total bps at 0, active bps at 126.4, benchmark return at 0.01006, each as computed.\nReading the pack directly, carino k at 0.009894, interaction total bps at -0.4, portfolio return at 0.0227, each as computed.\nReading the pack directly, selection total bps at 1.2, allocation total bps at 0, active bps at 126.4, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "b8696e91fe485a2f73336657a4e58133e3d2857e93ab1f328d9f84c55370d699": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -75.5, benchmark return at -0.00106, carino k at -0.00107, each as computed.\nReading the pack directly, portfolio return at -0.00862, allocation total bps at 0, interaction total bps at -0, each as computed.\nReading the pack directly, selection total bps at 0, active bps at -75.5, benchmark return at -0.00106, each as computed.\nReading the pack directly, carino k at -0.00107, portfolio return at -0.00862, allocation total bps at 0, each as computed.\nReading the pack directly, interaction total bps at -0, selection total bps at 0, active bps at -75.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "c2e56fb8be157d6123cc15aa08fe056f205cca647f00d50992a79da29a1e75fa": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 450.339, cost bps vs arrival at 31.9, dollar cost at 381698.92, each as computed.\nReading the pack directly, impact bps at 30.75, participation at 0.033098, spread cost bps at 1.15, each as computed.\nReading the pack directly, avg fill price at 450.339, cost bps vs arrival at 31.9, dollar cost at 381698.92, each as computed.\nReading the pack directly, impact bps at 30.75, participation at 0.033098, spread cost bps at 1.15, each as computed.\nReading the pack directly, avg fill price at 450.339, cost bps vs arrival at 31.9, dollar cost at 381698.92, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "c770aa25ec6b6177db4040d4bbe25ca7d54b7071a81463331785487536334a78": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 65.6644, cost bps vs arrival at 34.29, dollar cost at 81921.55, each as computed.\nReading the pack directly, impact bps at 32.59, participation at 0.028806, spread cost bps at 1.7, each as computed.\nReading the pack directly, avg fill price at 65.6644, cost bps vs arrival at 34.29, dollar cost at 81921.55, each as computed.\nReading the pack directly, impact bps at 32.59, participation at 0.028806, spread cost bps at 1.7, each as computed.\nReading the pack directly, avg fill price at 65.6644, cost bps vs arrival at 34.29, dollar cost at 81921.55, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "c9f2162bb29b6ad07651b7c775ad68ece879575ed33dab0a78ab2a33d023fa77": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 157.3626, cost bps vs arrival at 58.98, dollar cost at 72584.61, each as computed.\nReading the pack directly, impact bps at 53.33, participation at 0.038435, spread cost bps at 5.65, each as computed.\nReading the pack directly, avg fill price at 157.3626, cost bps vs arrival at 58.98, dollar cost at 72584.61, each as computed.\nReading the pack directly, impact bps at 53.33, participation at 0.038435, spread cost bps at 5.65, each as computed.\nReading the pack directly, avg fill price at 157.3626, cost bps vs arrival at 58.98, dollar cost at 72584.61, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "cbc75a4c771e13320dde9e102dd39288ec769c2b0b777d3ab736186a2ffc32e5": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 51.6, allocation total bps at 0.4, benchmark return at -0.01909, each as computed.\nReading the pack directly, carino k at -0.019413, interaction total bps at -1.9, portfolio return at -0.01393, each as computed.\nReading the pack directly, selection total bps at -1.4, active bps at 51.6, allocation total bps at 0.4, each as computed.\nReading the pack directly, benchmark return at -0.01909, carino k at -0.019413, interaction total bps at -1.9, each as computed.\nReading the pack directly, portfolio return at -0.01393, selection total bps at -1.4, active bps at 51.6, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 148
-      }
-    },
-    "ce3c46e5ecd7b829ace1d079a5df289a37e979feba1e4e6ae6b12fac307ac06c": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2, each as computed.\nReading the pack directly, impact bps at 14.64, participation at 0.012888, spread cost bps at 0.5, each as computed.\nReading the pack directly, avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2, each as computed.\nReading the pack directly, impact bps at 14.64, participation at 0.012888, spread cost bps at 0.5, each as computed.\nReading the pack directly, avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "d93c1c4f06470d8e580d0ce74f8b502a23bcce984126db307850d061179a4d21": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 57.8729, cost bps vs arrival at 35.18, dollar cost at 117816.91, each as computed.\nReading the pack directly, impact bps at 33.33, participation at 0.03799, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 57.8729, cost bps vs arrival at 35.18, dollar cost at 117816.91, each as computed.\nReading the pack directly, impact bps at 33.33, participation at 0.03799, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 57.8729, cost bps vs arrival at 35.18, dollar cost at 117816.91, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "e4a19715565677ccd05da6c9fb5765a296d0f88a17e8931d901d2f3149cbb95f": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 54.9245, cost bps vs arrival at 44.5, dollar cost at 20080.95, each as computed.\nReading the pack directly, impact bps at 42.2, participation at 0.025166, spread cost bps at 2.3, each as computed.\nReading the pack directly, avg fill price at 54.9245, cost bps vs arrival at 44.5, dollar cost at 20080.95, each as computed.\nReading the pack directly, impact bps at 42.2, participation at 0.025166, spread cost bps at 2.3, each as computed.\nReading the pack directly, avg fill price at 54.9245, cost bps vs arrival at 44.5, dollar cost at 20080.95, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "e5f61abc86e8139324fc6ad1af0aa4120527fa59fb0b60c9e90efcaa55f60ac3": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62, each as computed.\nReading the pack directly, impact bps at 42.46, participation at 0.093332, spread cost bps at 0.9, each as computed.\nReading the pack directly, avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62, each as computed.\nReading the pack directly, impact bps at 42.46, participation at 0.093332, spread cost bps at 0.9, each as computed.\nReading the pack directly, avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "e81e0e1a29f8d6ebcdf0ee2a38fc8a81a47e51ba673f7d23d579c42e750b02aa": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45, each as computed.\nReading the pack directly, impact bps at 30.04, participation at 0.018641, spread cost bps at 4.4, each as computed.\nReading the pack directly, avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45, each as computed.\nReading the pack directly, impact bps at 30.04, participation at 0.018641, spread cost bps at 4.4, each as computed.\nReading the pack directly, avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "ea49a13c632e457910467316d05a9a9cd4db876548aca4e947e164eea5322401": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 358.7204, cost bps vs arrival at 24.88, dollar cost at 527498.22, each as computed.\nReading the pack directly, impact bps at 23.58, participation at 0.038619, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 358.7204, cost bps vs arrival at 24.88, dollar cost at 527498.22, each as computed.\nReading the pack directly, impact bps at 23.58, participation at 0.038619, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 358.7204, cost bps vs arrival at 24.88, dollar cost at 527498.22, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "ebaf71e7c61507121a465491377f54a309b0a8613ce6cb7e51d85ecf104cce1d": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 295.7747, cost bps vs arrival at 28.16, dollar cost at 359667.31, each as computed.\nReading the pack directly, impact bps at 26.66, participation at 0.048555, spread cost bps at 1.5, each as computed.\nReading the pack directly, avg fill price at 295.7747, cost bps vs arrival at 28.16, dollar cost at 359667.31, each as computed.\nReading the pack directly, impact bps at 26.66, participation at 0.048555, spread cost bps at 1.5, each as computed.\nReading the pack directly, avg fill price at 295.7747, cost bps vs arrival at 28.16, dollar cost at 359667.31, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-prose",
-      "usage": {
-        "total_tokens": 144
-      }
-    },
-    "ec04fd29c119ec2d10500204c6d06f66f0ea3d984aff5b0b308a9009e8e1760c": {
+    "0b9d8df911eac9d643d94a58abee00a7e36bf0938850937f77d3156a65193717": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -930,12 +15,12 @@
         "total_tokens": 144
       }
     },
-    "f567a9ccb0b89119d78a4489327ee299e901e3138c4c2ccae4fafd67930b69d4": {
+    "0dd57997732d250d9d1f0b1e2cf19ce639e09fd55c78a88d83e5235e2714c898": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27, each as computed.\nReading the pack directly, impact bps at 27.09, participation at 0.022649, spread cost bps at 7.1, each as computed.\nReading the pack directly, avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27, each as computed.\nReading the pack directly, impact bps at 27.09, participation at 0.022649, spread cost bps at 7.1, each as computed.\nReading the pack directly, avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 238.1971, cost bps vs arrival at 45.42, dollar cost at 580964.88, each as computed.\nReading the pack directly, impact bps at 43.77, participation at 0.049877, spread cost bps at 1.65, each as computed.\nReading the pack directly, avg fill price at 238.1971, cost bps vs arrival at 45.42, dollar cost at 580964.88, each as computed.\nReading the pack directly, impact bps at 43.77, participation at 0.049877, spread cost bps at 1.65, each as computed.\nReading the pack directly, avg fill price at 238.1971, cost bps vs arrival at 45.42, dollar cost at 580964.88, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
             "role": "assistant"
           }
         }
@@ -945,7 +30,322 @@
         "total_tokens": 144
       }
     },
-    "fa00499e847ad26b7075c0e666a6efdff939bfc31cffb98c8dbcd2166a59a7ed": {
+    "0f8f3b909b533a84a6f728231912beff1128752c28ae666993e75935a80e6d07": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 126.4, benchmark return at 0.01006, carino k at 0.009894, each as computed.\nReading the pack directly, interaction total bps at -0.4, portfolio return at 0.0227, selection total bps at 1.2, each as computed.\nReading the pack directly, allocation total bps at 0, active bps at 126.4, benchmark return at 0.01006, each as computed.\nReading the pack directly, carino k at 0.009894, interaction total bps at -0.4, portfolio return at 0.0227, each as computed.\nReading the pack directly, selection total bps at 1.2, allocation total bps at 0, active bps at 126.4, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "10d9cb9d5efc503215e5c516fa0d35f1e6ce06a64fe0a0495f37abc3fadccea5": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 34.6064, cost bps vs arrival at 41.31, dollar cost at 18136.2, each as computed.\nReading the pack directly, impact bps at 38.06, participation at 0.048402, spread cost bps at 3.25, each as computed.\nReading the pack directly, avg fill price at 34.6064, cost bps vs arrival at 41.31, dollar cost at 18136.2, each as computed.\nReading the pack directly, impact bps at 38.06, participation at 0.048402, spread cost bps at 3.25, each as computed.\nReading the pack directly, avg fill price at 34.6064, cost bps vs arrival at 41.31, dollar cost at 18136.2, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "12a58289ecce545fd48a73e9f1fa1ff367a82a1df5167082b6d2eeb7a7147f4f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 7.9, benchmark return at 0.00269, carino k at 0.002681, each as computed.\nReading the pack directly, interaction total bps at -0.1, portfolio return at 0.00348, allocation total bps at -0, each as computed.\nReading the pack directly, selection total bps at 0, active bps at 7.9, benchmark return at 0.00269, each as computed.\nReading the pack directly, carino k at 0.002681, interaction total bps at -0.1, portfolio return at 0.00348, each as computed.\nReading the pack directly, allocation total bps at -0, selection total bps at 0, active bps at 7.9, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "173d5f125f653bcec90951d32b65aca8f0ac178b2fd247f01f64304bf2b7b6de": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -199.7, portfolio return at -0.01992, allocation total bps at -0, each as computed.\nReading the pack directly, benchmark return at 0.00006, carino k at 0.000059, interaction total bps at -0, each as computed.\nReading the pack directly, selection total bps at -0, active bps at -199.7, portfolio return at -0.01992, each as computed.\nReading the pack directly, allocation total bps at -0, benchmark return at 0.00006, carino k at 0.000059, each as computed.\nReading the pack directly, interaction total bps at -0, selection total bps at -0, active bps at -199.7, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "22af6b8a3466adbaf6aeb0a4a0ee8eebf875d4925bdf48d574bb1b2b2e9dace3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -95.6, allocation total bps at 1.8, benchmark return at 0.02911, each as computed.\nReading the pack directly, carino k at 0.028415, interaction total bps at -2.3, portfolio return at 0.01955, each as computed.\nReading the pack directly, selection total bps at -4.5, active bps at -95.6, allocation total bps at 1.8, each as computed.\nReading the pack directly, benchmark return at 0.02911, carino k at 0.028415, interaction total bps at -2.3, each as computed.\nReading the pack directly, portfolio return at 0.01955, selection total bps at -4.5, active bps at -95.6, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "2474619a32abd67512b997d53b3c64884e8327a187f2a175059c47fdc74d2314": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 57.8729, cost bps vs arrival at 35.18, dollar cost at 117816.91, each as computed.\nReading the pack directly, impact bps at 33.33, participation at 0.03799, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 57.8729, cost bps vs arrival at 35.18, dollar cost at 117816.91, each as computed.\nReading the pack directly, impact bps at 33.33, participation at 0.03799, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 57.8729, cost bps vs arrival at 35.18, dollar cost at 117816.91, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "2a71d90b7e854c9500b795a94375c032374abb055b5b218bc7da52608b5d06af": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62, each as computed.\nReading the pack directly, impact bps at 42.46, participation at 0.093332, spread cost bps at 0.9, each as computed.\nReading the pack directly, avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62, each as computed.\nReading the pack directly, impact bps at 42.46, participation at 0.093332, spread cost bps at 0.9, each as computed.\nReading the pack directly, avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "31734f79f9335d8d59403d6f0e66e43bdb1da49da99f9e60c43b10d8f5ddb504": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 62.1, benchmark return at -0.00428, carino k at -0.004284, each as computed.\nReading the pack directly, interaction total bps at -0.1, portfolio return at 0.00193, selection total bps at -0.2, each as computed.\nReading the pack directly, allocation total bps at -0, active bps at 62.1, benchmark return at -0.00428, each as computed.\nReading the pack directly, carino k at -0.004284, interaction total bps at -0.1, portfolio return at 0.00193, each as computed.\nReading the pack directly, selection total bps at -0.2, allocation total bps at -0, active bps at 62.1, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "34ed395b7f7b6f6953e0a8da8e5517a7ec949e7bbed3d079d76716672d378534": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 54.9245, cost bps vs arrival at 44.5, dollar cost at 20080.95, each as computed.\nReading the pack directly, impact bps at 42.2, participation at 0.025166, spread cost bps at 2.3, each as computed.\nReading the pack directly, avg fill price at 54.9245, cost bps vs arrival at 44.5, dollar cost at 20080.95, each as computed.\nReading the pack directly, impact bps at 42.2, participation at 0.025166, spread cost bps at 2.3, each as computed.\nReading the pack directly, avg fill price at 54.9245, cost bps vs arrival at 44.5, dollar cost at 20080.95, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "3671c13e4f2cacec1f614cc9834f790f21fbd6740f84d205595ae07d66e93fda": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7, each as computed.\nReading the pack directly, impact bps at 56.98, participation at 0.088088, spread cost bps at 4.35, each as computed.\nReading the pack directly, avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7, each as computed.\nReading the pack directly, impact bps at 56.98, participation at 0.088088, spread cost bps at 4.35, each as computed.\nReading the pack directly, avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "390cd360d357488060a639e0ba6a4848dfd22e2adc9f8fa21e55e79c3073a8ac": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 157.3626, cost bps vs arrival at 58.98, dollar cost at 72584.61, each as computed.\nReading the pack directly, impact bps at 53.33, participation at 0.038435, spread cost bps at 5.65, each as computed.\nReading the pack directly, avg fill price at 157.3626, cost bps vs arrival at 58.98, dollar cost at 72584.61, each as computed.\nReading the pack directly, impact bps at 53.33, participation at 0.038435, spread cost bps at 5.65, each as computed.\nReading the pack directly, avg fill price at 157.3626, cost bps vs arrival at 58.98, dollar cost at 72584.61, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "399331971997ab281f444f9bedc6a266446d30178fa2da35515e1fa8bf5c93aa": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 73.5, allocation total bps at 0.3, benchmark return at 0.0113, each as computed.\nReading the pack directly, carino k at 0.011131, interaction total bps at -0.4, portfolio return at 0.01865, each as computed.\nReading the pack directly, selection total bps at 0.5, active bps at 73.5, allocation total bps at 0.3, each as computed.\nReading the pack directly, benchmark return at 0.0113, carino k at 0.011131, interaction total bps at -0.4, each as computed.\nReading the pack directly, portfolio return at 0.01865, selection total bps at 0.5, active bps at 73.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "41b9b3e05ec738faba536878a5477c45e3be1b9fe801ed6164e8c3a950207df3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 96.6416, cost bps vs arrival at 51.13, dollar cost at 76687.63, each as computed.\nReading the pack directly, impact bps at 46.43, participation at 0.054978, spread cost bps at 4.7, each as computed.\nReading the pack directly, avg fill price at 96.6416, cost bps vs arrival at 51.13, dollar cost at 76687.63, each as computed.\nReading the pack directly, impact bps at 46.43, participation at 0.054978, spread cost bps at 4.7, each as computed.\nReading the pack directly, avg fill price at 96.6416, cost bps vs arrival at 51.13, dollar cost at 76687.63, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "468c316417bbdc9c704edd484965a47d1fea414f0312f928594e28aff6fec24f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 94.082, cost bps vs arrival at 67.63, dollar cost at 56084.31, each as computed.\nReading the pack directly, impact bps at 58.63, participation at 0.052861, spread cost bps at 9, each as computed.\nReading the pack directly, avg fill price at 94.082, cost bps vs arrival at 67.63, dollar cost at 56084.31, each as computed.\nReading the pack directly, impact bps at 58.63, participation at 0.052861, spread cost bps at 9, each as computed.\nReading the pack directly, avg fill price at 94.082, cost bps vs arrival at 67.63, dollar cost at 56084.31, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "49b92630a0362a1153e7f4526f6e20889ec9c2e26a275eae370130284b1e5328": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 153.5764, cost bps vs arrival at 62.66, dollar cost at 62541.5, each as computed.\nReading the pack directly, impact bps at 59.71, participation at 0.040153, spread cost bps at 2.95, each as computed.\nReading the pack directly, avg fill price at 153.5764, cost bps vs arrival at 62.66, dollar cost at 62541.5, each as computed.\nReading the pack directly, impact bps at 59.71, participation at 0.040153, spread cost bps at 2.95, each as computed.\nReading the pack directly, avg fill price at 153.5764, cost bps vs arrival at 62.66, dollar cost at 62541.5, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "4b025ea0439068b61994013a82389c5679f5d47f5fff5e73b69161dbad2969dd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 65.6644, cost bps vs arrival at 34.29, dollar cost at 81921.55, each as computed.\nReading the pack directly, impact bps at 32.59, participation at 0.028806, spread cost bps at 1.7, each as computed.\nReading the pack directly, avg fill price at 65.6644, cost bps vs arrival at 34.29, dollar cost at 81921.55, each as computed.\nReading the pack directly, impact bps at 32.59, participation at 0.028806, spread cost bps at 1.7, each as computed.\nReading the pack directly, avg fill price at 65.6644, cost bps vs arrival at 34.29, dollar cost at 81921.55, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "4c16f10922f2070fee572b07329bb84aaf7cbe5b1c834f2e429444b9b6bbbbeb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 183.8179, cost bps vs arrival at 28.32, dollar cost at 213428.54, each as computed.\nReading the pack directly, impact bps at 26.32, participation at 0.020463, spread cost bps at 2, each as computed.\nReading the pack directly, avg fill price at 183.8179, cost bps vs arrival at 28.32, dollar cost at 213428.54, each as computed.\nReading the pack directly, impact bps at 26.32, participation at 0.020463, spread cost bps at 2, each as computed.\nReading the pack directly, avg fill price at 183.8179, cost bps vs arrival at 28.32, dollar cost at 213428.54, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "4c3d7a38b9a549bb11f6dbd6b40b551290a7d7d7fd227f0e8e1d5b972e85272a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -257.4, allocation total bps at 0.8, benchmark return at -0.00693, each as computed.\nReading the pack directly, carino k at -0.007071, interaction total bps at 0.1, portfolio return at -0.03267, each as computed.\nReading the pack directly, selection total bps at 1, active bps at -257.4, allocation total bps at 0.8, each as computed.\nReading the pack directly, benchmark return at -0.00693, carino k at -0.007071, interaction total bps at 0.1, each as computed.\nReading the pack directly, portfolio return at -0.03267, selection total bps at 1, active bps at -257.4, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "4c4a8a88381dfbba071d78aef9add8ebf5f0a9e08461b3167754b9c27a975431": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 111.0414, cost bps vs arrival at 83.82, dollar cost at 88574.68, each as computed.\nReading the pack directly, impact bps at 73.82, participation at 0.09382, spread cost bps at 10, each as computed.\nReading the pack directly, avg fill price at 111.0414, cost bps vs arrival at 83.82, dollar cost at 88574.68, each as computed.\nReading the pack directly, impact bps at 73.82, participation at 0.09382, spread cost bps at 10, each as computed.\nReading the pack directly, avg fill price at 111.0414, cost bps vs arrival at 83.82, dollar cost at 88574.68, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "4ce8d3b60015a05273b2a54c5dea2f2ca0db77ca40022346ad23add3be44c8a6": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58, each as computed.\nReading the pack directly, impact bps at 16.05, participation at 0.010062, spread cost bps at 0.55, each as computed.\nReading the pack directly, avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58, each as computed.\nReading the pack directly, impact bps at 16.05, participation at 0.010062, spread cost bps at 0.55, each as computed.\nReading the pack directly, avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "5019fc239a8d9904545a3c0cecf025cc28ff3523763d31ee7e5b8660776bc502": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48, each as computed.\nReading the pack directly, impact bps at 34.67, participation at 0.017381, spread cost bps at 3.4, each as computed.\nReading the pack directly, avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48, each as computed.\nReading the pack directly, impact bps at 34.67, participation at 0.017381, spread cost bps at 3.4, each as computed.\nReading the pack directly, avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "501f843d01cccd22459c152c256e6fe9e83d24088e62215fb26fdb0dc3c89b2b": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -960,7 +360,292 @@
         "total_tokens": 148
       }
     },
-    "ff53e7f733273f1a0c5e55d146b9d171608c488b3dcf17133ed20e2c09dd405d": {
+    "53ea9aec7b0c321131267daef6c40711366ac98fc3cf5e0528d97b113c42ee2b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 142.5, allocation total bps at -1.1, benchmark return at 0.02324, each as computed.\nReading the pack directly, carino k at 0.022553, portfolio return at 0.03749, selection total bps at 4.4, each as computed.\nReading the pack directly, interaction total bps at -0, active bps at 142.5, allocation total bps at -1.1, each as computed.\nReading the pack directly, benchmark return at 0.02324, carino k at 0.022553, portfolio return at 0.03749, each as computed.\nReading the pack directly, selection total bps at 4.4, interaction total bps at -0, active bps at 142.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "57a2b0eb17039b91719f4561a54031c21e5eb901ab5b934b25399680c1f0a135": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 24.1113, cost bps vs arrival at 37.99, dollar cost at 7206.5, each as computed.\nReading the pack directly, impact bps at 32.99, participation at 0.019215, spread cost bps at 5, each as computed.\nReading the pack directly, avg fill price at 24.1113, cost bps vs arrival at 37.99, dollar cost at 7206.5, each as computed.\nReading the pack directly, impact bps at 32.99, participation at 0.019215, spread cost bps at 5, each as computed.\nReading the pack directly, avg fill price at 24.1113, cost bps vs arrival at 37.99, dollar cost at 7206.5, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "64d48ff3870eb2ced87aff7525c43a5a739f75b3a30f8d54c6ce526ef6490199": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 79.8862, cost bps vs arrival at 51.54, dollar cost at 204511.6, each as computed.\nReading the pack directly, impact bps at 50.24, participation at 0.065028, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 79.8862, cost bps vs arrival at 51.54, dollar cost at 204511.6, each as computed.\nReading the pack directly, impact bps at 50.24, participation at 0.065028, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 79.8862, cost bps vs arrival at 51.54, dollar cost at 204511.6, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "65a65a2062b5e7206ec5558b2420797e507412b76fc7f6cc7dbda498b00d704f": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -103.8, allocation total bps at -0.1, benchmark return at 0.00392, each as computed.\nReading the pack directly, carino k at 0.003927, portfolio return at -0.00646, selection total bps at -0.3, each as computed.\nReading the pack directly, interaction total bps at -0, active bps at -103.8, allocation total bps at -0.1, each as computed.\nReading the pack directly, benchmark return at 0.00392, carino k at 0.003927, portfolio return at -0.00646, each as computed.\nReading the pack directly, selection total bps at -0.3, interaction total bps at -0, active bps at -103.8, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "65ef003f1019a6c691fc2e90fe5f0261aedd603043b2000e3f953d1b5877cc68": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25, each as computed.\nReading the pack directly, impact bps at 34, participation at 0.032366, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25, each as computed.\nReading the pack directly, impact bps at 34, participation at 0.032366, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "67443187c2571af78b83d25ac97a0b2fecc5bdeafcbbc0ca4cddbda69cce5941": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 171.811, cost bps vs arrival at 29.25, dollar cost at 193891.23, each as computed.\nReading the pack directly, impact bps at 27.35, participation at 0.048632, spread cost bps at 1.9, each as computed.\nReading the pack directly, avg fill price at 171.811, cost bps vs arrival at 29.25, dollar cost at 193891.23, each as computed.\nReading the pack directly, impact bps at 27.35, participation at 0.048632, spread cost bps at 1.9, each as computed.\nReading the pack directly, avg fill price at 171.811, cost bps vs arrival at 29.25, dollar cost at 193891.23, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "69823e0510562e1ba97ff6fa68485f769c96b39731f88fa3727eefa76b0f19dc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 44.0063, cost bps vs arrival at 41.57, dollar cost at 39130.46, each as computed.\nReading the pack directly, impact bps at 35.42, participation at 0.045532, spread cost bps at 6.15, each as computed.\nReading the pack directly, avg fill price at 44.0063, cost bps vs arrival at 41.57, dollar cost at 39130.46, each as computed.\nReading the pack directly, impact bps at 35.42, participation at 0.045532, spread cost bps at 6.15, each as computed.\nReading the pack directly, avg fill price at 44.0063, cost bps vs arrival at 41.57, dollar cost at 39130.46, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "6bb9e8509a456d3e34df492ecadfe4dd3aa8124a2047daf8bacb203e759a331a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27, each as computed.\nReading the pack directly, impact bps at 27.09, participation at 0.022649, spread cost bps at 7.1, each as computed.\nReading the pack directly, avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27, each as computed.\nReading the pack directly, impact bps at 27.09, participation at 0.022649, spread cost bps at 7.1, each as computed.\nReading the pack directly, avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "6cfe9c5cceae5f70bf5fc9e9aad38af5feb5658311b6eb26a25d1fb79569320a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 218.5823, cost bps vs arrival at 32.23, dollar cost at 300036.59, each as computed.\nReading the pack directly, impact bps at 30.63, participation at 0.040085, spread cost bps at 1.6, each as computed.\nReading the pack directly, avg fill price at 218.5823, cost bps vs arrival at 32.23, dollar cost at 300036.59, each as computed.\nReading the pack directly, impact bps at 30.63, participation at 0.040085, spread cost bps at 1.6, each as computed.\nReading the pack directly, avg fill price at 218.5823, cost bps vs arrival at 32.23, dollar cost at 300036.59, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "71a0eec2a163c09999f8a292de4d5b5197bc2168c030518e110156b06199ed5a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -87.9, allocation total bps at -0.8, benchmark return at 0.01781, each as computed.\nReading the pack directly, carino k at 0.017572, interaction total bps at -1, portfolio return at 0.00902, each as computed.\nReading the pack directly, selection total bps at -0.8, active bps at -87.9, allocation total bps at -0.8, each as computed.\nReading the pack directly, benchmark return at 0.01781, carino k at 0.017572, interaction total bps at -1, each as computed.\nReading the pack directly, portfolio return at 0.00902, selection total bps at -0.8, active bps at -87.9, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "72df9580341e75bee620fdb5148dcd88c0a0b84de61b14e7cde4c254b78ced9e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -80.5, allocation total bps at 1, benchmark return at 0.01267, each as computed.\nReading the pack directly, carino k at 0.012561, portfolio return at 0.00462, selection total bps at -2, each as computed.\nReading the pack directly, interaction total bps at 0, active bps at -80.5, allocation total bps at 1, each as computed.\nReading the pack directly, benchmark return at 0.01267, carino k at 0.012561, portfolio return at 0.00462, each as computed.\nReading the pack directly, selection total bps at -2, interaction total bps at 0, active bps at -80.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "746f6c12331908e2f063ebcf5274fb857ca97a83a3c2bdf672e4c6949b1c3b38": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -45.7, allocation total bps at 1.4, benchmark return at 0.03295, each as computed.\nReading the pack directly, carino k at 0.031971, interaction total bps at 0.5, portfolio return at 0.02838, each as computed.\nReading the pack directly, selection total bps at -2.8, active bps at -45.7, allocation total bps at 1.4, each as computed.\nReading the pack directly, benchmark return at 0.03295, carino k at 0.031971, interaction total bps at 0.5, each as computed.\nReading the pack directly, portfolio return at 0.02838, selection total bps at -2.8, active bps at -45.7, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "76132586ae2051051ae4a1efa84f2433e6e239538becf37050e3188713c1190c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 141.7483, cost bps vs arrival at 59.49, dollar cost at 262065.15, each as computed.\nReading the pack directly, impact bps at 55.69, participation at 0.08966, spread cost bps at 3.8, each as computed.\nReading the pack directly, avg fill price at 141.7483, cost bps vs arrival at 59.49, dollar cost at 262065.15, each as computed.\nReading the pack directly, impact bps at 55.69, participation at 0.08966, spread cost bps at 3.8, each as computed.\nReading the pack directly, avg fill price at 141.7483, cost bps vs arrival at 59.49, dollar cost at 262065.15, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "7e618ef165ad9f7d58cac61ca7e3269b12d1e8eb8c92355c2ef75fcaf367dc2c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05, each as computed.\nReading the pack directly, impact bps at 33.71, participation at 0.041736, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05, each as computed.\nReading the pack directly, impact bps at 33.71, participation at 0.041736, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "82f087f61486bce93027f1c24480a6c9e880ea2a701104d60e2d7aacd29a6435": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 450.339, cost bps vs arrival at 31.9, dollar cost at 381698.92, each as computed.\nReading the pack directly, impact bps at 30.75, participation at 0.033098, spread cost bps at 1.15, each as computed.\nReading the pack directly, avg fill price at 450.339, cost bps vs arrival at 31.9, dollar cost at 381698.92, each as computed.\nReading the pack directly, impact bps at 30.75, participation at 0.033098, spread cost bps at 1.15, each as computed.\nReading the pack directly, avg fill price at 450.339, cost bps vs arrival at 31.9, dollar cost at 381698.92, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "830ff91b14f2fc42a2985a1f2de4b06288ec700ecd792127f5f5309ba9eb79cc": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86, each as computed.\nReading the pack directly, impact bps at 44.76, participation at 0.070155, spread cost bps at 1.1, each as computed.\nReading the pack directly, avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86, each as computed.\nReading the pack directly, impact bps at 44.76, participation at 0.070155, spread cost bps at 1.1, each as computed.\nReading the pack directly, avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "8363e10d5d5ffb026c841db366d1a6869ac875ff7fc6d1b437d82dc96a411eae": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 53.1959, cost bps vs arrival at 80.72, dollar cost at 136263.37, each as computed.\nReading the pack directly, impact bps at 75.32, participation at 0.068393, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 53.1959, cost bps vs arrival at 80.72, dollar cost at 136263.37, each as computed.\nReading the pack directly, impact bps at 75.32, participation at 0.068393, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 53.1959, cost bps vs arrival at 80.72, dollar cost at 136263.37, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "83738a6e3e0babfdf8e53794480769f73c295bb01fb0c70463368a1125ae7bb4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45, each as computed.\nReading the pack directly, impact bps at 30.04, participation at 0.018641, spread cost bps at 4.4, each as computed.\nReading the pack directly, avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45, each as computed.\nReading the pack directly, impact bps at 30.04, participation at 0.018641, spread cost bps at 4.4, each as computed.\nReading the pack directly, avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "83fd935c0b2241f7b3aed961a9f5a7a380b6af0284f2e1552657ba0bde1f15da": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 358.7204, cost bps vs arrival at 24.88, dollar cost at 527498.22, each as computed.\nReading the pack directly, impact bps at 23.58, participation at 0.038619, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 358.7204, cost bps vs arrival at 24.88, dollar cost at 527498.22, each as computed.\nReading the pack directly, impact bps at 23.58, participation at 0.038619, spread cost bps at 1.3, each as computed.\nReading the pack directly, avg fill price at 358.7204, cost bps vs arrival at 24.88, dollar cost at 527498.22, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "8c71a779322dd64f00863ce356b6f006f2b16d7abdf5eb51f519a0dc26b0a7fc": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -973,6 +658,321 @@
       "model": "fixture-prose",
       "usage": {
         "total_tokens": 148
+      }
+    },
+    "8f1c3e2290e3ab4348c032784a25ac81dbcc397eff577d4b69df28c2cbfa8fcf": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -75.5, benchmark return at -0.00106, carino k at -0.00107, each as computed.\nReading the pack directly, portfolio return at -0.00862, allocation total bps at 0, interaction total bps at -0, each as computed.\nReading the pack directly, selection total bps at 0, active bps at -75.5, benchmark return at -0.00106, each as computed.\nReading the pack directly, carino k at -0.00107, portfolio return at -0.00862, allocation total bps at 0, each as computed.\nReading the pack directly, interaction total bps at -0, selection total bps at 0, active bps at -75.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "9076d2ba621ba9920d0cb92f4bbadd4e17baffbde52a997ca266faeb7f4a71d9": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 295.7747, cost bps vs arrival at 28.16, dollar cost at 359667.31, each as computed.\nReading the pack directly, impact bps at 26.66, participation at 0.048555, spread cost bps at 1.5, each as computed.\nReading the pack directly, avg fill price at 295.7747, cost bps vs arrival at 28.16, dollar cost at 359667.31, each as computed.\nReading the pack directly, impact bps at 26.66, participation at 0.048555, spread cost bps at 1.5, each as computed.\nReading the pack directly, avg fill price at 295.7747, cost bps vs arrival at 28.16, dollar cost at 359667.31, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "921b1a65de5670990f40eb90eeab4228bb9e9b1294be41bf29d10874ddf0e13a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -145.5, allocation total bps at 0.3, benchmark return at 0.01009, each as computed.\nReading the pack directly, carino k at 0.010058, interaction total bps at -0.1, portfolio return at -0.00447, each as computed.\nReading the pack directly, selection total bps at -1.7, active bps at -145.5, allocation total bps at 0.3, each as computed.\nReading the pack directly, benchmark return at 0.01009, carino k at 0.010058, interaction total bps at -0.1, each as computed.\nReading the pack directly, portfolio return at -0.00447, selection total bps at -1.7, active bps at -145.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "a6fa4f2f5e261b4969b2d10a36c766e3a9059e9653739278e3f621ac111227c0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2, each as computed.\nReading the pack directly, impact bps at 14.64, participation at 0.012888, spread cost bps at 0.5, each as computed.\nReading the pack directly, avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2, each as computed.\nReading the pack directly, impact bps at 14.64, participation at 0.012888, spread cost bps at 0.5, each as computed.\nReading the pack directly, avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "a8e7dc4ecd044d764c0524aafc347520eccb1c81e02b7641815507fb73acdf0d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 92.9, allocation total bps at 2, benchmark return at 0.01598, each as computed.\nReading the pack directly, carino k at 0.015659, interaction total bps at -0.2, portfolio return at 0.02527, each as computed.\nReading the pack directly, selection total bps at -0.6, active bps at 92.9, allocation total bps at 2, each as computed.\nReading the pack directly, benchmark return at 0.01598, carino k at 0.015659, interaction total bps at -0.2, each as computed.\nReading the pack directly, portfolio return at 0.02527, selection total bps at -0.6, active bps at 92.9, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "ab945ce3c7a22335a1c492c0ca02cf500c3f384cc58c75c714a8164e1f56a81d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -59.8, allocation total bps at -0.9, benchmark return at 0.00975, each as computed.\nReading the pack directly, carino k at 0.009686, interaction total bps at 0.1, portfolio return at 0.00377, each as computed.\nReading the pack directly, selection total bps at 0.3, active bps at -59.8, allocation total bps at -0.9, each as computed.\nReading the pack directly, benchmark return at 0.00975, carino k at 0.009686, interaction total bps at 0.1, each as computed.\nReading the pack directly, portfolio return at 0.00377, selection total bps at 0.3, active bps at -59.8, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "aec544d02a04f0334602cf1581221f219305b0388db326f569eba82bfebe53cd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 85.1906, cost bps vs arrival at 50.16, dollar cost at 88727.13, each as computed.\nReading the pack directly, impact bps at 45.36, participation at 0.074653, spread cost bps at 4.8, each as computed.\nReading the pack directly, avg fill price at 85.1906, cost bps vs arrival at 50.16, dollar cost at 88727.13, each as computed.\nReading the pack directly, impact bps at 45.36, participation at 0.074653, spread cost bps at 4.8, each as computed.\nReading the pack directly, avg fill price at 85.1906, cost bps vs arrival at 50.16, dollar cost at 88727.13, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "b3356981ba49e8ce9214d4ebb744b214299c87a20fa2f4014d481df95a6f12aa": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 183.7, allocation total bps at 0.3, benchmark return at 0.00288, each as computed.\nReading the pack directly, carino k at 0.002851, portfolio return at 0.02125, selection total bps at 0.2, each as computed.\nReading the pack directly, interaction total bps at -0, active bps at 183.7, allocation total bps at 0.3, each as computed.\nReading the pack directly, benchmark return at 0.00288, carino k at 0.002851, portfolio return at 0.02125, each as computed.\nReading the pack directly, selection total bps at 0.2, interaction total bps at -0, active bps at 183.7, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "b5e77edca6ccc17e61dd702843915e7750a6d15e716c66b8c1c98d67d6f0a274": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 51.6, allocation total bps at 0.4, benchmark return at -0.01909, each as computed.\nReading the pack directly, carino k at -0.019413, interaction total bps at -1.9, portfolio return at -0.01393, each as computed.\nReading the pack directly, selection total bps at -1.4, active bps at 51.6, allocation total bps at 0.4, each as computed.\nReading the pack directly, benchmark return at -0.01909, carino k at -0.019413, interaction total bps at -1.9, each as computed.\nReading the pack directly, portfolio return at -0.01393, selection total bps at -1.4, active bps at 51.6, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "b6ded5ebd66b96bb808afc6136db552f0bfc8e5716fd66949fd95db49d0fc4c4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 38.8, allocation total bps at -0.1, benchmark return at 0.00276, each as computed.\nReading the pack directly, carino k at 0.002743, interaction total bps at 0.1, portfolio return at 0.00664, each as computed.\nReading the pack directly, selection total bps at 0.2, active bps at 38.8, allocation total bps at -0.1, each as computed.\nReading the pack directly, benchmark return at 0.00276, carino k at 0.002743, interaction total bps at 0.1, each as computed.\nReading the pack directly, portfolio return at 0.00664, selection total bps at 0.2, active bps at 38.8, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "c2ce1cfb2545376d8adafcda900da96055666a85828ea688edf16a7362fcad71": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 105.0944, cost bps vs arrival at 24.27, dollar cost at 95394.23, each as computed.\nReading the pack directly, impact bps at 22.42, participation at 0.024571, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 105.0944, cost bps vs arrival at 24.27, dollar cost at 95394.23, each as computed.\nReading the pack directly, impact bps at 22.42, participation at 0.024571, spread cost bps at 1.85, each as computed.\nReading the pack directly, avg fill price at 105.0944, cost bps vs arrival at 24.27, dollar cost at 95394.23, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "d07a4d3aef39a7fc087b3662166b21b360ce7315d69139655aca4cb2179b73a1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-06-30, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 40.2873, cost bps vs arrival at 54.22, dollar cost at 68509.53, each as computed.\nReading the pack directly, impact bps at 51.17, participation at 0.079047, spread cost bps at 3.05, each as computed.\nReading the pack directly, avg fill price at 40.2873, cost bps vs arrival at 54.22, dollar cost at 68509.53, each as computed.\nReading the pack directly, impact bps at 51.17, participation at 0.079047, spread cost bps at 3.05, each as computed.\nReading the pack directly, avg fill price at 40.2873, cost bps vs arrival at 54.22, dollar cost at 68509.53, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "d5feb2f52356e6d57df0bb8be9026858f902cd0980c76ee69e53c1a5dc331a5a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 64.2, allocation total bps at 0.4, benchmark return at 0.00718, each as computed.\nReading the pack directly, carino k at 0.00711, portfolio return at 0.0136, interaction total bps at -0, each as computed.\nReading the pack directly, selection total bps at 0, active bps at 64.2, allocation total bps at 0.4, each as computed.\nReading the pack directly, benchmark return at 0.00718, carino k at 0.00711, portfolio return at 0.0136, each as computed.\nReading the pack directly, interaction total bps at -0, selection total bps at 0, active bps at 64.2, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "d8f57af737e374f371900fe761b2600ae86e0f312f89ce0495d779f3e96856b1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2025-12-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 3.5, allocation total bps at 1.7, benchmark return at 0.02578, each as computed.\nReading the pack directly, carino k at 0.025127, interaction total bps at -1.5, portfolio return at 0.02613, each as computed.\nReading the pack directly, selection total bps at -1.7, active bps at 3.5, allocation total bps at 1.7, each as computed.\nReading the pack directly, benchmark return at 0.02578, carino k at 0.025127, interaction total bps at -1.5, each as computed.\nReading the pack directly, portfolio return at 0.02613, selection total bps at -1.7, active bps at 3.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "d938bb56d327acc934b17c12930877eee6441574f1be8bdf229a2236f7cc049b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2025-12-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 246.984, cost bps vs arrival at 26.49, dollar cost at 447612.58, each as computed.\nReading the pack directly, impact bps at 25.74, participation at 0.050105, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 246.984, cost bps vs arrival at 26.49, dollar cost at 447612.58, each as computed.\nReading the pack directly, impact bps at 25.74, participation at 0.050105, spread cost bps at 0.75, each as computed.\nReading the pack directly, avg fill price at 246.984, cost bps vs arrival at 26.49, dollar cost at 447612.58, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "daeb39e5bcda7734193f4f4002c175a3aa13fd931e2e7ed59bb29deba64f423d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 260.1299, cost bps vs arrival at 13.82, dollar cost at 35972.86, each as computed.\nReading the pack directly, impact bps at 12.82, participation at 0.010197, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 260.1299, cost bps vs arrival at 13.82, dollar cost at 35972.86, each as computed.\nReading the pack directly, impact bps at 12.82, participation at 0.010197, spread cost bps at 1, each as computed.\nReading the pack directly, avg fill price at 260.1299, cost bps vs arrival at 13.82, dollar cost at 35972.86, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
+      }
+    },
+    "def3f1fbae45a442799ac385246626739f8df975854dc9edf7bf5836828619df": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 17.5, allocation total bps at 1.3, benchmark return at 0.01276, each as computed.\nReading the pack directly, carino k at 0.012592, interaction total bps at 0.2, portfolio return at 0.01452, each as computed.\nReading the pack directly, selection total bps at -1.1, active bps at 17.5, allocation total bps at 1.3, each as computed.\nReading the pack directly, benchmark return at 0.01276, carino k at 0.012592, interaction total bps at 0.2, each as computed.\nReading the pack directly, portfolio return at 0.01452, selection total bps at -1.1, active bps at 17.5, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "e2c8bfbad81f6deb1d5e6924939c4600d8d04564536c2fe3b5855739b1b603d0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -164, allocation total bps at -0.4, benchmark return at 0.00519, each as computed.\nReading the pack directly, carino k at 0.005207, interaction total bps at -0.4, portfolio return at -0.01121, each as computed.\nReading the pack directly, selection total bps at -0.4, active bps at -164, allocation total bps at -0.4, each as computed.\nReading the pack directly, benchmark return at 0.00519, carino k at 0.005207, interaction total bps at -0.4, each as computed.\nReading the pack directly, portfolio return at -0.01121, selection total bps at -0.4, active bps at -164, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "e4933b5b8751c8df3acd7584940d8d1fc806cac783874579e33fce65784a633b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-03-31, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at 173.1, benchmark return at -0.00267, carino k at -0.002659, each as computed.\nReading the pack directly, portfolio return at 0.01464, selection total bps at -0.5, allocation total bps at 0, each as computed.\nReading the pack directly, interaction total bps at 0, active bps at 173.1, benchmark return at -0.00267, each as computed.\nReading the pack directly, carino k at -0.002659, portfolio return at 0.01464, selection total bps at -0.5, each as computed.\nReading the pack directly, allocation total bps at 0, interaction total bps at 0, active bps at 173.1, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "f51d00f8c205bb03ca9c3f8d5d460141b4fd3084b70780a9f3ccd86b9f0c670a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the portfolio.attribution.brinson_carino pack as of 2026-06-30, on the figures it authorises and no others.\nCarino factor.\nallocation versus selection.\nskill signal.\nReading the pack directly, active bps at -51.3, allocation total bps at -0.2, benchmark return at -0.02821, each as computed.\nReading the pack directly, carino k at -0.029108, interaction total bps at -0.8, portfolio return at -0.03334, each as computed.\nReading the pack directly, selection total bps at 1.6, active bps at -51.3, allocation total bps at -0.2, each as computed.\nReading the pack directly, benchmark return at -0.02821, carino k at -0.029108, interaction total bps at -0.8, each as computed.\nReading the pack directly, portfolio return at -0.03334, selection total bps at 1.6, active bps at -51.3, each as computed.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 148
+      }
+    },
+    "fcdd99bbfa6433b3538cd23f4f42def5a1e05f8be18d3cd9f08f2131180a9d44": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "Answering from the execution.tca.arrival pack as of 2026-03-31, on the figures it authorises and no others.\nsquare-root impact scaling.\nparticipation against ADV.\narrival versus decision benchmark.\nReading the pack directly, avg fill price at 107.2404, cost bps vs arrival at 87.51, dollar cost at 296560.29, each as computed.\nReading the pack directly, impact bps at 82.11, participation at 0.096745, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 107.2404, cost bps vs arrival at 87.51, dollar cost at 296560.29, each as computed.\nReading the pack directly, impact bps at 82.11, participation at 0.096745, spread cost bps at 5.4, each as computed.\nReading the pack directly, avg fill price at 107.2404, cost bps vs arrival at 87.51, dollar cost at 296560.29, each as computed.\nEvery figure above is the pack's own; nothing here is drawn from outside it.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-prose",
+      "usage": {
+        "total_tokens": 144
       }
     }
   },

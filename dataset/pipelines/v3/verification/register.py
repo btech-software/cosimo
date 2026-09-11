@@ -87,6 +87,12 @@ DESK_CHAT_MAX_SENTENCES = 12
 #: of them has to give in a way that is written down rather than discovered.
 DESK_CHAT_WORDS_PER_SENTENCE = 14
 
+#: How far under the ceiling the brief asks for. Two sentences: enough to
+#: absorb a model's miscount, small enough that it does not quietly become the
+#: real ceiling. The gate still measures against the ceiling itself -- this
+#: only moves what the brief *asks* for, never what the board accepts.
+_CEILING_MARGIN = 2
+
 
 def desk_chat_ceiling(kind: str) -> int:
     """The sentence ceiling for a desk_chat row of record type *kind*.
@@ -112,6 +118,77 @@ def desk_chat_ceiling(kind: str) -> int:
         DESK_CHAT_MAX_SENTENCES,
         math.ceil(floor / DESK_CHAT_WORDS_PER_SENTENCE),
     )
+
+
+#: What each register's gate actually refuses, in the second person, short
+#: enough to ride in the brief. Keyed to the ``_desk_chat`` / ``_ic_memo`` /
+#: ``_risk_committee`` rules below and meant to be read beside them: every
+#: clause here corresponds to one violation string there.
+#:
+#: This exists because the two had drifted into a silent asymmetry. The brief
+#: told a desk_chat row "short sentences, no preamble, no sign-off"; the gate
+#: refused it for memo headings, for a labelled ``Call:``, and for running over
+#: a sentence ceiling it was never shown. Five of the first nine live rows of a
+#: think-off render dead-lettered on exactly the rules nobody had told the
+#: model about. A gate the writer cannot see is not a standard, it is a trap,
+#: and the cost of one is paid per row, forever, in teacher tokens.
+_REGISTER_SHAPE = {
+    "desk_chat": (
+        "answer in flat prose -- no section headings (no 'Finding:', "
+        "'Evidence:', 'Recommendation:'), and do not label your call: reach "
+        "the decision inside the sentence you are already writing"
+    ),
+    "ic_memo": (
+        "end on an explicit call -- write 'Call:' or 'Recommendation:' and say "
+        "what you would do; a memo that surveys and stops is not a memo. Never "
+        "write 'FINAL ANSWER:'"
+    ),
+    "risk_committee": (
+        "name the limit, horizon or assumption you are constraining, and do "
+        "not recommend a trade -- the committee sets the constraint, the desk "
+        "takes the position"
+    ),
+}
+
+
+def register_shape(register: str, kind: str = "") -> str:
+    """The shape contract for *register*, in the words the gate would use.
+
+    One string, assembled from the same constants the gate measures against,
+    so the brief and the refusal cannot disagree. Returns ``""`` for a
+    register with no shape rules (``auditor``, ``code_review``) rather than
+    inventing one -- see :func:`register_violations`.
+    """
+    clauses = []
+    shape = _REGISTER_SHAPE.get(register)
+    if shape:
+        clauses.append(shape)
+    if register == "desk_chat":
+        ceiling = desk_chat_ceiling(kind)
+        # The ceiling *and* a target under it. A language model does not count
+        # its own sentences reliably, and one briefed at exactly the ceiling
+        # lands on it or just over: the first row of the corrected render came
+        # back at 13 against 12, three attempts running. Asking for the target
+        # spends the margin in prose rather than in retries.
+        clauses.append(
+            f"hard ceiling: at most {ceiling} sentences, and aim for "
+            f"{max(1, ceiling - _CEILING_MARGIN)} -- count them before you answer"
+        )
+    return ". ".join(clauses)
+
+
+#: The marker the length violation carries so other stages can recognise it
+#: without matching on prose. ``render_repair`` needs to know whether a fault
+#: is "too long", because the advice it appends contradicts that one fault and
+#: no other; matching on the sentence text would make the repair loop depend on
+#: the gate's wording, which is the sort of coupling that breaks in silence the
+#: next time somebody improves a message.
+_TOO_LONG_MARKER = "sentences, over the"
+
+
+def is_length_violation(violation: str) -> bool:
+    """Is *violation* the desk_chat sentence-ceiling refusal?"""
+    return _TOO_LONG_MARKER in str(violation or "")
 
 
 def sentence_count(text: str) -> int:
@@ -208,10 +285,16 @@ def _desk_chat(text: str, kind: str) -> list[str]:
     ceiling = desk_chat_ceiling(kind)
     sentences = sentence_count(text)
     if sentences > ceiling:
+        # Say how many to lose, not just that there are too many. The repair
+        # turn quotes this string back at the teacher, and "over the ceiling"
+        # left it to recount -- which is the operation it had already got
+        # wrong. A target is something it can act on in one pass.
+        cut = sentences - max(1, ceiling - _CEILING_MARGIN)
         out.append(
             f"register desk_chat runs {sentences} sentences, over the "
-            f"{ceiling}-sentence ceiling for a {kind or 'prose'} row -- tighten "
-            "it or the row is a memo wearing the desk's name"
+            f"{ceiling}-sentence ceiling for a {kind or 'prose'} row -- merge "
+            f"or cut at least {cut} of them (a desk note is prose, not a list "
+            "of short lines)"
         )
     return out
 
