@@ -450,3 +450,164 @@ def test_desk_chat_may_not_label_its_call_even_mid_paragraph():
         "labels its call" in v
         for v in gate_violations(memo, _clean_text() + " Call: hold.", "abstention")
     )
+
+
+# --------------------------------------------------------------------------
+# the brief and the gate must describe the same shape
+# --------------------------------------------------------------------------
+
+
+def test_the_brief_states_every_shape_rule_the_register_gate_enforces():
+    """A gate the writer cannot see is a trap, and it is billed per row.
+
+    ``desk_chat`` was briefed as "short sentences, no preamble, no sign-off"
+    and refused for memo headings, for a labelled ``Call:``, and for passing a
+    sentence ceiling it was never shown -- five of the first nine rows of a
+    live think-off render died on rules nobody had told the model. This pins
+    the repair: whatever the gate refuses, the brief says out loud.
+    """
+    from pipelines.v3.teacher.prompts import render_brief
+    from pipelines.v3.verification.register import (
+        _REGISTER_SHAPE,
+        desk_chat_ceiling,
+        register_shape,
+    )
+
+    for register in _REGISTER_SHAPE:
+        pack = {
+            "question": "q",
+            "register": register,
+            "allowed_numbers": [1.0],
+            "must_mention": [],
+            "forbidden_claims": [],
+        }
+        user = render_brief(pack, kind="analysis")[-1]["content"]
+        assert register_shape(register, "analysis") in user, (
+            f"{register}: the gate's shape rules are not in the brief"
+        )
+
+    desk = render_brief(
+        {
+            "question": "q",
+            "register": "desk_chat",
+            "allowed_numbers": [1.0],
+            "must_mention": [],
+            "forbidden_claims": [],
+        },
+        kind="analysis",
+    )[-1]["content"]
+    assert str(desk_chat_ceiling("analysis")) in desk, (
+        "the sentence ceiling is a number the gate measures against; the brief "
+        "has to carry that same number, not a synonym for 'be brief'"
+    )
+
+
+def test_a_register_with_no_shape_rules_adds_nothing_to_the_brief():
+    """``auditor``/``code_review`` are declared but unwritten -- §C invents no
+    rule for them, and neither may the brief."""
+    from pipelines.v3.verification.register import register_shape
+
+    assert register_shape("auditor", "analysis") == ""
+    assert register_shape("code_review", "analysis") == ""
+
+
+def test_the_repair_turn_does_not_tell_a_too_long_draft_to_keep_its_length():
+    """Two instructions a draft cannot both obey is a wasted attempt, x3.
+
+    "Do not shorten what was compliant" is the right advice for a numbers or
+    an anchor fault and the exact opposite of the fix for a length one. The
+    first row of a corrected live render spent all three attempts at 13
+    sentences against a ceiling of 12, told each time to cut and to keep.
+    """
+    from pipelines.v3.teacher.prompts import render_repair
+    from pipelines.v3.verification.register import register_violations
+
+    messages = [{"role": "user", "content": "brief"}]
+    long_draft = ". ".join(["a b c"] * 20) + "."
+    too_long = register_violations("desk_chat", long_draft, kind="analysis")
+    assert too_long, "the fixture draft must actually trip the ceiling"
+
+    repair = render_repair(messages, long_draft, too_long)[-1]["content"]
+    assert "Do not shorten" not in repair
+    assert "cut at least" in repair, (
+        "the repair quotes the violation, so the violation has to name a target"
+    )
+
+    other = ["gate: invented numbers not in the fact pack: '9.8'"]
+    kept = render_repair(messages, "a short draft.", other)[-1]["content"]
+    assert "Do not shorten what was compliant." in kept, (
+        "the clause is dropped only for the fault it contradicts"
+    )
+
+
+def test_an_empty_draft_still_gets_the_empty_draft_turn():
+    """The length branch must not shadow the empty-draft branch."""
+    from pipelines.v3.teacher.prompts import render_repair
+
+    repair = render_repair(
+        [{"role": "user", "content": "brief"}],
+        "",
+        ["register desk_chat runs 13 sentences, over the 12-sentence ceiling"],
+    )[-1]["content"]
+    assert "You returned an empty answer" in repair
+
+
+def test_the_decimal_tail_advice_does_not_name_a_token_rounding_drift_refuses():
+    """Two gates, opposite instructions -- the live case, pinned.
+
+    An attribution memo wrote ``373.0`` for an ``active_bps`` of 372.6. The
+    format axis said "write 373"; the model obeyed; ``rounding_drift`` refused
+    373 on the next attempt as the question's spelling of the figure. Three
+    attempts, one dead letter, and neither axis was wrong on its own.
+    """
+    from pipelines.v3.verification.prose import (
+        integer_format_offenders,
+        rounding_drift,
+    )
+
+    pack = {
+        "canonical": {"active_bps": 372.6},
+        "aliases": {"active_bps": ["373"]},
+        "display": {},
+    }
+    advice = integer_format_offenders(pack, "active return of 373.0 basis points")
+    assert advice == ["'373.0' -- write 372.6"], advice
+
+    # And the figure it now names is one the other axis accepts.
+    assert rounding_drift(pack, "active return of 372.6 basis points") == []
+    assert rounding_drift(pack, "active return of 373 basis points"), (
+        "the premise: the stripped whole is exactly what the drift axis refuses"
+    )
+
+
+def test_a_plain_decimal_tail_still_gets_the_desk_spelling():
+    """The alias lookup must not swallow the ordinary case it was built around."""
+    from pipelines.v3.verification.prose import integer_format_offenders
+
+    pack = {"display": {"shares": "430,567"}, "canonical": {}, "aliases": {}}
+    assert integer_format_offenders(pack, "430567.0 shares") == [
+        "'430567.0' -- write 430,567"
+    ]
+
+
+def test_a_zero_written_to_a_tenth_is_not_a_count_with_false_precision():
+    """The gate was refusing the pack's own figure, and the model knew it.
+
+    ``effects_Industrials.allocation_bps`` is canonically ``0.0``. A live
+    attribution row wrote it as ``0.0``, was told "write 0", and returned an
+    identical 256 words three times rather than misreport the pack. Zero in a
+    decomposition column is read down against ``-0.3`` and ``+0.2``; the
+    "a count is not known to a tenth" argument is about ``430567.0`` and does
+    not reach it.
+    """
+    from pipelines.v3.verification.prose import integer_format_offenders
+
+    pack = {"display": {}, "canonical": {"alloc": 0.0}, "aliases": {}}
+    assert integer_format_offenders(pack, "allocation 0.0, selection -0.3") == []
+    assert integer_format_offenders(pack, "interaction -0.0 bps") == []
+
+    # The case the axis exists for is untouched.
+    counts = {"display": {"shares": "430,567"}, "canonical": {}, "aliases": {}}
+    assert integer_format_offenders(counts, "430567.0 shares") == [
+        "'430567.0' -- write 430,567"
+    ]

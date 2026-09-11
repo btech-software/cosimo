@@ -1,6 +1,6 @@
 # examples/v3
 
-Two kinds of file, and the difference matters.
+Two kinds of file -- generated and captured -- and the difference matters.
 
 ## `<record_type>.jsonl` — generated, one row each
 
@@ -73,6 +73,67 @@ scored as making no call, because the check read a phrase list while
 `_MEMO_HEADINGS` was already matching the same heading to permit memo
 scaffolding. Fixed; the legacy rows that tripped it now pass.
 
+## `live_three_registers.jsonl` — captured, not regenerable
+
+Nine rows from a real teacher (`deepseek-v4-flash-0731`, 2026-09-11): three
+work types x `analysis` / `memo` / `grounded`, three rows in each of the three
+registers the plan emits. **9/9 shipped and all nine clear the full sixteen-axis
+board**, with no dead letters.
+
+Two things make it worth keeping beside `live_analysis.jsonl`.
+
+### It is the first sample with thinking genuinely off
+
+`verification.teacher.think_present` is `false` on every row. Every earlier
+capture had it `true` -- not as a choice but because `build_body` sent only
+DeepSeek's cloud `thinking: {type: ...}` field, which a vLLM/SparkInfer serve
+ignores, so the server's own `thinking: true` default stood and the project
+read a 10x token bill as a property of the model.
+
+| | `live_analysis` (think on) | `live_three_registers` (think off) |
+| --- | ---: | ---: |
+| rows shipped | 6/9 at capture | **9/9** |
+| median completion tokens | 3,799 | **476** |
+| median words | 143 | **288** |
+| billed : kept | 21.5x | **1.6x** |
+
+Twice the prose for an eighth of the tokens. That is amendment §B's claim, and
+this file is the first evidence for it rather than against it.
+
+### It is what a gate's own briefing is worth
+
+The first live render of these nine lanes shipped 1. The next three rounds
+shipped 4, then 7, then 9 -- and not one row of the difference came from
+asking the teacher for better writing. Every fix was a case of the pipeline
+demanding something it had never stated or could not be satisfied at all:
+
+* four register rules the gate enforced and the brief never mentioned,
+  including a sentence ceiling the model was refused for crossing but never
+  shown (now `verification.register.register_shape`, read by both sides);
+* a repair turn that appended "Do not shorten what was compliant" to a
+  *length* violation -- cut and do not cut, three attempts running;
+* the format axis advising "write 373" for a `373.0` that `rounding_drift`
+  then refused as the question's spelling of a 372.6;
+* that same axis demanding a bare `0` where the pack's canonical value **is**
+  `0.0` -- the row returned an identical 256 words three times rather than
+  misreport its pack, and it was right;
+* an invented-number tolerance that was purely relative, so `3.31` of a
+  `3.309` passed while `-0.42` of a `-0.416` failed. One act -- a desk writing
+  a percentage to two places -- sorted by magnitude.
+
+So the honest reading of the earlier "think-off costs gate compliance" result
+is that it measured five bugs, not a trade-off.
+
+### What it does not show
+
+Axes 15 and 16 report **below support**, not pass. Near-duplicate and register
+separation need eight rows per cell and this file has one per cell, so
+*"the three registers are distinct"* remains unmeasured -- it needs roughly
+twenty-four rows. Three rows per register is enough to read, not to certify.
+
+Like `live_analysis.jsonl` this file is deliberately **not** regenerable and
+must never be wired into `make_examples.py`.
+
 ## `_teacher_logs/` — debug, gitignored except the legacy capture
 
 Where the factory's own transcripts go when
@@ -85,13 +146,14 @@ above, and as the fixture `test_examples_and_leak_gate.py` uses to prove the
 old row shape now fails the prepare gate.
 
 
-## What this sample does not show
+## What `live_analysis.jsonl` does not show
 
-It is six rows of one record type. `memo`, `critique`, `grounded`,
-`abstention` and `agentic` have **no live sample at all** -- their files here
-are the scripted fixture. So "the corpus reads well" is not a claim this
-directory supports yet; "an `analysis` row is fact-locked and has the right
-shape" is.
+It is six rows of one record type. `critique`, `abstention` and `agentic`
+still have **no live sample at all** -- their files here are the scripted
+fixture. (`memo` and `grounded` gained one in
+`live_three_registers.jsonl` above.) So "the corpus reads well" is not a claim
+this directory supports yet; "an `analysis` row is fact-locked and has the
+right shape" is.
 
 Two of the six are `large_cap_intraday` and two are `equity_longonly`: the
 same job twice, different sizes. That is an artefact of reusing the legacy

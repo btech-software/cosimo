@@ -119,3 +119,62 @@ def test_the_committed_fixture_answer_is_clean_under_the_same_gate():
     assert pack.question in content
     for point in pack.must_mention:
         assert point.rstrip(".") in content
+
+
+# --------------------------------------------------------------------------
+# desk rounding: the same act must not pass or fail on magnitude alone
+# --------------------------------------------------------------------------
+
+
+def test_a_two_decimal_rounding_passes_at_every_magnitude():
+    """The live asymmetry, pinned.
+
+    One attribution memo wrote ``3.31`` of a ``3.309`` (accepted, 0.03%
+    relative), ``-0.42`` of a ``-0.416`` (refused, 1%) and ``-0.08`` of a
+    ``-0.084`` (refused, 5%). Three instances of one act -- a desk writing a
+    percentage to two places -- and the relative band sorted them by size.
+    """
+    from pipelines.v3.verification.invented_numbers import invented_numbers
+
+    allowed = [0.03309, -0.00416, -0.00084]
+    for token in ("3.31", "-0.42", "-0.08"):
+        assert invented_numbers(f"the figure is {token}%", allowed, ("100",)) == [], (
+            f"{token} is the pack's own value written to two places"
+        )
+
+
+def test_the_rounding_must_be_exact_at_the_written_precision():
+    """Not a widened band: a figure that does not round to the token is still
+    invented, however close it looks."""
+    from pipelines.v3.verification.invented_numbers import invented_numbers
+
+    allowed = [0.03309]
+    # Both sit outside the 0.5% relative band, so only the rounding path could
+    # save them, and neither is what 3.309 rounds to at its own precision.
+    # (3.32 is *not* a case: it lands inside the relative band on its own and
+    # always did -- a test asserting otherwise would be testing this change
+    # against a baseline it never had.)
+    assert invented_numbers("the figure is 3.29%", allowed, ("100",)) == ["3.29"]
+    assert invented_numbers("the figure is 3.4%", allowed, ("100",)) == ["3.4"]
+
+
+def test_computed_figures_are_still_refused():
+    """The failure the gate exists for: a model totalling the pack's parts.
+
+    A live memo summed three effects to ``-1.6`` and divided by the Carino
+    factor to reach ``390``. Neither is in the pack at any precision.
+    """
+    from pipelines.v3.verification.invented_numbers import invented_numbers
+
+    allowed = [-0.8, -0.7, -0.1, -0.004106, 372.6]
+    offenders = invented_numbers("summing to -1.6 bps, implying 390 bps", allowed)
+    assert "-1.6" in offenders and "390" in offenders
+
+
+def test_a_whole_number_gets_no_desk_rounding_mercy():
+    """``373`` for a ``372.6`` stays ``rounding_drift``'s to judge; this path
+    needs a decimal, so it never reaches into that axis's territory."""
+    from pipelines.v3.verification.invented_numbers import _matches
+
+    assert not _matches(42.0, frozenset({42.4}), 0)
+    assert _matches(42.4, frozenset({42.44}), 1)

@@ -126,7 +126,7 @@ case "$MODE" in
     # first: it exercises every stage boundary and bills nobody.
     v3 inventory
     v3 packs ${WORK:+--work-type "$WORK"}
-    v3 render --types "$TYPES" --limit "$LIMIT"
+    v3 render --types "$TYPES" --limit "$LIMIT" ${WORK:+--work-type "$WORK"}
     v3 verify --quick
     echo
     echo "slice done. Read the rows before raising LIMIT:"
@@ -138,7 +138,7 @@ case "$MODE" in
     # an export: nothing downstream of this line inherits a licence to spend.
     v3 inventory
     v3 packs ${WORK:+--work-type "$WORK"}
-    v3 render --types "$TYPES" --limit "$LIMIT" --live
+    v3 render --types "$TYPES" --limit "$LIMIT" ${WORK:+--work-type "$WORK"} --live
     v3 verify --quick
     echo
     echo "live slice done. Now read 20 of them by hand -- that is the gate."
@@ -148,7 +148,7 @@ case "$MODE" in
     # §E: the holdout families render too, into eval/ rather than sft/. Without
     # this the "unseen scenario family" measurement has nothing to measure and
     # the harness has to hold out shipped families instead.
-    v3 render --types "$TYPES" --limit "$LIMIT" --holdout
+    v3 render --types "$TYPES" --limit "$LIMIT" ${WORK:+--work-type "$WORK"} --holdout
     v3 verify --quick
     ;;
 

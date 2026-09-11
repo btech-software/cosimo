@@ -15,9 +15,15 @@ its definitions of "same number":
   the two honest ways prose renders a pack value: ``0.03`` as ``3.00%``,
   ``12.5`` as a ``0.125`` ratio; nothing more permissive, or the gate would
   stop being one -- a model cannot rescue a wrong figure by reformatting it;
-* comparison is relative, not decimal-place based, because packs mix ``1e4``
-  AUMs with ``1e-4`` spreads; a fixed epsilon would let either class pass
-  everything or reject its own outputs.
+* comparison is relative, not a fixed epsilon, because packs mix ``1e4``
+  AUMs with ``1e-4`` spreads; one epsilon would let either class pass
+  everything or reject its own outputs;
+* and beside the relative test, a token also passes when it is an allowed
+  value *correctly rounded to the precision the token itself carries* -- the
+  desk writing ``-0.42%`` of a ``-0.416``. That path is exact, not a widened
+  band, and needs at least one decimal: a relative test alone makes the
+  standard a function of magnitude, so the same two-decimal rounding passed at
+  3.309 and failed at 0.416 until this was added.
 
 Fail-closed: an unparsable or non-finite allowed set is an error, never a
 silent "nothing invented" -- the gate missing its data must look like the gate
@@ -39,6 +45,11 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):  # verification; repo root
 from verification import nums  # noqa: E402
 
 REL_TOLERANCE = 0.005
+
+#: Float-comparison slack for the desk-rounding test. Not a tolerance on
+#: the *figure* -- that test is exact by construction -- only on the binary
+#: representation of a rounding both sides computed.
+_EXACT = 1e-9
 #: 1 (bare), 100 (fraction rendered as percent), 1/100 (percent rendered as
 #: fraction). Any other factor is an invention, which is exactly what a unit
 #: hallucination looks like numerically: a 1000x slip is *not* the same number.
@@ -73,7 +84,31 @@ def _allowed_set(allowed) -> frozenset[float]:
     return values
 
 
-def _matches(value: float, allowed: frozenset[float]) -> bool:
+def _matches(value: float, allowed: frozenset[float], decimals: int = -1) -> bool:
+    """Does any allowed value explain *value*, written to *decimals* places?
+
+    Two acceptances, and the second is why *decimals* is here.
+
+    The relative test is the original policy and stays exactly as it was.
+    Beside it sits the desk-rounding test: a token is the allowed value when it
+    is that value *correctly rounded to the precision the token itself
+    carries*. Both are needed because the relative test makes the standard a
+    function of magnitude, and desk rounding is not.
+
+    Measured on one live attribution memo: ``3.31`` for a ``3.309`` passed
+    (0.03% relative), while ``-0.42`` for a ``-0.416`` and ``-0.08`` for a
+    ``-0.084`` were refused (1% and 5%). All three are the same act -- a desk
+    writing a percentage to two places -- and the corpus was refusing two of
+    them for being small. A row cannot report a small figure in the register's
+    own voice without tripping a gate, which is not a standard a writer can
+    satisfy.
+
+    Deliberately not a widening of the relative band: this path demands the
+    rounding be *exact* at the written precision, so it admits no figure a
+    reader could tell apart from the pack's. It requires at least one decimal,
+    which leaves whole numbers where they were -- ``373`` for a ``372.6`` is
+    :func:`verification.prose.rounding_drift`'s to refuse, and it still does.
+    """
     for scale in SCALE_FACTORS:
         scaled = value * scale
         for a in allowed:
@@ -82,6 +117,11 @@ def _matches(value: float, allowed: frozenset[float]) -> bool:
                     return True
                 continue
             if abs(scaled - a) <= REL_TOLERANCE * abs(a):
+                return True
+            # Compared in the *token's* space, not the pack's: the written
+            # decimals describe `value`, so the allowed figure has to be
+            # brought back through the same scale before it is rounded.
+            if decimals >= 1 and abs(round(a / scale, decimals) - value) <= _EXACT:
                 return True
     return False
 
@@ -118,7 +158,9 @@ def invented_numbers(text: str, allowed, whitelist=()) -> list[str]:
             offenders.append(tok)  # unparsable number-ish text is not "no number"
             seen.add(tok)
             continue
-        if not math.isfinite(value) or not _matches(value, allowed):
+        if not math.isfinite(value) or not _matches(
+            value, allowed, decimal_places(tok)
+        ):
             offenders.append(tok)
             seen.add(tok)
     return offenders
