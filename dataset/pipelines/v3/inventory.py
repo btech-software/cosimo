@@ -142,6 +142,25 @@ def _validate_work(work_type: str, spec: object, path: str) -> None:
         raise PlanError(f"{where}: max_share must be in (0, 1]")
 
 
+def train_family_count(plan: dict) -> int:
+    """How many *train* families this plan describes.
+
+    The denominator of the family cap (:func:`config.family_max_share`). Read
+    off the plan rather than pinned in the control plane, because the cap's
+    whole claim -- "no family runs more than a quarter ahead of an even share"
+    -- is a statement about the plan that is loaded, and a constant could only
+    ever be right for one of them. Holdout families are excluded for the same
+    reason the cap measures the supervised pool: they do not compete for
+    training rows.
+    """
+    return sum(
+        1
+        for spec in plan.values()
+        for meta in spec["families"].values()
+        if not meta["holdout"]
+    )
+
+
 def expand_jobs(plan: dict, *, smoke: bool = False) -> list[Job]:
     """The deterministic job list for *plan*, family-capped before anything runs.
 
@@ -247,11 +266,12 @@ def _family_cap(plan: dict, raw: list[Job], planned_supervised: int) -> list[Job
         if job.record_type not in cells:
             cells.append(job.record_type)
 
+    derived_cap = config.family_max_share(train_family_count(plan))
     keep: dict[tuple[str, str, str], int] = {}
     for (work_type, family), cells in cell_order.items():
         counts = [planned_by_cell[(work_type, family, cell)] for cell in cells]
         total = sum(counts)
-        share = min(plan[work_type]["max_share"], config.FAMILY_MAX_SHARE)
+        share = min(plan[work_type]["max_share"], derived_cap)
         cap = min(total, _floor(share * planned_supervised))
         base = [cap * count // total for count in counts]
         remainders = [cap * count % total for count in counts]
@@ -312,6 +332,7 @@ def plan_manifest(jobs: list[Job], plan: dict, *, smoke: bool) -> dict:
     """
     supervised = [job for job in jobs if not job.holdout]
     total = len(supervised)
+    n_train_families = train_family_count(plan)
     by_family: dict[str, dict[str, object]] = {}
     for (
         work_type,
@@ -354,7 +375,8 @@ def plan_manifest(jobs: list[Job], plan: dict, *, smoke: bool) -> dict:
             slot["planned_share"] = round(wanted / planned_total, 6)
             spec = plan[name.split("/", 1)[0]]
             slot["cap"] = _floor(
-                min(spec["max_share"], config.FAMILY_MAX_SHARE) * planned_total
+                min(spec["max_share"], config.family_max_share(n_train_families))
+                * planned_total
             )
     return {
         "schema_version": config.SCHEMA_VERSION,

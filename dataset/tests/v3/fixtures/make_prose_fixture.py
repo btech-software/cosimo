@@ -54,17 +54,18 @@ from pipelines.v3 import config, inventory  # noqa: E402
 from pipelines.v3.packs import PackError, compute_pack  # noqa: E402
 from pipelines.v3.render.prose import select_prose_jobs  # noqa: E402
 from pipelines.v3.teacher import routing  # noqa: E402
-from pipelines.v3.teacher.client import (  # noqa: E402
-    DEFAULT_MAX_TOKENS,
-    build_body,
-    canonical_request,
-)
+from pipelines.v3.teacher.client import build_body, canonical_request  # noqa: E402
 from pipelines.v3.teacher.prompts import WORD_BUDGETS, render_brief  # noqa: E402
 from pipelines.v3.verification.prose import gate_violations  # noqa: E402
 
 PROSE_FIXTURE_NAME = "prose_fixture.json"
 DEFAULT_TYPES = ("analysis",)
 DEFAULT_LIMIT = 50
+
+#: How many *holdout*-family rows ride along, so `eval-slice` runs offline.
+#: Smaller than the train arm on purpose: this half exists to prove the path,
+#: not to be a corpus.
+DEFAULT_HOLDOUT_LIMIT = 15
 
 #: The offline model name, pinned into every request body this file keys on.
 #: Never a deployment lane name: the bytes of the replay table must not depend
@@ -95,15 +96,55 @@ def _dec(value: float) -> str:
     return text or "0"
 
 
+#: How many figures one composed sentence carries. Three, because the dummy
+#: has to clear a 120-word floor *and* a 12-sentence desk_chat ceiling at the
+#: same time, and one fact per sentence cannot do both: 120 words of ten-word
+#: sentences is twelve sentences before a single must_mention anchor is
+#: written. Packing the facts is also simply what the register looks like --
+#: a desk writes "cost is 28.16 bp on 0.048555 participation, 26.66 of it
+#: impact", not three sentences with one number each.
+FACTS_PER_SENTENCE = 3
+
+#: How each register signs off. `ic_memo` must make a call (see
+#: `verification.register`), `risk_committee` constrains rather than directs,
+#: and `desk_chat` simply stops -- which is the register.
+_CLOSINGS = {
+    "ic_memo": (
+        "Our call is to hold the position at its current weight and revisit on "
+        "the next print; every figure above is the pack's own."
+    ),
+    "risk_committee": (
+        "The limit stands over this horizon on the assumption stated, and the "
+        "exposure is reported rather than directed; the figures are the pack's."
+    ),
+    "desk_chat": (
+        "Every figure above is the pack's own; nothing here is drawn from outside it."
+    ),
+    "": "Every figure above is the pack's own; nothing here is drawn from outside it.",
+}
+
+
 def compliant_text(pack: dict, kind: str) -> str:
     """A completion that satisfies the contract for *pack*, assembled locally.
 
-    Mirrors what a good teacher answer looks like -- the question's answer is
-    the question's facts, restated -- minus any freedom to be wrong: nothing
-    here is outside the pack's fields, and every figure is the pack's own.
+    Mirrors what a good teacher answer looks like -- the question's facts, in
+    the answer's own words -- minus any freedom to be wrong: nothing here is
+    outside the pack's fields, and every figure is the pack's own *canonical*
+    spelling.
+
+    It no longer opens by quoting the question, and that is the amendment
+    biting on its own harness. The question prints roundings the answer may not
+    claim -- ``1.21%`` for a canonical ``0.0121``, ``3.0 bp`` for a spread of
+    ``3`` -- so a dummy that restated the question verbatim was committing
+    exactly the two defects §D adds gates for, and the build assertion below
+    caught it the moment they existed. Which is the harness working: a fixture
+    that could not pass the live gate was never a fixture for the live gate.
     """
     low, high = WORD_BUDGETS[kind]
-    lines = [pack["question"].strip()]
+    lines = [
+        f"Answering from the {pack['work_type']} pack as of {pack['as_of']}, "
+        "on the figures it authorises and no others."
+    ]
     lines.extend(
         point.strip().rstrip(".") + "." for point in pack.get("must_mention") or []
     )
@@ -131,17 +172,29 @@ def compliant_text(pack: dict, kind: str) -> str:
     while words() < low and guard < 400:
         if not facts:
             break
-        key = facts[position % len(facts)]
-        position += 1
-        guard += 1
-        value = float(pack["computed"][key])
-        spelling = _dec(value)
-        if spelling == "0" and value != 0.0:
-            continue  # too small to quote in plain decimals; skip, do not invent
-        lines.append(f"The {key.replace('_', ' ')} stands at {spelling}, per the pack.")
-    lines.append(
-        "Every figure above is the pack's own; nothing here is drawn from outside it."
-    )
+        clause: list[str] = []
+        while len(clause) < FACTS_PER_SENTENCE and guard < 400:
+            key = facts[position % len(facts)]
+            position += 1
+            guard += 1
+            value = float(pack["computed"][key])
+            spelling = _dec(value)
+            if spelling == "0" and value != 0.0:
+                continue  # too small to quote in plain decimals; skip, do not invent
+            clause.append(f"{key.replace('_', ' ')} at {spelling}")
+        if not clause:
+            break
+        lines.append(
+            "Reading the pack directly, " + ", ".join(clause) + ", each as computed."
+        )
+    # The closing move, chosen by register. Not decoration: `ic_memo` now has a
+    # positive requirement -- a committee memo that surveys and stops is a
+    # research note with the wrong label -- and a dummy that could not satisfy
+    # it was never a dummy for the live gate. Giving the three registers three
+    # different closings also gives the fixture corpus real separation on the
+    # profile axis, instead of one voice wearing three labels, which is the
+    # collapse axis 16 exists to report.
+    lines.append(_CLOSINGS.get(pack.get("register") or "", _CLOSINGS[""]))
     text = "\n".join(lines)
     count = len(text.split())
     if not low <= count <= high:
@@ -156,12 +209,16 @@ def compliant_text(pack: dict, kind: str) -> str:
 
 def request_body(pack: dict, kind: str) -> dict:
     """The exact body the render stage posts for *pack*/*kind*, first attempt."""
+    route = routing.route(kind)
     return build_body(
         render_brief(pack, kind=kind),
         model=DUMMY_MODEL,
         temperature=config.PROSE_TEMPERATURES[0],
-        max_tokens=DEFAULT_MAX_TOKENS,
-        think=routing.route(kind).think,
+        # The lane's cap, not the client's flat default: the budget is part of
+        # every body this file hashes, and the amendment moved it onto the
+        # route. A fixture keyed on 16384 would miss every real request.
+        max_tokens=route.max_tokens,
+        think=route.think,
     )
 
 
@@ -184,17 +241,18 @@ def reply_for(pack: dict, kind: str) -> dict:
     }
 
 
-def build_fixture(types: tuple[str, ...], limit: int) -> dict:
-    """The first *limit* renderable prose jobs of the real plan, as a replay table."""
+def _capture(types, limit: int, *, holdout: bool, entries: dict) -> tuple[int, int]:
+    """Fill *entries* with up to *limit* renderable jobs of one cohort.
+
+    Returns ``(captured, examined)``. Select with ``limit=None`` and walk
+    forward: the limit counts *renderable* entries, so PackError-rejected
+    coordinates -- which the render stage never asks about, no pack existing
+    for them -- do not silently shrink the table below the requested size.
+    """
     plan = inventory.load_plan(config.taxonomy_path())
     jobs = inventory.expand_jobs(plan)
-    # Select with limit=None and walk forward ourselves: the limit counts
-    # *renderable* entries, so PackError-rejected coordinates (which the
-    # render stage will never ask about -- no pack exists for them) do not
-    # silently shrink the corpus below the requested size.
-    selected = select_prose_jobs(jobs, types=types, limit=None)
-    entries: dict[str, dict] = {}
-    examined = 0
+    selected = select_prose_jobs(jobs, types=types, limit=None, holdout=holdout)
+    captured = examined = 0
     for job in selected:
         examined += 1
         try:
@@ -204,13 +262,43 @@ def build_fixture(types: tuple[str, ...], limit: int) -> dict:
         entries[canonical_request(request_body(pack, job.record_type))] = reply_for(
             pack, job.record_type
         )
-        if len(entries) >= limit:
+        captured += 1
+        if captured >= limit:
             break
-    if len(entries) < limit:
+    return captured, examined
+
+
+def build_fixture(
+    types: tuple[str, ...], limit: int, holdout_limit: int = DEFAULT_HOLDOUT_LIMIT
+) -> dict:
+    """The real plan's first renderable prose jobs of *both* cohorts.
+
+    The holdout half is new, and it is what makes the operator's `eval-slice`
+    mode runnable offline. Amendment §E renders holdout families into
+    ``eval/``, and that path sat on the stage order with no fixture behind it:
+    the table only ever captured ``holdout=False``, so the one command whose
+    whole job is to produce the eval tree could not be exercised without
+    billing a teacher. A replay table that covers only the paths already easy
+    to run is a replay table that stops covering the interesting ones.
+
+    Both cohorts share one table, keyed by request hash as always, so no entry
+    can be served to the wrong cohort: the coordinates differ, so the packs
+    differ, so the briefs differ.
+    """
+    entries: dict[str, dict] = {}
+    captured, examined = _capture(types, limit, holdout=False, entries=entries)
+    if captured < limit:
         raise AssertionError(
-            f"only {len(entries)} renderable {types} jobs in {examined} planned; "
+            f"only {captured} renderable {types} train jobs in {examined} planned; "
             "raise the plan's variant counts -- the 50-row PR2 gate is not "
             "negotiable by shrinking the sample"
+        )
+    held, held_examined = _capture(types, holdout_limit, holdout=True, entries=entries)
+    if held < holdout_limit:
+        raise AssertionError(
+            f"only {held} renderable {types} holdout jobs in {held_examined} "
+            "planned; the eval tree needs a fixture behind it or `eval-slice` "
+            "can only be run live"
         )
     return {
         "entries": entries,
@@ -218,8 +306,19 @@ def build_fixture(types: tuple[str, ...], limit: int) -> dict:
         "version": 1,
         "meta": {
             "entries": len(entries),
+            # `jobs_examined` keeps its established meaning -- how far the
+            # *train* walk went -- because six tests slice
+            # `select_prose_jobs(limit=None)[:jobs_examined]` with it to
+            # rebuild exactly the job list this table answers. Summing both
+            # cohorts into it would have handed every one of them a window
+            # wider than the table, which is a fixture miss reported as a
+            # render failure. The holdout walk reports beside it.
             "jobs_examined": examined,
+            "holdout_jobs_examined": held_examined,
             "limit": limit,
+            "holdout_limit": holdout_limit,
+            "train_rows": captured,
+            "holdout_rows": held,
             "types": sorted(types),
         },
     }
@@ -229,6 +328,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", default=os.path.join(_HERE, PROSE_FIXTURE_NAME))
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    parser.add_argument("--holdout-limit", type=int, default=DEFAULT_HOLDOUT_LIMIT)
     parser.add_argument(
         "--types",
         default=",".join(DEFAULT_TYPES),
@@ -236,7 +336,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     types = tuple(t.strip() for t in args.types.split(",") if t.strip())
-    payload = build_fixture(types, args.limit)
+    payload = build_fixture(types, args.limit, args.holdout_limit)
     with open(args.out, "w", encoding="utf8") as handle:
         json.dump(payload, handle, sort_keys=True, indent=2)
         handle.write("\n")

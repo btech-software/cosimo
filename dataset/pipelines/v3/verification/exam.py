@@ -345,16 +345,24 @@ def exam_gate_violations(pack: dict, row: dict) -> list[str]:
             "entails (composited bytes differ)"
         )
     messages = row.get("messages") or []
-    if [m.get("role") for m in messages] != ["system", "user", "assistant"]:
-        violations.append(f"{TAG_SHAPE} message roles are not the exam triad")
+    # Two turns, not three: the answer protocol is the harness's to bind from
+    # `prompt.exam_protocol`, and the corpus shipping its own copy meant every
+    # item arrived with two protocols in front of it -- which `data_schema`
+    # was already stripping back off. §A moves the strip to the writer.
+    if [m.get("role") for m in messages] != ["user", "assistant"]:
+        violations.append(f"{TAG_SHAPE} message roles are not the exam pair")
     elif messages[-1].get("content") != answer:
         violations.append(
             f"{TAG_SHAPE} answer and the assistant turn have drifted apart"
         )
-    elif messages[1].get("content") != item["question_text"]:
+    elif messages[0].get("content") != item["question_text"]:
         violations.append(
             f"{TAG_TAMPER} the question on the shard is not the item the pack "
             "entails (options tampered?)"
+        )
+    if row.get("question_text") != item["question_text"]:
+        violations.append(
+            f"{TAG_TAMPER} question_text is not the item the pack entails"
         )
     if row.get("options") != item["options"]:
         violations.append(

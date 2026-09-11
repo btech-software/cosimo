@@ -22,3 +22,16 @@ docker-volumes/
 # IDE
 .idea/
 .vscode/
+
+# v3 corpus artifacts. The shard tree is generated, large, and reproducible
+# from the plan plus a teacher; `dataset/examples/v3/` holds the committed
+# picture of what a row looks like.
+dataset/shards/
+dataset/publish/
+
+# Teacher transcripts (amendment §A). Debug, never corpus: they carry the
+# factory's own brief, which is the one thing a student row may not, and a
+# transcript inside the repo is a transcript something will eventually train
+# on. Written only when COSIMO_V3_KEEP_TEACHER_MESSAGES=1.
+**/teacher_logs/
+dataset/examples/v3/_teacher_logs/*.json

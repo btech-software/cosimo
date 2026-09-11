@@ -27,12 +27,13 @@ corpus and a transcript dump:
   rule transcribed twice. That is what makes ``verify_v3``'s replay a
   byte-audit of history rather than a re-imagination of it.
 
-Shipped rows carry the clean conversation (brief, calls, results, answer);
-repair rounds -- the desk's QA chatter -- stay out of training bytes and
-into the dead letter's audit trail, where post-mortems need them. Holdout
-families are not rendered here, exactly as in :mod:`render.prose`: their
-packs are the gold bar, and gold that passes through a training shard is a
-leak no downstream number can un-certify.
+Shipped rows carry the clean conversation (goal, calls, results, answer)
+*without* the factory's system turn; repair rounds -- the desk's QA chatter --
+stay out of training bytes and in the dead letter's audit trail, where
+post-mortems need them. Holdout families render here now, exactly as in
+:mod:`render.prose`, into ``eval/`` rather than ``sft/``: a gold family with no
+rendered rows gave the generalisation measurement nothing to measure, which
+was the more expensive of the two failures.
 """
 
 from __future__ import annotations
@@ -50,9 +51,9 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):  # dataset; repo root
 from cosimo.tools import wire  # noqa: E402
 
 from .. import config, write  # noqa: E402
+from .. import row as rowlib  # noqa: E402
 from ..oracle import faults, runtime  # noqa: E402
 from ..teacher import routing  # noqa: E402
-from ..teacher.client import DEFAULT_MAX_TOKENS  # noqa: E402
 from ..teacher.prompts import render_agentic_brief, render_agentic_repair  # noqa: E402
 from ..verification.agentic import expected_tool_contents, gate_violations  # noqa: E402
 from .prose import _PACK_ENVELOPE, _family_of, row_id, row_id_from_coords  # noqa: E402
@@ -72,16 +73,26 @@ KIND = "agentic"
 _ADVERTISED = [runtime.SCHEMAS[name] for name in runtime.SCHEMA_NAMES]
 
 
-def select_agentic_jobs(jobs, *, limit=None) -> list:
-    """The render-eligible agentic slice of *jobs*: train families, ordered.
+def select_agentic_jobs(jobs, *, limit=None, holdout=False) -> list:
+    """The render-eligible agentic slice of *jobs*: one cohort, ordered.
 
     Same discipline as ``prose.select_prose_jobs`` and shared with the fixture
     harness on purpose -- the replay keys are request hashes, so an
     off-by-one in this filter is a fixture miss, i.e. exactly the loud
     failure a shared selector prevents.
+
+    ``holdout`` picks the cohort. The *rank* it yields is still the ordinal
+    within that cohort, which is what the fault schedule keys off -- so the
+    train slice's mix is untouched by holdout families now rendering, and the
+    eval slice gets a mix of its own rather than inheriting a stride computed
+    over rows it does not contain.
     """
     selected = sorted(
-        (job for job in jobs if job.record_type == KIND and not job.holdout),
+        (
+            job
+            for job in jobs
+            if job.record_type == KIND and bool(job.holdout) is bool(holdout)
+        ),
         key=lambda job: (job.work_type, job.family, job.record_type, job.variant),
     )
     if limit is not None:
@@ -146,6 +157,11 @@ def select_agentic_sample(
     return sample
 
 
+def _shipped(messages: list[dict]) -> list[dict]:
+    """The trajectory as the student row carries it: no factory system turn."""
+    return [m for m in messages if m.get("role") != "system"]
+
+
 def _parse_proposal(raw_calls) -> tuple[list[dict], list[str]]:
     """``(valid calls, problems)`` from the wire's ``tool_calls`` channel.
 
@@ -184,7 +200,9 @@ def _parse_proposal(raw_calls) -> tuple[list[dict], list[str]]:
     return calls, problems
 
 
-def render_agentic_row(teacher, pack_line: dict, *, rank: int) -> dict:
+def render_agentic_row(
+    teacher, pack_line: dict, *, rank: int, holdout: bool = False
+) -> dict:
     """One stored pack line -> ``{"row": .., "dead_letter": ..}``.
 
     ``rank`` is the job's ordinal in :func:`select_agentic_jobs` -- the
@@ -207,15 +225,26 @@ def render_agentic_row(teacher, pack_line: dict, *, rank: int) -> dict:
     temperatures: list[float] = []
 
     def ask(messages: list[dict], temperature: float):
+        """One turn of the loop, with the amendment's §B think split applied.
+
+        The planner turn -- the first ask, before any tool has answered -- is
+        where the trajectory is decided and is worth a chain of thought. Every
+        turn after a tool result is a *reaction* to bytes the oracle just
+        handed back: reasoning there re-derives a plan that is already fixed,
+        and the corpus pays for it on every hop of every conversation. The
+        budget follows the flag, so a tool-call turn costs the think-off cap.
+        """
         nonlocal attempts
         attempts += 1
         temperatures.append(temperature)
+        seen_results = any(m.get("role") == "tool" for m in messages)
+        think = routing.agentic_turn_think(route, tool_results_seen=seen_results)
         return teacher.complete(
             messages,
             model=route.model,
             temperature=temperature,
-            max_tokens=DEFAULT_MAX_TOKENS,
-            think=route.think,
+            max_tokens=routing.budget_for(think),
+            think=think,
             extra={"tools": _ADVERTISED},
         )
 
@@ -233,6 +262,7 @@ def render_agentic_row(teacher, pack_line: dict, *, rank: int) -> dict:
     def dead_letter(reason: str, violations: list[str], exchange: list[dict]) -> dict:
         return {
             "row": None,
+            "log": None,
             "dead_letter": {
                 "id": row_id(KIND, pack),
                 "record_type": KIND,
@@ -269,7 +299,7 @@ def render_agentic_row(teacher, pack_line: dict, *, rank: int) -> dict:
             ]
             verdict = gate_violations(
                 pack,
-                [*working, *audit],
+                _shipped(working + audit),
                 mode=schedule.mode,
                 fault=schedule.fault,
             )
@@ -334,9 +364,15 @@ def render_agentic_row(teacher, pack_line: dict, *, rank: int) -> dict:
         message = {"role": "assistant", "content": reply.text or ""}
         if reply.tool_calls:
             message["tool_calls"] = list(reply.tool_calls)
+        # Judged on the bytes that will *ship*, which since §A no longer
+        # include the factory's system turn. One policy, one text: a renderer
+        # that graded the brief-bearing transcript and then wrote a stripped
+        # one would be certifying something other than what it published, and
+        # the board -- reading only the published row -- would be the first to
+        # find out.
         return gate_violations(
             pack,
-            [*working, message],
+            _shipped(working + [message]),
             mode=schedule.mode,
             fault=schedule.fault,
         )
@@ -370,40 +406,60 @@ def render_agentic_row(teacher, pack_line: dict, *, rank: int) -> dict:
 
     # -- phase 3: ship the clean conversation; repair chatter stays in the audit
     used = sorted({call["name"] for call in executed})
+    rid = row_id(KIND, pack)
+    # The one record type that keeps its ``messages``, because for a trajectory
+    # the transcript *is* the target -- but without the factory's system turn.
+    # ``AGENTIC_SYSTEM`` is the teacher's brief (its posture line announces the
+    # mode, its number policy quotes the pack), and `normalize_v3_record` was
+    # already stripping `role: system` back off on the way into training. The
+    # amendment moves that strip to where the row is written, so the corpus and
+    # the harness cannot disagree about what shipped.
+    shipped = _shipped(working)
     return {
-        "row": {
-            "id": row_id(KIND, pack),
-            "record_type": KIND,
-            "work_type": pack["work_type"],
-            "scenario_id": pack["scenario_id"],
-            "variant": pack["variant"],
-            "question": pack["question"],
-            "register": pack["register"],
-            "messages": [*working, {"role": "assistant", "content": draft}],
-            "answer": draft,
-            "tool_names": used,
-            "tool_schemas": [
-                runtime.SCHEMAS[name] for name in runtime.SCHEMA_NAMES if name in used
-            ],
-            "verification": {
-                "computed_by": stamp.get("computed_by", "unknown"),
-                "pack_seed": stamp.get("pack_seed", f"{pack['seed']:016x}"),
-                "teacher": final_reply.to_verification(),
-                "render": {
-                    "kind": KIND,
-                    "attempts": attempts,
-                    "mode": schedule.mode,
-                    "fault": schedule.fault,
-                    "tool_calls": len(executed),
-                    "temperatures": list(temperatures),
-                },
+        "row": rowlib.student_row(
+            row_id=rid,
+            kind=KIND,
+            pack=pack,
+            holdout=holdout,
+            answer=rowlib.visible_answer(draft),
+            stamp=stamp,
+            teacher=final_reply.to_verification(),
+            render={
+                "kind": KIND,
+                "attempts": attempts,
+                "mode": schedule.mode,
+                "fault": schedule.fault,
+                "tool_calls": len(executed),
+                "temperatures": list(temperatures),
             },
-        },
+            attempts=attempts,
+            extra={
+                "messages": [
+                    *shipped,
+                    {"role": "assistant", "content": rowlib.visible_answer(draft)},
+                ],
+                "tool_names": used,
+                "tool_schemas": [
+                    runtime.SCHEMAS[name]
+                    for name in runtime.SCHEMA_NAMES
+                    if name in used
+                ],
+            },
+        ),
         "dead_letter": None,
+        "log": rowlib.teacher_log(
+            row_id=rid,
+            kind=KIND,
+            pack=pack,
+            messages=[*working, {"role": "assistant", "content": draft}],
+            result=final_reply,
+        ),
     }
 
 
-def run_agentic_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
+def run_agentic_stage(
+    out_dir: str, jobs, teacher, *, limit=None, holdout=False
+) -> dict:
     """Render agentic rows for *jobs*; write ``sft/`` + ``dead_letter/``; report.
 
     The prose stage's shape on purpose -- ids gate whatever is ever asked of
@@ -415,7 +471,9 @@ def run_agentic_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
     4 faulted, 4 no-call -- measured from what shipped, not sampled from
     hope, because the schedule is a function of the plan.
     """
-    selected = select_agentic_jobs(jobs, limit=limit)
+    selected = select_agentic_jobs(jobs, limit=limit, holdout=holdout)
+    shard = write.shard_kind(holdout)
+    keep_logs = config.keep_teacher_messages()
     pack_cache: dict[str, dict | bool] = {}
 
     def pack_for(job):
@@ -445,12 +503,14 @@ def run_agentic_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
         "no_call": 0,
         "faulted": 0,
         "tool_calls": 0,
+        "bucket": shard,
+        "teacher_logs": 0,
     }
     rows: list[dict] = []
     deads: list[dict] = []
     seen_ids: set[str] = set()
     known = write.existing_ids(
-        write.path_for("sft", KIND, out_dir)
+        write.path_for(shard, KIND, out_dir)
     ) | write.existing_ids(write.path_for("dead_letter", KIND, out_dir))
     for rank, job in enumerate(selected):
         rid = row_id_from_coords(KIND, job.work_type, job.family, job.variant)
@@ -485,7 +545,7 @@ def run_agentic_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
                 else report["missing_packs"]
             ).append(entry)
             continue
-        outcome = render_agentic_row(teacher, pack_line, rank=rank)
+        outcome = render_agentic_row(teacher, pack_line, rank=rank, holdout=job.holdout)
         cell = report["by_kind"].setdefault(KIND, {"rendered": 0, "existing": 0})
         if outcome["row"] is not None:
             rows.append(outcome["row"])
@@ -497,11 +557,16 @@ def run_agentic_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
                 report["no_call"] += 1
             elif render_field["mode"] == "faulted":
                 report["faulted"] += 1
+            if keep_logs and outcome.get("log"):
+                write.write_teacher_log(
+                    write.teacher_log_path(KIND, rid, out_dir), outcome["log"]
+                )
+                report["teacher_logs"] += 1
         else:
             deads.append(outcome["dead_letter"])
             report["dead_lettered"] += 1
     if rows:
-        write.append_unique(write.path_for("sft", KIND, out_dir), rows)
+        write.append_unique(write.path_for(shard, KIND, out_dir), rows)
     if deads:
         write.append_unique(write.path_for("dead_letter", KIND, out_dir), deads)
     return report

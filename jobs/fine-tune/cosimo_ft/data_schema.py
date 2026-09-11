@@ -82,6 +82,14 @@ PREFERENCE = "preference"
 V3_PREFERENCE_ID_PREFIX = "cosimov3pref_"
 V3_ID_PREFIX = "cosimov3_"
 
+#: The factory's own signature, as it appears in every brief the v3 teacher
+#: module builds. A student row must never carry it, and this side of the join
+#: enforces that independently of the corpus side: the two subsystems meet on
+#: the Hub, and either can be handed bytes the other never saw. Kept as a
+#: literal rather than imported -- `dataset` and `jobs` do not import each
+#: other (spec §I), and a shared constant would be exactly such an import.
+V3_TEACHER_FINGERPRINT = "Cosimo v3 teacher"
+
 EVAL_FIELDS = (
     "id",
     "record_type",
@@ -102,6 +110,8 @@ EVAL_FIELDS = (
     "work_type",
     "scenario_id",
     "register",
+    # §G.5. Null on a v1/v2 row, so the column set stays one shape.
+    "fact_pack",
 )
 
 
@@ -144,6 +154,14 @@ class CosimoRecord:
     work_type: str = ""
     scenario_id: str = ""
     register: str = ""
+    # The v3 fact pack, as an object (amendment §G.5). It goes to the *eval
+    # sidecar* and to nowhere else: an eval slice has to be able to score an
+    # invented-number rate against the row's own contract, and a corpus whose
+    # numbers can only be rechecked by re-running the generator is a corpus
+    # whose numbers are checked once. Putting it in a chat turn instead would
+    # be the labelling protocol back in the prompt by another name -- which is
+    # the thing §A exists to stop.
+    fact_pack: dict | None = None
 
 
 def stem_family(generator: str) -> str:
@@ -280,9 +298,40 @@ def is_v3_row(row: dict) -> bool:
     `metadata` entirely, and `record_type` is shared vocabulary (a v2 row and a
     v3 row both say `analysis`).
     """
-    return str(row.get("id", "")).startswith(
-        (V3_ID_PREFIX, V3_PREFERENCE_ID_PREFIX)
-    )
+    return str(row.get("id", "")).startswith((V3_ID_PREFIX, V3_PREFERENCE_ID_PREFIX))
+
+
+def _flatten_text(node: Any) -> str:
+    if isinstance(node, str):
+        return node
+    if isinstance(node, dict):
+        return " ".join(_flatten_text(v) for v in node.values())
+    if isinstance(node, (list, tuple)):
+        return " ".join(_flatten_text(v) for v in node)
+    return ""
+
+
+def carries_teacher_brief(row: dict) -> bool:
+    """True when any byte of this row is the v3 factory talking to itself.
+
+    Checked over the whole row rather than over ``messages`` alone: the leak
+    being closed is "the labelling protocol reached a training target", and a
+    brief pasted into ``question`` leaks exactly as hard as one left in a
+    message list. A row that trips this is dropped, never repaired -- the
+    repair would be guessing which half of the text was the lesson.
+    """
+    return V3_TEACHER_FINGERPRINT in _flatten_text(row)
+
+
+def is_holdout(row: dict) -> bool:
+    """Whether the corpus says this row's scenario family is eval material.
+
+    Read off the row's own column. It is defence in depth: the render side
+    already writes holdout families to ``eval/`` rather than ``sft/``, so a
+    holdout row reaching here means either an old shard tree or a bug, and
+    both are reasons to drop rather than to train.
+    """
+    return bool(row.get("holdout"))
 
 
 def scenario_family(work_type: str, scenario_id: str) -> str:
@@ -307,18 +356,31 @@ def _v3_messages(row: dict) -> tuple[dict, ...]:
 
 
 def _v3_question(row: dict) -> str:
-    """The user turn as the model actually saw it.
+    """The prompt as the student should see it.
 
-    Not the row's ``question`` column: the corpus copies the fact pack's bare
-    question there, while the *brief* the teacher answered -- and which an exam
-    row's four labelled options live in -- is ``messages[1]``. Training or
-    evaluating on the bare question would ask for an option letter without
-    showing the options.
+    ``question`` first, which is the fact pack's own question and, since the
+    corpus's two-surface split, the only prompt a prose row carries. It used to
+    read ``messages[1]`` in preference, because that is where the *brief* lived
+    -- the teacher's system contract, the pack as JSON, the word budget -- and
+    training on that taught the model that a question looks like a labelling
+    protocol. That was the leak; this is the fix on the reading side.
+
+    ``question_text`` is the one honest exception and it is a named column
+    rather than a message index: an exam item's four labelled options are part
+    of its prompt, and asking for an option letter without showing the options
+    is not a question. Implementation and agentic rows keep their own
+    transcripts, handled in :func:`normalize_v3_record`.
     """
+    explicit = _text(row.get("question_text"))
+    if explicit:
+        return explicit
+    question = _text(row.get("question"))
+    if question:
+        return question
     for message in _v3_messages(row):
         if message.get("role") == "user":
             return _text(message.get("content"))
-    return _text(row.get("question"))
+    return ""
 
 
 def split_final_answer(text: str, tag: str = "FINAL ANSWER:") -> tuple[str, str]:
@@ -414,11 +476,18 @@ def normalize_v3_record(row: dict) -> CosimoRecord:
         distractors = tuple(distractors_list)
         question_type = "MCQ"
     elif record_type == AGENTIC:
-        # Drop the corpus's own system turn: the harness composes its own from
-        # prompt.identity, and binding two system messages would put the v3
-        # renderer's instructions in front of the persona being trained.
+        # The one record type whose target *is* a transcript, so it is the one
+        # `messages` is read for (§G.1). Two turns are refused: the corpus's own
+        # system turn -- the harness composes its own from prompt.identity, and
+        # binding both would put the renderer's instructions in front of the
+        # persona being trained -- and any turn still bearing the factory
+        # fingerprint, which a current corpus does not produce and an older
+        # shard tree does.
         conversation = tuple(
-            m for m in _v3_messages(row) if m.get("role") != "system"
+            m
+            for m in _v3_messages(row)
+            if m.get("role") != "system"
+            and V3_TEACHER_FINGERPRINT not in _text(m.get("content"))
         )
     elif record_type == IMPLEMENTATION:
         # v3 renames v2's two code fields and adds a third. The reference
@@ -456,6 +525,7 @@ def normalize_v3_record(row: dict) -> CosimoRecord:
         work_type=work_type,
         scenario_id=scenario_id,
         register=_text(row.get("register")),
+        fact_pack=_as_dict(row.get("fact_pack")) or None,
     )
 
 
@@ -674,6 +744,7 @@ def to_eval_row(rec: CosimoRecord) -> dict:
         "work_type": rec.work_type,
         "scenario_id": rec.scenario_id,
         "register": rec.register,
+        "fact_pack": rec.fact_pack,
     }
 
 

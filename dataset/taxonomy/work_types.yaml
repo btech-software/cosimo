@@ -13,6 +13,25 @@
 #                       The family cap below, not this number, is the hard
 #                       constraint: inventory refuses to emit more than
 #                       max_share of the planned SFT pool for one family.
+#
+#                       These are WIP counts, deliberately. `analysis: 20`
+#                       rather than 120 because nobody has read twenty of them
+#                       yet, and a hundred more variants of an unread family is
+#                       a hundred more of whatever is wrong with it. `exam: 36`
+#                       moves with it: the exam slice is authored into
+#                       EXAM_SHARE_BAND here (test_inventory has the assertion),
+#                       and shrinking the prose lanes alone would have pushed
+#                       exam to 24% of the plan -- the v2 exam-overweight
+#                       pathology, reintroduced by an edit that meant to shrink
+#                       the corpus, not to re-weight it. Full counts are a
+#                       publish-bar edit, not a working-tree one.
+#   registers           the register each family may be written in, as a list.
+#                       The pack computer draws from THIS table, never from a
+#                       literal in the renderer: a register is a contract the
+#                       gate enforces (verification/register.py), and a contract
+#                       that lives in five modules is five contracts. A family
+#                       may name more than one; it may not name one and emit
+#                       another.
 #   max_share           ceiling as a fraction of the planned supervised pool.
 #   pitfalls            the legal pitfall names the preference stage may build
 #                       rejected sides from. `invented_number` is deliberately
@@ -25,17 +44,21 @@ valuation.equity.dcf:
     mature_consumer: {holdout: false}
     cyclical_industrial: {holdout: false}
     fade_required: {holdout: true}
+  registers:
+    mature_consumer: [desk_chat, ic_memo]
+    cyclical_industrial: [desk_chat, ic_memo]
+    fade_required: [desk_chat, ic_memo]
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 60
-    analysis: 120
+    exam: 36
+    analysis: 20
     memo: 40
     critique: 30
     grounded: 30
     abstention: 24
     agentic: 36
     implementation: 12
-  max_share: 0.03
+  max_share: 0.125
   pitfalls: [wrong_assumption, false_precision, ignored_constraint, look_ahead]
 
 valuation.equity.multiples:
@@ -44,17 +67,21 @@ valuation.equity.multiples:
     specialty_retail: {holdout: false}
     enterprise_software: {holdout: false}
     consumer_platforms: {holdout: true}
+  registers:
+    specialty_retail: [desk_chat, ic_memo]
+    enterprise_software: [desk_chat, ic_memo]
+    consumer_platforms: [desk_chat, ic_memo]
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 60
-    analysis: 120
+    exam: 36
+    analysis: 20
     memo: 40
     critique: 30
     grounded: 30
     abstention: 24
     agentic: 36
     implementation: 12
-  max_share: 0.03
+  max_share: 0.125
   pitfalls: [wrong_assumption, false_precision, wrong_register]
 
 risk.market.var_es:
@@ -63,17 +90,21 @@ risk.market.var_es:
     rates_book: {holdout: false}
     equity_longonly: {holdout: false}
     credit_focused: {holdout: true}
+  registers:
+    rates_book: [risk_committee]
+    equity_longonly: [risk_committee]
+    credit_focused: [risk_committee]
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 60
-    analysis: 120
+    exam: 36
+    analysis: 20
     memo: 40
     critique: 30
     grounded: 30
     abstention: 24
     agentic: 36
     implementation: 12
-  max_share: 0.03
+  max_share: 0.125
   pitfalls: [wrong_assumption, overconfident_abstention_fail, false_precision]
 
 portfolio.attribution.brinson_carino:
@@ -82,17 +113,21 @@ portfolio.attribution.brinson_carino:
     global_equity_long: {holdout: false}
     us_small_cap: {holdout: false}
     em_multi_asset: {holdout: true}
+  registers:
+    global_equity_long: [ic_memo]
+    us_small_cap: [ic_memo]
+    em_multi_asset: [ic_memo]
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 60
-    analysis: 120
+    exam: 36
+    analysis: 20
     memo: 40
     critique: 30
     grounded: 30
     abstention: 24
     agentic: 36
     implementation: 12
-  max_share: 0.03
+  max_share: 0.125
   pitfalls: [wrong_assumption, ignored_constraint, wrong_register]
 
 execution.tca.arrival:
@@ -101,15 +136,19 @@ execution.tca.arrival:
     large_cap_intraday: {holdout: false}
     mid_cap_swing: {holdout: false}
     etf_rebalance: {holdout: true}
+  registers:
+    large_cap_intraday: [desk_chat]
+    mid_cap_swing: [desk_chat]
+    etf_rebalance: [desk_chat]
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
-    exam: 60
-    analysis: 120
+    exam: 36
+    analysis: 20
     memo: 40
     critique: 30
     grounded: 30
     abstention: 24
     agentic: 36
     implementation: 12
-  max_share: 0.03
+  max_share: 0.125
   pitfalls: [wrong_assumption, tool_skip, false_precision]

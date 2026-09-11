@@ -5,7 +5,17 @@ model:
   # contract guarded nothing, and a 3.8B student cannot reach the analytical
   # standard this corpus is built for.
   base_id: Qwen/Qwen3.8-27B
-  revision: null            # pin a commit sha to make training AND evaluation reproducible
+  # Pinned (amendment §G.6). `null` meant "whatever `main` is when this job
+  # starts", which makes a training run and the evaluation that judges it two
+  # measurements of possibly different base weights -- and the adapter fitted
+  # to one does not belong on the other, silently. Resolved 2026-09-11 against
+  # Qwen/Qwen3.8-27B main (last modified 2026-08-14).
+  #
+  # Moving it is a deliberate act: re-resolve with
+  #   python -c "from huggingface_hub import HfApi; print(HfApi().model_info('Qwen/Qwen3.8-27B').sha)"
+  # and re-run the baseline eval, because every number already recorded was
+  # measured against the sha below.
+  revision: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
   # 8192 on Spark to start; 16384 later. The served target is a LangGraph ReAct
   # loop, where the conversation accumulates assistant tool calls and tool
   # results turn after turn on top of the persona, so the trained window has to

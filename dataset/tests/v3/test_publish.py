@@ -104,12 +104,18 @@ def test_publish_refuses_an_axis_gone_red_even_with_the_fence_up(
     monkeypatch.setenv(config.GOLDBAR_ENV, _stage_gold(tmp_path))
     monkeypatch.setenv(config.PUBLISH_DIR_ENV, os.path.join(str(tmp_path), "publish"))
     rows = write.read_jsonl(write.path_for("sft", "analysis", out))
-    rows[0]["answer"] = rows[0]["answer"] + "  "  # the answer drifts from its turn
+    # A prose row has one text and it is `answer`, so trailing whitespace no
+    # longer "drifts from its assistant turn" -- there is no turn (§A). The
+    # tamper that still breaks an axis is the one the amendment cares about:
+    # a number the fact pack never authorised.
+    rows[0]["answer"] = rows[0]["answer"] + " The breakeven is 9751.6362."
     write.write_jsonl(write.path_for("sft", "analysis", out), rows)
     assert cli.main(["publish", "--dry-run", "--out", out]) == cli.EXIT_DATA
     printed = _outerr(capsys)
     assert "PUBLISH REFUSED" in printed
-    assert "schema" in printed, "the red axis must be named, not silently swallowed"
+    assert "invented numbers" in printed, (
+        "the red axis must be named, not silently swallowed"
+    )
 
 
 def test_publish_refuses_a_corpus_with_nothing_in_it(tmp_path, capsys, monkeypatch):

@@ -129,8 +129,10 @@ def test_a_clean_trajectory_ships_the_transcript_and_the_ledger():
     row = outcome["row"]
     assert outcome["dead_letter"] is None
     roles = [m["role"] for m in row["messages"]]
+    # §A: the shipped trajectory opens on the user's goal. AGENTIC_SYSTEM is
+    # the factory's brief -- its posture line announces the mode and its number
+    # policy quotes the pack -- and it is exactly what a student may not see.
     assert roles == [
-        "system",
         "user",
         "assistant",
         "tool",
@@ -171,7 +173,10 @@ def test_no_call_mode_asks_once_and_executes_nothing():
         "tool_calls": 0,
         "temperatures": [config.AGENTIC_TEMPERATURES[0]],
     }
-    assert [m["role"] for m in row["messages"]] == ["system", "user", "assistant"]
+    # §A: the shipped trajectory opens on the user's goal. AGENTIC_SYSTEM is
+    # the factory's brief -- it announces the mode and quotes the number policy
+    # -- and it is exactly what a student must never be shown.
+    assert [m["role"] for m in row["messages"]] == ["user", "assistant"]
     assert row["tool_names"] == [] and row["tool_schemas"] == []
 
 

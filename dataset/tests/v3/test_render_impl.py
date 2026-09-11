@@ -19,6 +19,7 @@ behaviour the test chooses.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 
@@ -280,22 +281,31 @@ def test_a_clean_row_is_certified_by_the_board_too():
 
 
 def test_the_committed_lane_renders_once_and_replays_free(tmp_path, monkeypatch):
-    """The 29-row train slice, end to end, through the real replay transport."""
+    """The committed train slice, end to end, through the real replay transport.
+
+    Windowed to the fixture's own limit rather than the whole lane: with the
+    amendment's WIP counts nothing truncates, so the lane plans 120
+    implementation jobs against a table that commits the first 30, and
+    `limit=None` would be asking the replay for bodies nobody captured.
+    """
     committed = os.path.join(_HERE, "fixtures", impl_harness.IMPL_FIXTURE_NAME)
     out = str(tmp_path / "corpus")
     jobs = inventory.expand_jobs(inventory.load_plan())
-    selected = select_impl_jobs(jobs, limit=None)
+    selected = select_impl_jobs(jobs, limit=impl_harness.DEFAULT_LIMIT)
     stage.run_pack_stage(out, selected)
     monkeypatch.setenv(config.TEACHER_REASONING_ENV, impl_harness.DUMMY_MODEL)
     monkeypatch.delenv(config.LIVE_ENV, raising=False)
 
+    # The committed table's own size, not a literal: it is a plan number, and
+    # the plan's WIP counts move it (see the docstring).
+    expected = json.load(open(committed, encoding="utf8"))["meta"]["entries"]
     first = run_impl_stage(out, selected, Teacher(CountingFixture(committed)))
-    assert first["rendered"] == 29 and first["dead_lettered"] == 0
+    assert first["rendered"] == expected and first["dead_lettered"] == 0
     rows = write.read_jsonl(write.path_for("sft", IMPL_KIND, out))
-    assert len(rows) == 29 == len({row["id"] for row in rows})
+    assert len(rows) == expected == len({row["id"] for row in rows})
     assert all(row["verification"]["render"]["sandbox"] == "passed" for row in rows)
 
     replay = CountingFixture(committed)
     second = run_impl_stage(out, selected, Teacher(replay))
-    assert second["rendered"] == 0 and second["existing"] == 29
+    assert second["rendered"] == 0 and second["existing"] == expected
     assert replay.calls == 0, "a row already on disk may not recall the teacher"

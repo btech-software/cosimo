@@ -151,7 +151,15 @@ def test_the_cap_truncates_every_overreaching_family_never_the_holdout():
     for job in jobs:
         rows[job.family] = rows.get(job.family, 0) + 1
     planned = 500 * 3
-    cap = int(config.FAMILY_MAX_SHARE * planned)  # floor(45.0) == 45
+    plan = _synthetic_plan()
+    # The effective share is the tighter of the plan's own ceiling and the
+    # derived anti-dominance cap -- three train families make the derived one
+    # 1.25/3, so the plan's 0.03 still binds and the arithmetic is unchanged.
+    effective = min(
+        plan["valuation.equity.dcf"]["max_share"],
+        config.family_max_share(inventory.train_family_count(plan)),
+    )
+    cap = int(effective * planned)  # floor(45.0) == 45
     assert cap == 45
     assert rows["fat"] == cap
     assert rows["thin_a"] == cap

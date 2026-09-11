@@ -31,7 +31,6 @@ from pipelines.v3.render.prose import (  # noqa: E402
 )
 from pipelines.v3.teacher import Teacher  # noqa: E402
 from pipelines.v3.teacher.client import (  # noqa: E402
-    DEFAULT_MAX_TOKENS,
     FixtureTransport,
     TeacherError,
 )
@@ -116,8 +115,19 @@ def test_clean_first_attempt_ships_the_row_verbatim():
     row = outcome["row"]
     assert outcome["dead_letter"] is None
     assert row["id"] == row_id("analysis", pack)
-    assert [m["role"] for m in row["messages"]] == ["system", "user", "assistant"]
-    assert row["answer"] == clean == row["messages"][-1]["content"]
+    # §A: a prose row carries no transcript at all. Its prompt is the pack's
+    # question and its target is the answer; the brief that produced it lives
+    # in the teacher log, which is off by default.
+    assert "messages" not in row
+    assert row["question"] == pack["question"]
+    assert row["answer"] == clean
+    assert row["fact_pack"]["scenario_id"] == pack["scenario_id"]
+    assert row["verified"] is True
+    assert row["family"] == row["scenario_id"][len(row["work_type"]) + 1 :]
+    assert row["holdout"] is False
+    assert row["verification"]["invented_numbers"] == []
+    assert row["verification"]["register_ok"] is True
+    assert row["verification"]["attempts"] == 1
     assert row["verification"]["render"]["attempts"] == 1
     assert row["verification"]["teacher"]["model"] == "scripted-t"
     assert row["verification"]["teacher"]["think_present"] is True
@@ -126,7 +136,8 @@ def test_clean_first_attempt_ships_the_row_verbatim():
         row["verification"]["computed_by"] == pack_line["verification"]["computed_by"]
     )
     assert transport.calls[0]["temperature"] == config.PROSE_TEMPERATURES[0]
-    assert transport.calls[0]["thinking"] == {"type": "enabled"}, "analysis thinks"
+    # §B: the prose lanes do not think, so no thinking block rides the body.
+    assert "thinking" not in transport.calls[0], "analysis no longer thinks"
     assert transport.calls[0]["model"]  # the routed lane name, not a literal here
 
 
@@ -198,40 +209,39 @@ def test_an_all_empty_dead_letter_says_truncated_not_gate():
     assert all(h["words"] == 0 for h in dead["history"])
 
 
-def test_every_repair_turn_is_given_more_room_than_the_one_before():
-    """The budget tracks the transcript, which grows on every attempt.
+def test_every_attempt_pays_the_lanes_flat_cap_not_an_escalating_ladder():
+    """§B replaces the escalating budget with a flat per-lane cap.
 
-    Measured, not assumed. Across a five-lane live run, every row whose first
-    attempt produced a real draft then truncated on attempt 2 at the same
-    16384 that had just worked -- three of three -- and two of those three
-    recovered on attempt 3 once the budget doubled. The repair turn carries
-    the whole failed draft and the violation list on top of the original
-    brief, and a reasoning teacher re-reads all of it before writing a word,
-    so the attempt that has the most to read must not be the one given the
-    least room.
+    The ladder existed for one failure and one only: a *reasoning* teacher on
+    the prose lane spent its whole 16384-token budget thinking and returned
+    `content: null`, so a later attempt -- carrying the failed draft and the
+    violation list on top of the brief -- needed more room than the one before
+    it. Across a five-lane live run every row that drafted cleanly on attempt 1
+    then truncated on attempt 2 at the budget that had just worked.
 
-    This replaces an earlier rule that escalated only *after* an empty draft.
-    That rule could not help here: attempt 2 is where the first truncation
-    happens, so paying for it afterwards buys the headroom one attempt too
-    late and wastes the round that had the teacher's own draft in front of it.
+    The amendment removes the cause rather than paying for the symptom: think
+    is off on analysis, so there is no chain of thought to run out of, and 800
+    tokens is twice the widest prose band's 400-word ceiling. Cooling the
+    temperature stays, because the *other* failure the ladder answered -- a
+    model padding its way past the contract -- is real and unchanged.
     """
     _, pack_line, clean = _pinned()
     transport = Scripted([_reply(clean + INVENTED)] * config.PROSE_ATTEMPTS)
     render_prose_row(Teacher(transport), pack_line, kind="analysis")
     budgets = [call["max_tokens"] for call in transport.calls]
-    assert budgets == sorted(set(budgets)), "strictly increasing, never repeating"
-    assert budgets[0] == DEFAULT_MAX_TOKENS, "the first attempt pays the base rate"
-    assert budgets == [DEFAULT_MAX_TOKENS * n for n in (1, 2, 3)]
+    assert budgets == [config.MAX_TOKENS_THINK_OFF] * config.PROSE_ATTEMPTS
+    # The ladder that stayed: temperature, one notch cooler each round.
+    temps = [call["temperature"] for call in transport.calls]
+    assert temps == list(config.PROSE_TEMPERATURES[: config.PROSE_ATTEMPTS])
 
 
-def test_a_first_attempt_always_pays_the_base_rate():
-    """Whatever went wrong last time, a fresh brief starts from the default --
-    otherwise a slow lane would ratchet its own cost up across rows."""
+def test_a_think_on_lane_gets_real_headroom_and_a_think_off_lane_does_not():
+    """The two caps are a property of the flag, checked where it is spent."""
     _, pack_line, clean = _pinned()
-    for replies in ([_reply(clean)], [_reply(""), _reply(clean)]):
-        transport = Scripted(replies)
-        render_prose_row(Teacher(transport), pack_line, kind="analysis")
-        assert transport.calls[0]["max_tokens"] == DEFAULT_MAX_TOKENS
+    transport = Scripted([_reply(clean)])
+    render_prose_row(Teacher(transport), pack_line, kind="analysis")
+    assert transport.calls[0]["max_tokens"] == config.MAX_TOKENS_THINK_OFF
+    assert config.MAX_TOKENS_THINK_ON > config.MAX_TOKENS_THINK_OFF
 
 
 def test_an_outage_keeps_the_rows_already_paid_for(tmp_path, monkeypatch):

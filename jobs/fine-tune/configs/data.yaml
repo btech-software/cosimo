@@ -64,20 +64,25 @@ data:
   # key every published row already carries. Entries are matched against that
   # string exactly; there are no v_/cr_/m_ wrapper stems in v3 to strip.
   #
-  # Why these are shipped families rather than the ones work_types.yaml marks
-  # `holdout: true`: the v3 renderers skip holdout families outright
-  # (render/prose.py, exam.py, agentic.py, implementation.py all filter
-  # `not job.holdout`), so `fade_required` and its four siblings have fact
-  # packs on disk but no rendered rows anywhere in the published corpus. There
-  # is nothing downstream to hold out. Until the corpus side renders them into
-  # an eval slice, the generalisation measurement has to come from families
-  # that are actually shipped.
+  # These are *shipped* families, deliberately, and they are a second holdout
+  # axis rather than a replacement for the plan's own.
   #
-  # Two of the ten shipped families, ~20% of the corpus, spanning two work
-  # types and two different fact computers. v1/v2 held out 8-9%, but with only
-  # ten families a single entry would confine the whole generalisation claim to
-  # one work type -- the single-topic artefact the v2 list was picked to avoid.
-  # Drop to one entry if the training slice matters more than the breadth.
+  # The reason they had to exist is now fixed: the v3 renderers used to drop
+  # `holdout: true` families outright, so `fade_required` and its four siblings
+  # had fact packs on disk and no rendered rows anywhere -- nothing downstream
+  # to hold out, and a generalisation number taken on families the model had
+  # trained on. Amendment §E renders them, into `<out>/eval/` rather than
+  # `<out>/sft/`, and `load_local_rows` reads only `sft/`, so the plan's holdout
+  # families never reach this file at all. That tree is the eval slice's
+  # material (09_assistant_eval), not training's.
+  #
+  # What this list still buys is a holdout inside the *training* distribution:
+  # two of the ten shipped families, ~20% of the prepared corpus, spanning two
+  # work types and two fact computers. v1/v2 held out 8-9%, but with only ten
+  # families a single entry would confine the whole generalisation claim to one
+  # work type -- the single-topic artefact the v2 list was picked to avoid.
+  # Drop to one entry if the training slice matters more than the breadth, or
+  # empty it once the eval tree is the measurement everyone reads.
   holdout_scenario_families:
     - valuation.equity.dcf.cyclical_industrial   # valuation, valuation_fcff
     - risk.market.var_es.equity_longonly         # market risk, risk_var
@@ -89,6 +94,19 @@ data:
   # union input `splits.assign` takes: v3's `holdout_scenario_families` flow
   # through the same parameter, and 01_prepare_data.py reads both.
   holdout_families: []
+
+  # Ceiling on the exam slice of the *prepared* training mix, enforced after
+  # the split and the max_train_records subsample (amendment §G.4). 0.18 is the
+  # top of the band the corpus's own board certifies (verify_v3 axis 8), so on
+  # a corpus generated from the current plan this drops nothing.
+  #
+  # It is here for the case the amendment names: a shard tree that is exam-heavy
+  # "from an old run". A local_dir is a directory and it accumulates -- a
+  # `render --types exam` from three weeks ago sits in it looking exactly like a
+  # row from today -- so the mix that is actually trained on is a claim only
+  # this side can make good on. Raising it re-opens the v1 style collapse; the
+  # honest way to want more exam is to author more of it in work_types.yaml.
+  exam_share_max: 0.18
 
   # Drop rows whose `verified` flag is false. These failed the generator's own
   # answer-recomputation check, so their answer and reasoning trace cannot be

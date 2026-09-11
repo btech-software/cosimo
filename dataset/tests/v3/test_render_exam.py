@@ -94,9 +94,18 @@ def test_a_composed_row_is_the_item_the_pack_entails(work_type):
         assert row["answer_value"] == pack.to_dict()["computed"][row["answer_key"]], (
             "the answer must be the computer's own figure, verbatim"
         )
-        assert row["messages"][0]["content"] == EXAM_PROTOCOL
+        # §A: no system turn on the shipped row. The answer protocol is the
+        # harness's to bind from `prompt.exam_protocol`; the corpus shipping
+        # its own copy put two protocols in front of every item, which
+        # `normalize_v3_record` was already stripping back off on the way in.
+        assert [m["role"] for m in row["messages"]] == ["user", "assistant"]
+        assert not any(m["role"] == "system" for m in row["messages"])
+        assert EXAM_PROTOCOL not in json.dumps(row)
+        # The item's prompt is a named column now, not an index into a list.
+        assert row["question_text"] == row["messages"][0]["content"]
+        assert row["question"] == pack.to_dict()["question"]
         assert row["messages"][-1]["content"] == row["answer"]
-        assert row["messages"][1]["content"].startswith(pack.to_dict()["question"]), (
+        assert row["messages"][0]["content"].startswith(pack.to_dict()["question"]), (
             "the item is asked with the pack's own question"
         )
         assert exam_gate_violations(pack.to_dict(), row) == [], (

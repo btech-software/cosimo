@@ -106,13 +106,25 @@ def test_the_untampered_copy_fails_no_axis(corpus, tmp_path):
     assert _fail_axes(report) == [], "the fixture corpus itself must be the control"
 
 
-def test_answer_drifted_from_the_assistant_turn_is_a_schema_incident(corpus, tmp_path):
+def test_the_factory_brief_on_a_trainable_surface_is_a_schema_incident(
+    corpus, tmp_path
+):
     out = _fresh(corpus, tmp_path)
     rows = _rows(out)
-    rows[0]["answer"] = rows[0]["answer"] + " "
+    # §A left a prose row with no transcript, so "the answer drifted from the
+    # assistant turn" is no longer a thing that can happen to one -- there is
+    # one text and it is `answer`. What replaces it is the leak fingerprint:
+    # the failure mode a prose row *can* still have is carrying the factory's
+    # own brief on a trainable surface.
+    rows[0]["question"] = (
+        f"You are the {config.TEACHER_FINGERPRINT}, writing for a junior desk.\n\n"
+        + rows[0]["question"]
+    )
     _rewrite(out, rows)
     report = verify_dir(out)
     assert not report["ok"]
+    problems = [f["problem"] for f in report["axes"]["schema"]["failures"]]
+    assert any("teacher fingerprint" in p for p in problems), problems
     assert _fail_axes(report) == ["schema"]
 
 
@@ -147,7 +159,6 @@ def test_an_invented_number_in_the_answer_is_named_by_axis_three(corpus, tmp_pat
     ), "the chosen token must be unambiguously foreign to this pack"
     tampered = row["answer"] + " The breakeven is 9751.6362."
     row["answer"] = tampered
-    row["messages"][-1]["content"] = tampered
     _rewrite(out, rows)
     report = verify_dir(out)
     assert _fail_axes(report) == ["invented numbers"]
@@ -163,7 +174,6 @@ def test_a_silent_must_mention_fails_axis_four_only(corpus, tmp_path):
     replacement = "The desk has reviewed the file and feels comfortable."
     assert not invented_numbers(replacement, [0.5]), "the filler must be number-free"
     rows[0]["answer"] = replacement
-    rows[0]["messages"][-1]["content"] = replacement
     _rewrite(out, rows)
     report = verify_dir(out)
     assert _fail_axes(report) == ["must_mention / forbidden_claims"]
@@ -174,7 +184,6 @@ def test_the_exam_tag_in_prose_fails_axis_five_only(corpus, tmp_path):
     rows = _rows(out)
     tampered = rows[0]["answer"] + " FINAL ANSWER: cut the position."
     rows[0]["answer"] = tampered
-    rows[0]["messages"][-1]["content"] = tampered
     _rewrite(out, rows)
     report = verify_dir(out)
     assert _fail_axes(report) == ["FINAL ANSWER is exam-only"]

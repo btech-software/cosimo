@@ -28,7 +28,16 @@ PREFERENCE_ID_PREFIX = "cosimov3pref"
 # Publish gate shares (verify_v3 axes 6-8) and the plan-time family cap (§5.1).
 EXAM_SHARE_BAND = (0.12, 0.18)
 LITURGY_CAP = 0.25
-FAMILY_MAX_SHARE = 0.03
+#: The anti-dominance headroom the family cap grants over an even split. A flat
+#: 0.03 was advertised here and it was arithmetic that only ever worked on a
+#: plan with fifteen-plus train families: with five work types and ten train
+#: families a 3% cap cannot be met by *each* family and also sum to 100%, so the
+#: number was a promise the expansion could not keep and the manifest printed a
+#: "max realised share" three times the cap on every run. The cap's real job is
+#: to stop one easy family owning half the pool, so it is stated as what it is
+#: -- an even split plus a quarter -- and derived from the plan that is actually
+#: loaded (:func:`family_max_share`). Add work types and it tightens by itself.
+FAMILY_MAX_SHARE_HEADROOM = 1.25
 
 # The exam slice (analysis spec §5.10). The liturgy is not left to the
 # sampler's luck: it is a residue class of the variant -- 1 in
@@ -169,7 +178,19 @@ PROSE_MAX_DECIMALS = 6
 # thing. The cost is real and accepted: a teacher may now write "1 basis point"
 # uncaught. That is a weaker claim than the "252" already forgiven here, and
 # the alternative is selecting against arithmetic the desk actually writes.
-NUMBER_WHITELIST = ("1", "100", "2", "252", "10000", "10,000")
+#: The amendment widens the band from the three hand-picked small integers to
+#: 0-10 whole. A single digit in a desk answer is an ordinal, a count of
+#: sectors, a horizon in days or an arithmetic identity far more often than it
+#: is a quantity about the world, and each one that was *not* listed cost a
+#: correct answer its row (see the "1" note above, which was the third such
+#: measurement). Everything above ten still has to come from the pack.
+NUMBER_WHITELIST = (
+    *(str(n) for n in range(11)),
+    "100",
+    "252",
+    "10000",
+    "10,000",
+)
 #: 10000 joined the list after the first successful live render. The packs'
 #: own formulas convert to basis points with `1e4`, but the whitelist did not
 #: carry it and the tokenizer cannot read scientific notation -- `1e4` scans as
@@ -179,6 +200,57 @@ NUMBER_WHITELIST = ("1", "100", "2", "252", "10000", "10,000")
 #: value, and unreadable. A gate that makes a correct answer ugly is measuring
 #: the wrong thing. Both spellings are listed because matching is on the token
 #: as written, commas and all.
+
+# -- Two surfaces (amendment §A) --------------------------------------------
+#: The teacher transcript is *debug*, not corpus. Off by default: a shard tree
+#: that carries the factory's own system turn is a shard tree whose next reader
+#: trains on it, which is precisely how ``01_prepare_data`` ended up teaching
+#: the labelling protocol. Set to ``1`` and every render also drops a
+#: ``teacher_logs/<kind>/<id>.json`` beside the shard for a post-mortem to read.
+KEEP_TEACHER_MESSAGES_ENV = "COSIMO_V3_KEEP_TEACHER_MESSAGES"
+#: The fingerprint of a factory brief, in one string. It appears verbatim in
+#: :data:`teacher.prompts.TEACHER_SYSTEM` and ``AGENTIC_SYSTEM``, it is the
+#: thing a student row may never carry, and both the render-time gate and the
+#: harness's prepare gate match on *this* constant rather than on two copies of
+#: a substring that could drift apart.
+TEACHER_FINGERPRINT = "Cosimo v3 teacher"
+
+# -- Think policy (amendment §B) --------------------------------------------
+#: ``memo`` is the one lane whose think flag is an operator decision rather
+#: than a table entry: an IC memo is the longest form in the corpus and the
+#: only one where a chain of thought plausibly buys structure. It stays off
+#: until a bake-off says otherwise (see ``dataset/progress/v3_think_ablation.md``).
+MEMO_THINK_ENV = "COSIMO_V3_MEMO_THINK"
+#: Completion budgets per lane, replacing the flat 16384. The old number was
+#: sized for a reasoning teacher that spends its whole budget thinking before
+#: it writes; with think *off* there is no chain of thought to run out of, and
+#: a 16k ceiling only buys a teacher enough rope to ramble past its word band.
+#: Think-on lanes keep real headroom, but 2048 rather than 16384: no row type
+#: has yet demonstrated it needs more, and the 900s timeout that the old
+#: budget forced (see ``dataset_build.sh``) hid every slow brief instead of
+#: reporting it.
+MAX_TOKENS_THINK_OFF = 800
+MAX_TOKENS_THINK_ON = 2048
+
+#: Tokens this teacher spends *before* it writes a word, added to both caps.
+#: Zero by default, because the amendment's two numbers are what an *answer*
+#: costs and that is a property of the corpus.
+#:
+#: It exists because §B's caps rest on a premise that is not true of every
+#: endpoint: "with think off there is no chain of thought to run out of". The
+#: first live bake-off (2026-09-11, `qwen3.8-flash-next` on the reference box)
+#: returned `think_present: true` on all twenty *think-off* calls and
+#: `finish_reason: length` on all forty -- the model reasons unconditionally,
+#: the `thinking` block in the request body does not switch it off, and at 800
+#: tokens every prose row came back empty. The caps were measuring the budget
+#: rather than the flag.
+#:
+#: Raising this is a statement about the deployment, not about the corpus, and
+#: it is deliberately separate from ``COSIMO_V3_MAX_TOKENS`` (which replaces a
+#: budget outright and would flatten the two lanes into one number, losing the
+#: distinction the ablation exists to measure). Set it to roughly what the
+#: endpoint's reasoning costs; the answer budget on top stays the amendment's.
+THINK_OVERHEAD_ENV = "COSIMO_V3_THINK_OVERHEAD"
 
 TEACHER_BASE_URL_ENV = "TEACHER_BASE_URL"
 TEACHER_API_KEY_ENV = "TEACHER_API_KEY"
@@ -214,6 +286,32 @@ TEACHER_MODEL_PROSE_DEFAULT = "qwen3.8-flash-next"
 #: threshold are both control-plane, not caller-chosen.
 GOLDBAR_FILENAME = "gold_bar_v3.jsonl"
 GOLDBAR_NEAR_DUP_THRESHOLD = 0.6
+
+#: The same instrument turned *inward*: how close two rows of the corpus may
+#: read to each other before the pair stops being two scenarios.
+#:
+#: The gold-bar fence above only ever looked outward -- train against the human
+#: set -- so a corpus could repaint one scenario twenty times and the board
+#: stayed green on every axis. That is v1's "71 stems x 1,000 paints" with a
+#: smaller constant, and it is invisible to the numeric gates by construction:
+#: every copy is *numerically* impeccable, because every copy came off the same
+#: fact computer.
+#:
+#: Looser than the gold-bar threshold on purpose. Two rows of one family share
+#: a question shape, a must_mention set and a register, so honest variants sit
+#: higher against each other than a train row ever sits against a gold item.
+#: 0.75 is the point past which two answers are the same telling with the
+#: numbers swapped -- which is the thing worth failing, and the only thing this
+#: can see.
+CORPUS_NEAR_DUP_THRESHOLD = 0.75
+#: Below this many rows in a cell a near-duplicate *rate* is a ratio of noise,
+#: so the axis reports what it measured and certifies nothing -- the same
+#: discipline the share axes keep.
+NEAR_DUP_MIN_ROWS = 8
+#: How many offending pairs the board names before it stops listing. A corpus
+#: that repainted one family produces hundreds; the operator needs the first
+#: few and the count, not the cross-product.
+NEAR_DUP_MAX_REPORTED = 12
 #: The bar is a source artefact, so the path is a control-plane value: the
 #: default is the commited human file, but CI and the tests point this at a
 #: synthetic one to exercise the fence -- which is exactly why the gate checks
@@ -240,6 +338,40 @@ def out_dir() -> str:
     return os.path.abspath(
         os.environ.get(OUT_ENV) or os.path.join(BASE_DIR, "shards", "v3")
     )
+
+
+def family_max_share(n_train_families: int) -> float:
+    """The per-family ceiling for a plan with *n_train_families* train families.
+
+    An even split (``1 / n``) plus :data:`FAMILY_MAX_SHARE_HEADROOM`, which is
+    what the cap was always *for*: not a promise that every family is under
+    three per cent -- ten families cannot all be -- but a bound on how far the
+    fattest family may run ahead of an even share before the expansion truncates
+    it. Degenerate plans (no train families) get 1.0, i.e. no cap: there is no
+    dominance to prevent when there is nothing to dominate.
+    """
+    if n_train_families <= 0:
+        return 1.0
+    return min(1.0, FAMILY_MAX_SHARE_HEADROOM / n_train_families)
+
+
+def think_overhead() -> int:
+    """The deployment's reasoning overhead in tokens; 0 unless declared."""
+    raw = os.environ.get(THINK_OVERHEAD_ENV)
+    try:
+        return max(0, int(raw)) if raw else 0
+    except ValueError:
+        return 0
+
+
+def keep_teacher_messages() -> bool:
+    """True when the operator asked for the debug transcript (amendment §A)."""
+    return os.environ.get(KEEP_TEACHER_MESSAGES_ENV) == "1"
+
+
+def memo_think() -> bool:
+    """True when the operator turned the memo lane's chain of thought back on."""
+    return os.environ.get(MEMO_THINK_ENV) == "1"
 
 
 def taxonomy_path() -> str:

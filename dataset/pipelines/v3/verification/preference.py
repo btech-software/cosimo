@@ -51,6 +51,7 @@ from .. import config  # noqa: E402
 from ..seed import render_seed, rng_for  # noqa: E402
 from .exam import LITURGY_MARKERS  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
+from ..teacher.prompts import WORD_BUDGETS  # noqa: E402
 from .prose import gate_violations, missing_mentions, whitelist_for  # noqa: E402
 
 #: The record type the preference stage publishes. Not in ``BRIEF_KINDS``:
@@ -411,14 +412,28 @@ _REJECTED_FRAMING = (
 )
 
 
-def chosen_brief(prompt: list[dict], answer: str) -> list[dict]:
+def chosen_brief(prompt: list[dict], answer: str, kind: str = "") -> list[dict]:
     """The second-telling exchange: the parent context, the parent answer,
     and the ask. The assistant turn is the target the model must *not* copy.
+
+    ``kind`` names the parent lane, and naming it closes a gap that only
+    became visible once the prompt stopped being the parent's whole brief.
+    The chosen side is graded against ``WORD_BUDGETS[kind]`` -- an analysis
+    paraphrase under 120 words is dead-lettered -- and the ask never said so,
+    so the model was being marked against a band it had not been shown. It
+    also makes the request distinguishable again: with the prompt reduced to
+    the pack's question, two lanes whose parent answers happen to coincide
+    would otherwise send byte-identical bodies and be owed two different
+    word bands by the same reply.
     """
+    ask = CHOSEN_ASK
+    if kind in WORD_BUDGETS:
+        low, high = WORD_BUDGETS[kind]
+        ask += f" Write between {low} and {high} words, as a {kind} answer does."
     return [
         *prompt,
         {"role": "assistant", "content": answer},
-        {"role": "user", "content": CHOSEN_ASK},
+        {"role": "user", "content": ask},
     ]
 
 
@@ -494,14 +509,21 @@ def pair_gate_violations(pack: dict, parent_row, row: dict) -> list[str]:
     if row["register"] not in config.VALID_REGISTERS:
         violations.append(f"{TAG_SHAPE}register {row['register']!r} is not a register")
     prompt = row["prompt"]
-    if not isinstance(prompt, list) or [m.get("role") for m in prompt] != [
-        "system",
-        "user",
-    ]:
+    # The student's question, one user turn, and nothing else. It used to be
+    # the parent row's ``messages[:2]`` -- the factory's system turn and its
+    # JSON contract -- so the preference config carried the labelling protocol
+    # into DPO exactly as faithfully as the SFT config carried it into
+    # training. §A closes both doors, and this is the second one.
+    if not isinstance(prompt, list) or [m.get("role") for m in prompt] != ["user"]:
         violations.append(
-            f"{TAG_SHAPE}prompt must be the system/user pair the pair trains "
+            f"{TAG_SHAPE}prompt must be the single user turn the pair trains "
             "on; roles read "
             + repr([m.get("role") for m in prompt or [] if isinstance(m, dict)])
+        )
+    elif str((prompt[0] or {}).get("content") or "") != str(pack.get("question") or ""):
+        violations.append(
+            f"{TAG_SHAPE}prompt is not the pack's question -- a pair is trained "
+            "against the question the desk asked, not a paraphrase of it"
         )
     chosen, rejected = row["chosen"], row["rejected"]
     if not isinstance(chosen, str) or not chosen.strip():

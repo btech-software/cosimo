@@ -1,6 +1,6 @@
 {
   "entries": {
-    "0717bce1174f24863ae4679c564104285883a330f6180f0ef344a7a8d34197dd": {
+    "03ec94ab2ce5ff3964688c1754f617688391ab71d78f570e107b1bd59bd67f55": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -16,7 +16,7 @@
         "total_tokens": 40
       }
     },
-    "11b93015a662141e02ec55b5b54d8594435d542c374edf142e3bf29c0dd78ac4": {
+    "046ed1e2f0176066510f58d5ca5deaf5c23f18895414a159d100db58eabda0f9": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -32,7 +32,7 @@
         "total_tokens": 40
       }
     },
-    "2add67908399f950345d3e117c9f821b17a846a8c1c031498e50af2dedf0ce25": {
+    "121dac7d6a191de1f21e9d6c4a119b6272bc4f5238929f5ddc40fa7f93e73214": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -48,7 +48,7 @@
         "total_tokens": 40
       }
     },
-    "2c1329901b6b69e5a7588e5aa9a2dc4cde4e3641971cf1201e7c14dada164639": {
+    "19a9eee2698142f55beddd1b627db7d20bd96e5e6556160427a75269a38a6946": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -64,7 +64,7 @@
         "total_tokens": 40
       }
     },
-    "30d93a93f6a8f0fd2cf33fcc7e62eca51c0e4b6d96be40e09275643cad6c29f2": {
+    "1dca324d46e21fda72aafc3a932619675cd2f42e249d2531a411bce923f66fb5": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -80,7 +80,7 @@
         "total_tokens": 40
       }
     },
-    "3ea58e1e589baa099a117eeb593a4a0540e52db32ff89e9e361ea602aa085b81": {
+    "2169a83f5179ed0344cc9f640a68490814cc4aefdd6b3bc3ebf27af707d8735a": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -96,7 +96,7 @@
         "total_tokens": 40
       }
     },
-    "42cb3b5aaa1a1d85e2c7c4152314f506e03453482bbe1ddd5db7529e57d75fe9": {
+    "27e1693024b0d029fc0719566dbf9c53e55e9b2cfcbfa031a3e60c44d8cb9e8c": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -112,7 +112,7 @@
         "total_tokens": 40
       }
     },
-    "48dec2b162ce406b8c25dadf83d936b369b7f8fc449111eefcb8285f8a616b41": {
+    "3445db87523be56576197584e5f193dea18b9b78e2a309c1d1c6fa186a6710c1": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -128,7 +128,7 @@
         "total_tokens": 40
       }
     },
-    "4a616578b4959de80d08839c2dd070577aab71b9d8b181ee3695ec73333e5820": {
+    "35dd45667db0533b2a8bd4da040bc1c260f362403d5a05537bfbe09626f73b6c": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -144,7 +144,7 @@
         "total_tokens": 40
       }
     },
-    "4f7455f0917ccfa457bd46a8f1330dded37da90e8c54184563f84b2ab47704b5": {
+    "3b668f012c023c953ce553272837db8cccad8edb1d6a3fb99198a3e986c8bd29": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -160,7 +160,7 @@
         "total_tokens": 40
       }
     },
-    "55db2ba55717db3227a02503b9e25d7f426e8a7401f122604ceec318a8be828e": {
+    "47976cebd9233479fdc4efdb420293cf8042741cc5292eea08b9e31db6fe1e9e": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -176,7 +176,7 @@
         "total_tokens": 40
       }
     },
-    "647b1a5dab73f951f727202def08f9480a13911d5eb0d95e5678cfe7a9105001": {
+    "53aba920d3eae1b640975df61bce6d472407aeca5799062cc930391ebfe3643a": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -192,7 +192,7 @@
         "total_tokens": 40
       }
     },
-    "74c307fefdf70e1dce83438578cd96aa6438df509812dcb436ec565b762d32d1": {
+    "602ce686f231e26053c8d55be1247ddca107ff0ff1877a1364da942421b4b3e2": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -208,7 +208,7 @@
         "total_tokens": 40
       }
     },
-    "8acd1d12e1c6635f9219882dbe4a95d2c1e411870425b8cea5887fc829b64875": {
+    "7bfd19918a36bc76a75480c6c882e16f3b7862cb9743311caf01bca92979893e": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -224,7 +224,7 @@
         "total_tokens": 40
       }
     },
-    "8e73b42ce88b0696161c7650ed8fa9c63b5901d4a9da1559b4e9871356cdbe48": {
+    "81cebf8cd8d3878f7a0214483d391ba3c7267ac4e4480fc918aff3fd798ea5e0": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -240,7 +240,7 @@
         "total_tokens": 40
       }
     },
-    "a86dd9a460d14b52fb0e7c0c53fd3c1f1df734068f0a2f697e18a1a0d91942ae": {
+    "9851cfeee62f1e83c86192a6247ea845d71fccabfe3fb998d93e7e79ce972b3d": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -256,7 +256,7 @@
         "total_tokens": 40
       }
     },
-    "a8e7af485055e0f329417f23708f0770ec99dd96e191680c997972c069d8ab9d": {
+    "a3629755c3dcf79b2ebf6b5a1ce5df0cfb40a275ef8ee76f4e840dc53a8f5dc3": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -272,7 +272,7 @@
         "total_tokens": 40
       }
     },
-    "aa917d35e87a9f0982db5d963ff70332529cb7507b8d30514a3e7bc5cb1411ae": {
+    "a762f5fe797e11e7f490ca1d7e058ddb7496e414801710417f7b96b3cc42e4ef": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -288,7 +288,7 @@
         "total_tokens": 40
       }
     },
-    "b7c957550ec599674eb03a3d1fe1513826ffee8972fd79d6143c1118d2c4f964": {
+    "bb6db947959acc04d20052603e46752984b4fd64ba6480ed49002ceb8f4a1cf8": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -304,7 +304,7 @@
         "total_tokens": 40
       }
     },
-    "ba8c6c82f9f49fc048c043fe8910551e76c2b0fb7ab76c0a963a7917eceec674": {
+    "c3483dda933a67f74542996c6b3ba4518eb4a3f811d04cb42ab2ed096d1bde66": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -320,7 +320,7 @@
         "total_tokens": 40
       }
     },
-    "c3ec834ec180e1c7968d26a3383455d0fd3cef7ee30194224fceb51dfac61b15": {
+    "caa96b54ea58ac043dca552bfd5221aef9f7d4dbd398b5f50513a330b5b38d74": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -336,7 +336,7 @@
         "total_tokens": 40
       }
     },
-    "c60622528f71e4f9ff49f993bc3a773c0ffbf55a55a542ba23ef468b9e9be9fe": {
+    "cf62fab71bbc98ca6f6d87e181454e6c3720424293255f4b4345b1c5423b084c": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -352,7 +352,7 @@
         "total_tokens": 40
       }
     },
-    "ccfb4c752c2e62c03f0b644b22d593f6889346a87d631e58971e0b8ffacc74e7": {
+    "de52b4e99cc70d24fc09d431bddaa6e3d503ef0e6afcae31a33ee0eea2cd926e": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -368,7 +368,7 @@
         "total_tokens": 40
       }
     },
-    "d5f13442dcee77257793b45d6a2a8246cdd46e714ac5a220cada6d6290f91d8f": {
+    "e1a1ffe981e5322ebcda6609c4d98fdd52651557dde3b4ad2b59817e6cf4a5ab": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -384,7 +384,7 @@
         "total_tokens": 40
       }
     },
-    "e33d3cf94d70ad401f0143626a5b04ac381ab32df627efd19c98885fb1a1532f": {
+    "ef82505d572571e910b2a2f6ebccd1b8386679c4fabcb4446b281087102f08b2": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -400,7 +400,7 @@
         "total_tokens": 40
       }
     },
-    "e3f9f16af9ca556f4ec44ff6ccbf085268875f10d50743fec864047ede3d62c0": {
+    "f53a3f7b12ce467d674baea20a0af9e2c9d186ef946b4ced0dad1968e9a51456": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -416,7 +416,7 @@
         "total_tokens": 40
       }
     },
-    "e962ad3babf45db36b209c9486921d3a3c3111f0690513da486583f46adc0bd7": {
+    "f606415db901199b06b690d696ec401b9affe849ad39a9561c0515adbd17c6b5": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -432,23 +432,7 @@
         "total_tokens": 40
       }
     },
-    "f54ecbf82831f559b893deb7f184c8be46e3d37ce0a94ac0c09f97a71a349add": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "The instrument reads only the inputs it is handed and models exactly the arithmetic those inputs define; it takes no market view, offers no forecast, and gives no warranty of any kind. Readings it cannot parse are refused, not estimated.",
-            "reasoning_content": "Checked against the pack: no figure restated.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-impl",
-      "usage": {
-        "total_tokens": 40
-      }
-    },
-    "fc4393ab9dc50ba42c14a4dcbb98d69fb2723dca405c8673f97111d9a5ad12c0": {
+    "fb0148854942770002f69774e8953b06100026134fca6319ab9b0c706b40b2e9": {
       "choices": [
         {
           "finish_reason": "stop",
@@ -466,16 +450,13 @@
     }
   },
   "meta": {
-    "entries": 29,
+    "entries": 28,
     "jobs_examined": 30,
     "limit": 30,
     "record_type": "implementation",
     "work_types": [
       "execution.tca.arrival",
-      "portfolio.attribution.brinson_carino",
-      "risk.market.var_es",
-      "valuation.equity.dcf",
-      "valuation.equity.multiples"
+      "portfolio.attribution.brinson_carino"
     ]
   },
   "model": "fixture-impl",

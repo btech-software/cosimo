@@ -68,6 +68,12 @@ DAG_ID = "cosimo_v3_corpus"
 #: byte-for-byte the command that already "works under make" (§13: schedulable).
 CLI_PREFIX = "uv run --group corpus python -m dataset.pipelines.v3.cli"
 
+#: The Airflow Variable that licenses a *billed* render. The default when it is
+#: absent is fixture -- a scheduler that spends money because nobody set a flag
+#: is the failure mode the amendment's §F names, and the repo has no business
+#: carrying the licence in a committed script (see ``live_render_enabled``).
+LIVE_VARIABLE = "cosimo_v3_live"
+
 #: The record types ``render`` recognises (``cli.py`` validates ``--types`` against
 #: exactly this set). One mapped task each, each owning its own ``sft`` shard.
 RENDER_TYPES = (
@@ -142,6 +148,29 @@ def _plan_work_types() -> list[str]:
     return sorted(inventory.load_plan(config.taxonomy_path()))
 
 
+def live_render_enabled() -> bool:
+    """Whether the DAG's render tasks may bill the teacher (amendment §F).
+
+    An Airflow **Variable**, not a line in a repo script. The old
+    ``dataset_build.sh`` exported ``COSIMO_V3_LIVE=1`` at the top of the file,
+    which meant the licence to spend was committed to git and inherited by
+    anything that sourced it -- including, in principle, a scheduled run nobody
+    had approved. A Variable is set on the deployment by a person, is visible
+    in the Airflow UI, and can be turned off without a pull request.
+
+    Absent Airflow (this module is importable without it, on purpose, so the
+    command builders stay testable) the answer is the safe one: fixture.
+    """
+    try:
+        from airflow.models import Variable
+    except Exception:
+        return False
+    try:
+        return str(Variable.get(LIVE_VARIABLE, default_var="0")).strip() == "1"
+    except Exception:
+        return False
+
+
 def v3_command(
     subcommand: str,
     *,
@@ -149,6 +178,8 @@ def v3_command(
     types: str | None = None,
     out: str | None = None,
     dry_run: bool = False,
+    live: bool = False,
+    holdout: bool = False,
 ) -> str:
     """Assemble one task's shell string. No scoping flag means the Makefile's line verbatim."""
     argv = [subcommand]
@@ -160,6 +191,10 @@ def v3_command(
         argv += ["--out", out]
     if dry_run:
         argv += ["--dry-run"]
+    if live:
+        argv += ["--live"]
+    if holdout:
+        argv += ["--holdout"]
     return " ".join([CLI_PREFIX, *argv])
 
 
@@ -171,16 +206,34 @@ def packs_command(work_type: str | None = None, *, out: str | None = None) -> st
     return v3_command("packs", work_type=work_type, out=out)
 
 
-def render_command(record_type: str | None = None, *, out: str | None = None) -> str:
-    return v3_command("render", types=record_type, out=out)
+def render_command(
+    record_type: str | None = None,
+    *,
+    out: str | None = None,
+    live: bool | None = None,
+    holdout: bool = False,
+) -> str:
+    """One render task's command line; **fixture unless the Variable says live**.
+
+    ``live=None`` asks the deployment (:func:`live_render_enabled`); passing an
+    explicit bool is for the tests, which must be able to assert both shapes
+    without an Airflow install in the venv.
+    """
+    if live is None:
+        live = live_render_enabled()
+    return v3_command("render", types=record_type, out=out, live=live, holdout=holdout)
 
 
 def verify_command(*, out: str | None = None) -> str:
     return v3_command("verify", out=out)
 
 
-def prefer_command(*, out: str | None = None) -> str:
-    return v3_command("prefer", out=out)
+def prefer_command(
+    *, out: str | None = None, live: bool | None = None, holdout: bool = False
+) -> str:
+    if live is None:
+        live = live_render_enabled()
+    return v3_command("prefer", out=out, live=live, holdout=holdout)
 
 
 def publish_command(*, dry_run: bool = False, out: str | None = None) -> str:

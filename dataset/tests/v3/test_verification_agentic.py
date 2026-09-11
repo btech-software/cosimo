@@ -188,7 +188,9 @@ def test_a_no_call_row_that_called_is_waste_named_as_such():
 
 def test_a_looping_row_that_never_looped_is_named_as_such():
     pack, row = _row(RANK_CLEAN)
-    row["messages"] = [row["messages"][0], row["messages"][1], row["messages"][-1]]
+    # §A: the shipped transcript opens on the user's goal, so the "goal then
+    # answer, nothing between" shape is two turns rather than three.
+    row["messages"] = [row["messages"][0], row["messages"][-1]]
     verdict = _judge(row, pack)
     assert any("no tool was called at all" in v for v in verdict)
 
