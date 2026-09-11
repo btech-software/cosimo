@@ -269,7 +269,7 @@ def _scripted_pair_setup(tmp_path, monkeypatch):
         row["scenario_id"][len(row["work_type"]) + 1 :],
         row["variant"],
     ).to_dict()
-    answer = row["messages"][2]["content"]
+    answer = row["answer"]
     return out, kind, row, pitfall, pack, answer
 
 
@@ -353,7 +353,7 @@ def _pair_corpus(tmp_path, monkeypatch):
         row["variant"],
     ).to_dict()
     good = pref_harness.compose_chosen(pack, kind)
-    answer = row["messages"][2]["content"]
+    answer = row["answer"]
     rejected = pref_harness.compose_rejected(
         pack, row["work_type"], pitfall, answer, good
     )
@@ -372,7 +372,10 @@ def _pair_corpus(tmp_path, monkeypatch):
         "parent_kind": kind,
         "pitfall": pitfall,
         "question": pack["question"],
-        "prompt": row["messages"][:2],
+        # §A: the pair's prompt is the student's question, not the
+        # parent's brief. Copying `messages[:2]` carried the factory's
+        # system turn and its JSON contract straight into DPO.
+        "prompt": [{"role": "user", "content": pack["question"]}],
         "chosen": good,
         "rejected": rejected,
         "register": pack["register"],
@@ -399,7 +402,7 @@ def test_the_pristine_pair_leaves_axis_12_quiet(tmp_path, monkeypatch):
 
 def test_a_chosen_that_is_the_target_lights_the_copy_axis(tmp_path, monkeypatch):
     out, pair, _pack, row = _pair_corpus(tmp_path, monkeypatch)
-    tampered = dict(pair, chosen=row["messages"][2]["content"])
+    tampered = dict(pair, chosen=row["answer"])
     failures = _check_pair(tampered, frozenset(), _loader_for(out, pair["parent_kind"]))
     assert any(TAG_COPY in p for p in failures["preference disjointness"])
     assert any("SFT target" in p for p in failures["preference disjointness"])

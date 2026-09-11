@@ -159,9 +159,7 @@ def dataset_sources(cfg: dict) -> list[dict]:
     sources = [primary]
     for entry in config_mod.get(cfg, "dataset.mix") or []:
         if not isinstance(entry, dict) or not entry.get("hub_id"):
-            raise ValueError(
-                f"every dataset.mix entry needs a hub_id, got {entry!r}"
-            )
+            raise ValueError(f"every dataset.mix entry needs a hub_id, got {entry!r}")
         sources.append(
             {
                 "hub_id": entry["hub_id"],
@@ -405,20 +403,20 @@ def _blank(value: Any) -> bool:
 def is_verified(row: dict) -> bool:
     """Whether the corpus certified this row, in either corpus's idiom.
 
-    v1/v2 publish a top-level boolean ``verified``. v3 publishes no such
-    column: a row only reaches ``sft/`` after its render-time gates passed --
-    the invented-number check, ``must_mention``, the implementation sandbox --
-    and what it carries instead is the ``verification`` stamp naming the fact
-    computer and the pack seed that certified it. Corpus-wide verification is
-    then a property of the board (``verify_v3``), not of the row.
+    v1/v2 publish a top-level boolean ``verified``. v3 now publishes one too,
+    and that is the amendment's §G.2: the reading used to be "carries a
+    ``verification`` stamp", which is a *proxy* -- a row that failed its gate
+    and was written anyway would carry a stamp just the same. The corpus states
+    the claim explicitly on every student row, so the harness reads the claim.
 
-    So the v3 reading of "verified" is "carries a verification stamp". A v3 row
-    without one did not come out of the renderer and is dropped for the same
-    reason a v2 row with ``verified: false`` is: its answer cannot be trusted as
-    a supervised target.
+    The stamp is still required alongside it. A row asserting ``verified: true``
+    with no provenance behind it is asserting something nobody can check, and
+    the two together are what "the renderer certified this" means.
     """
     if data_schema.is_v3_row(row):
-        return bool(data_schema.decode_mapping(row.get("verification")))
+        return row.get("verified") is True and bool(
+            data_schema.decode_mapping(row.get("verification"))
+        )
     return bool(row.get("verified", False))
 
 
@@ -488,8 +486,7 @@ def apply_source_caps(
     for hub_id, share in capped.items():
         if not 0.0 < share < 1.0:
             raise ValueError(
-                f"dataset.mix max_share for {hub_id!r} must be in (0, 1), "
-                f"got {share!r}"
+                f"dataset.mix max_share for {hub_id!r} must be in (0, 1), got {share!r}"
             )
     if sum(capped.values()) >= 1.0:
         raise ValueError(
@@ -521,6 +518,48 @@ def apply_source_caps(
                 len(pool),
             )
     return [r for r in records if r.id in surviving], dropped
+
+
+#: The band the corpus gate certifies (verify_v3 axis 8) and the ceiling this
+#: side enforces on the *prepared* mix. Duplicated as a literal rather than
+#: imported: `dataset` and `jobs` do not import each other, and the number is
+#: 0.18 in `dataset/pipelines/v3/config.py:EXAM_SHARE_BAND` -- if one moves,
+#: the drift shows up as a prepared mix that disagrees with a green board,
+#: which is a visible failure rather than a silent one.
+EXAM_SHARE_MAX = 0.18
+
+
+def cap_exam_share(
+    records: list[data_schema.CosimoRecord], ceiling: float, seed: int
+) -> tuple[list[data_schema.CosimoRecord], int]:
+    """Thin the exam slice of *records* down to *ceiling* of the pool (§G.4).
+
+    The corpus authors this share at plan time and the board measures it, so on
+    a corpus generated from the current plan this drops nothing. It exists for
+    the case the amendment actually names: "even if the shard tree is
+    exam-heavy from an old run". A shard tree is a directory, it accumulates,
+    and a `render --types exam` from three weeks ago sits in it looking exactly
+    like a row from today -- so the mix the harness *prepares* is a claim only
+    the harness can make good on.
+
+    Seeded and order-preserving, like every other subsample here: the pool is
+    sorted by id, so the thinning spreads across work types rather than cutting
+    a contiguous block of one family.
+    """
+    exam = [r for r in records if data_schema.is_exam(r)]
+    other = [r for r in records if not data_schema.is_exam(r)]
+    if not exam or not other:
+        return records, 0
+    # n_exam / (n_exam + n_other) <= ceiling  =>  n_exam <= c/(1-c) * n_other
+    allowed = int(len(other) * ceiling / (1.0 - ceiling))
+    if len(exam) <= allowed:
+        return records, 0
+    keep = {r.id for r in subsample(exam, allowed, seed)}
+    kept = [r for r in records if not data_schema.is_exam(r) or r.id in keep]
+    LOGGER.info(
+        "exam share cap %.3f: kept %d of %d exam records", ceiling, allowed, len(exam)
+    )
+    return kept, len(exam) - allowed
 
 
 def _counts_by(rows: list[dict], field: str) -> dict[str, int]:
@@ -966,6 +1005,13 @@ def prepare(
             f"{preference_holdout_frac!r}"
         )
     drop_unverified = bool(config_mod.get(cfg, "data.drop_unverified", True))
+    exam_share_max = float(
+        config_mod.get(cfg, "data.exam_share_max", EXAM_SHARE_MAX) or EXAM_SHARE_MAX
+    )
+    if not 0.0 < exam_share_max < 1.0:
+        raise ValueError(
+            f"data.exam_share_max must be in (0, 1), got {exam_share_max!r}"
+        )
     # Two config keys, one set, because the two corpora hold out on different
     # axes and a run may be replaying either. `data.holdout_families` names
     # v1/v2 stem families (`fi_modified_duration`); `holdout_scenario_families`
@@ -995,11 +1041,26 @@ def prepare(
     questions_by_source: dict[str, set[str]] = defaultdict(set)
     for row in default_rows:
         source = str(row.get("_source") or "")
+        # -- the two v3 leak gates, before anything is normalised ----------
+        #
+        # Both are defence in depth and both are meant to be dead code on a
+        # current corpus: the render side already keeps the factory's brief off
+        # every student row (§A) and writes holdout families to `eval/` rather
+        # than `sft/` (§E). They live here because the two subsystems join on
+        # the Hub -- neither can see the other's tree -- so "the corpus would
+        # never do that" is a claim this side cannot verify and must not
+        # assume. An old shard tree, a hand-edited file, a config pointed at
+        # last month's `local_dir`: each produces exactly the row these refuse.
+        if data_schema.is_v3_row(row):
+            if data_schema.carries_teacher_brief(row):
+                dropped["dropped_teacher_leak"] += 1
+                continue
+            if data_schema.is_holdout(row):
+                dropped["dropped_holdout_leak"] += 1
+                continue
         if drop_unverified and not is_verified(row):
             # `is False` would keep a null/missing flag silently; count the two
             # cases apart so "all verified" cannot be confused with "no flag".
-            # A v3 row has no flag by design -- see is_verified -- so it is
-            # counted under the missing-stamp name rather than the v2 one.
             if data_schema.is_v3_row(row):
                 dropped["unverified_no_v3_stamp"] += 1
             else:
@@ -1135,6 +1196,9 @@ def prepare(
             len(train_records),
             len(by_split[splits.TRAIN]),
         )
+    train_records, over_exam = cap_exam_share(train_records, exam_share_max, seed)
+    if over_exam:
+        dropped["over_exam_share"] += over_exam
 
     # 3. preference rows FIRST, because which ids they claim decides which ids
     # SFT must not be trained on. Reserving a pair only helps if the policy has
@@ -1257,9 +1321,7 @@ def prepare(
     # Built from the rows actually written, not from the ids considered: a
     # reserved pair that turned out unusable (blank, unresolvable MCQ cue) is not
     # in this set, so it stays in SFT rather than being lost by both stages.
-    reserved_ids = {
-        str(row["id"]) for rows in pref_files.values() for row in rows
-    }
+    reserved_ids = {str(row["id"]) for rows in pref_files.values() for row in rows}
     LOGGER.info(
         "preference rows: %d train, %d val (reserved %d ids from SFT at "
         "preference_holdout_frac=%s); MCQ letter outcomes %s",
@@ -1285,9 +1347,7 @@ def prepare(
 
     files: dict[str, list[dict]] = {
         SFT_FILES[splits.TRAIN]: [
-            sft_row(record)
-            for record in train_records
-            if record.id not in reserved_ids
+            sft_row(record) for record in train_records if record.id not in reserved_ids
         ],
         SFT_FILES[splits.VAL]: [
             sft_row(record)
@@ -1308,8 +1368,7 @@ def prepare(
         **pref_files,
     }
     LOGGER.info(
-        "sft rows: %d train, %d val (%d train rows reserved for the preference "
-        "stage)",
+        "sft rows: %d train, %d val (%d train rows reserved for the preference stage)",
         len(files[SFT_FILES[splits.TRAIN]]),
         len(files[SFT_FILES[splits.VAL]]),
         len(train_records) - len(files[SFT_FILES[splits.TRAIN]]),
@@ -1318,9 +1377,7 @@ def prepare(
     # 5. validation gate, before anything reaches disk
     validate(
         files,
-        preference_expected=any(
-            source.get("preference_config") for source in sources
-        ),
+        preference_expected=any(source.get("preference_config") for source in sources),
         holdout_families=holdout_families,
         families_present=families_present,
         pool_size=pool_size,
@@ -1408,6 +1465,7 @@ def prepare(
         "test_frac": test_frac,
         "max_train_records": max_train_records,
         "drop_unverified": drop_unverified,
+        "exam_share_max": exam_share_max,
         "holdout_families": sorted(holdout_families),
         "holdout_records": len(by_split[splits.UNSEEN_STEMS]),
         # Non-exam held-out records are excluded from training but never
@@ -1426,9 +1484,7 @@ def prepare(
                 "preference_config": source["preference_config"],
                 "max_share": source["max_share"],
                 "records": sum(
-                    1
-                    for r in records
-                    if source_by_id[r.id] == str(source["hub_id"])
+                    1 for r in records if source_by_id[r.id] == str(source["hub_id"])
                 ),
             }
             for source in sources

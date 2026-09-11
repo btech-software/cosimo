@@ -27,10 +27,20 @@ verdict; ``best_attempt`` names the round worth reading; and ``reason``
 distinguishes a teacher that broke the contract from one that never
 finished thinking, because those want opposite fixes.
 
-Holdout families are not rendered here: their packs are the gold bar
-(PR4's eval slice), and prose for them must never pass through a training
-shard -- the leakage axis would catch it, and refusing at the gate is
-cheaper than catching it at the audit.
+Holdout families **are** rendered here now, and that is the amendment's §E
+change. They were dropped outright before, on the reasoning that prose for a
+gold-bar family must never pass through a training shard -- which is true, and
+which dropping them enforced by producing nothing at all. The cost was that
+"unseen scenario family" had nothing to measure: the harness had to hold out
+*shipped* families instead, so the generalisation number was taken on families
+the model had trained on. A holdout job renders exactly like a train one and
+lands in ``eval/`` rather than ``sft/`` -- one directory apart, which a glob
+cannot confuse the way a boolean on a row could.
+
+Two objects come out of a render, and only one is trainable. See
+:mod:`pipelines.v3.row`: the student row carries the pack's question and the
+visible answer, the teacher log carries the brief and the think text, and the
+log is written only when ``COSIMO_V3_KEEP_TEACHER_MESSAGES=1``.
 """
 
 from __future__ import annotations
@@ -38,24 +48,24 @@ from __future__ import annotations
 import os
 
 from .. import config
+from .. import row as rowlib
 from .. import write
 from ..seed import render_seed
 from ..teacher import routing
-from ..teacher.client import DEFAULT_MAX_TOKENS
 from ..teacher.prompts import BRIEF_KINDS, render_brief, render_repair
-from ..verification.prose import gate_violations
+from ..verification.prose import gate_violations, missing_mentions
 
 #: Fields a stored fact-pack line carries *around* the pack proper. Stripped
 #: before the pack is handed to the brief builder: the teacher must see
 #: exactly :meth:`FactPack.to_dict`, byte-for-byte the dict the replay
 #: fixture hashed it as -- envelope fields in the brief would silently
 #: invalidate every committed fixture entry.
-_PACK_ENVELOPE = ("id", "verification")
-
-
-def _family_of(pack: dict) -> str:
-    """The pack's scenario family, recovered from its ``scenario_id``."""
-    return pack["scenario_id"][len(pack["work_type"]) + 1 :]
+#:
+#: Re-exported from :mod:`pipelines.v3.row`, which is where the two-surface
+#: split put it: three other renderers import it from here, and a second
+#: definition of "what is envelope" is a second answer to the question.
+_PACK_ENVELOPE = rowlib.PACK_ENVELOPE
+_family_of = rowlib.family_of
 
 
 def row_id_from_coords(kind: str, work_type: str, family: str, variant: int) -> str:
@@ -75,15 +85,22 @@ def row_id(kind: str, pack: dict) -> str:
     )
 
 
-def select_prose_jobs(jobs, *, types=None, limit=None) -> list:
-    """The render-eligible slice of *jobs*: prose kinds, train only, ordered.
+def select_prose_jobs(jobs, *, types=None, limit=None, holdout=False) -> list:
+    """The render-eligible slice of *jobs*: prose kinds, one cohort, ordered.
 
     Split out of the stage because the fixture harness must capture replies
     for *exactly* the jobs a run will ask about -- the replay keys are the
     request hashes, so an off-by-one in this filter is a fixture miss, which
-    is precisely the loud kind of bug a shared selector prevents. Holdout
-    families are dropped here, once: the gold bar renders through PR4's
-    eval path, never through ``sft/``.
+    is precisely the loud kind of bug a shared selector prevents.
+
+    ``holdout`` picks the cohort rather than filtering one away, which is the
+    amendment's §E change. Holdout families used to be dropped here outright,
+    and the consequence surfaced two subsystems later: the harness's
+    ``holdout_scenario_families`` had to be pointed at *shipped* families
+    instead, because ``fade_required`` and its four siblings had fact packs on
+    disk and no rendered rows anywhere -- there was nothing downstream to hold
+    out, so the generalisation measurement was being taken on families the
+    model had trained on. They render now, and they render to ``eval/``.
     """
     wanted = set(types) if types is not None else set(BRIEF_KINDS)
     unknown = wanted - set(BRIEF_KINDS)
@@ -93,7 +110,11 @@ def select_prose_jobs(jobs, *, types=None, limit=None) -> list:
             + ", ".join(sorted(unknown))
         )
     selected = sorted(
-        (job for job in jobs if job.record_type in wanted and not job.holdout),
+        (
+            job
+            for job in jobs
+            if job.record_type in wanted and bool(job.holdout) is bool(holdout)
+        ),
         key=lambda job: (job.work_type, job.family, job.record_type, job.variant),
     )
     if limit is not None:
@@ -134,13 +155,22 @@ def _dead_letter_reason(history: list[dict], best: dict | None) -> str:
     return "gate: " + " | ".join(best["violations"])
 
 
-def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
-    """One stored pack line + one kind -> ``{"row": .., "dead_letter": ..}``.
+def render_prose_row(
+    teacher, pack_line: dict, *, kind: str, holdout: bool = False
+) -> dict:
+    """One stored pack line + one kind -> ``{"row", "dead_letter", "log"}``.
 
     Never raises for a *content* failure -- a violation is data and goes to
     the dead letter. ``TeacherError`` (the endpoint misbehaved) propagates on
     purpose: the transport breaking is an outage to retry the run over, not
     a reason to dead-letter three thousand good scenarios.
+
+    Three keys now, not two. ``row`` is the student surface and carries no
+    ``messages`` at all: a prose row's prompt *is* its question, and the brief
+    that produced it -- the fact pack as JSON, the number policy, the word
+    budget, the teacher's own system turn -- was never anything a student
+    should be shown. ``log`` is that brief, for the operator who asked to keep
+    it; the stage decides whether it reaches the disk.
     """
     if kind not in BRIEF_KINDS:
         raise ValueError(
@@ -154,26 +184,26 @@ def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
     violations: list[str] = []
     history: list[dict] = []
     attempts = 0
+    truncations = 0
     while attempts < config.PROSE_ATTEMPTS:
         temperature = config.PROSE_TEMPERATURES[attempts]
-        # Two different failures share this ladder, and they want opposite
-        # responses. A draft that broke the contract is usually the model
-        # padding, and a cooler temperature helps. A draft that came back
-        # *empty* is a reasoning teacher that spent its whole completion budget
-        # thinking and never reached the answer -- cooling that does nothing at
-        # all, and the first live runs proved it: three attempts, three empty
-        # drafts, one dead letter, repeatedly.
+        # The budget is the lane's, flat across attempts, and the escalating
+        # ladder that used to live here is gone with the thing that forced it.
         #
-        # So the budget tracks the transcript instead, and the transcript grows
-        # on every attempt: a repair turn carries the whole failed draft and the
-        # violation list on top of the original brief, and a reasoning teacher
-        # re-reads all of it before writing a word. Escalating only *after* an
-        # empty draft was one attempt too late -- across a five-lane live run,
-        # every row that drafted cleanly on attempt 1 then truncated on attempt
-        # 2 at the same budget that had just worked, three of three, and two of
-        # them recovered on attempt 3 once it doubled. The attempt with the most
-        # to read must not be the one given the least room.
-        budget = DEFAULT_MAX_TOKENS * (attempts + 1)
+        # That ladder existed for one failure: a *reasoning* teacher on the
+        # prose lane spent its whole completion budget thinking and returned
+        # `content: null`, so a later attempt -- carrying the failed draft and
+        # the violation list on top of the brief -- needed more room than the
+        # one before it. Doubling per attempt was the fix, and it worked. But
+        # the cause was think=True on analysis, memo and grounded, which the
+        # amendment removes: a lane that does not reason cannot run out of
+        # budget before it reaches an answer, and 800 tokens is twice the
+        # 400-word ceiling the widest prose band allows.
+        #
+        # Cooling the temperature stays, because the *other* failure the ladder
+        # answered is real and unchanged: a draft that broke the contract is
+        # usually the model padding, and cold models pad less.
+        budget = routing.budget_for_attempt(route, truncations=truncations)
         result = teacher.complete(
             exchange,
             model=route.model,
@@ -181,8 +211,35 @@ def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
             max_tokens=budget,
             think=route.think,
         )
-        attempts += 1
         text = (result.text or "").strip()
+
+        # A truncation is not a strike. The teacher ran out of room before it
+        # wrote a word, which says nothing about whether it *can* satisfy the
+        # contract -- and spending one of three gate attempts on it, then
+        # sending a repair turn that quotes an empty draft, is how nine live
+        # rows cost forty-eight minutes and produced nothing.
+        #
+        # So: give it more room, on the same brief, without cooling the
+        # temperature (there is no draft to cool *toward*) and without counting
+        # it against the contract. The lane's floor rises with it, so the next
+        # row opens where this one ended up rather than rediscovering it.
+        if routing.truncated(result) and truncations < config.PROSE_TRUNCATION_RETRIES:
+            truncations += 1
+            floor = routing.note_truncation(route.lane, budget)
+            history.append(
+                {
+                    "attempt": f"{attempts + 1}t{truncations}",
+                    "temperature": temperature,
+                    "max_tokens": budget,
+                    "finish_reason": result.finish_reason,
+                    "words": 0,
+                    "violations": [],
+                    "note": f"truncated before writing; lane floor now {floor}",
+                }
+            )
+            continue
+
+        attempts += 1
         violations = gate_violations(pack, result.text, kind)
         history.append(
             {
@@ -195,33 +252,45 @@ def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
             }
         )
         if not violations:
+            rid = row_id(kind, pack)
             return {
-                "row": {
-                    "id": row_id(kind, pack),
-                    "record_type": kind,
-                    "work_type": pack["work_type"],
-                    "scenario_id": pack["scenario_id"],
-                    "variant": pack["variant"],
-                    "question": pack["question"],
-                    "messages": [
-                        *messages,
+                "row": rowlib.student_row(
+                    row_id=rid,
+                    kind=kind,
+                    pack=pack,
+                    holdout=holdout,
+                    answer=rowlib.visible_answer(result.text),
+                    stamp=stamp,
+                    teacher=result.to_verification(),
+                    render={"kind": kind, "attempts": attempts},
+                    attempts=attempts,
+                    # A shipped row cleared every axis by definition; recording
+                    # the two lists empty is what lets the eval sidecar read a
+                    # row's compliance without recomputing the pack to re-run
+                    # the gate. `missing_mentions` is re-read rather than
+                    # assumed so the field means "measured", not "assumed".
+                    invented=[],
+                    missing=missing_mentions(pack, result.text),
+                    register_ok=True,
+                ),
+                "dead_letter": None,
+                "log": rowlib.teacher_log(
+                    row_id=rid,
+                    kind=kind,
+                    pack=pack,
+                    messages=[
+                        *exchange,
                         {"role": "assistant", "content": result.text},
                     ],
-                    "answer": result.text,
-                    "register": pack["register"],
-                    "verification": {
-                        "computed_by": stamp.get("computed_by", "unknown"),
-                        "pack_seed": stamp.get("pack_seed", f"{pack['seed']:016x}"),
-                        "teacher": result.to_verification(),
-                        "render": {"kind": kind, "attempts": attempts},
-                    },
-                },
-                "dead_letter": None,
+                    result=result,
+                    history=history,
+                ),
             }
         exchange = render_repair(exchange, result.text, violations)
     best = _best_attempt(history)
     return {
         "row": None,
+        "log": None,
         "dead_letter": {
             "id": row_id(kind, pack),
             "record_type": kind,
@@ -238,7 +307,9 @@ def render_prose_row(teacher, pack_line: dict, *, kind: str) -> dict:
     }
 
 
-def run_render_stage(out_dir: str, jobs, teacher, *, types=None, limit=None) -> dict:
+def run_render_stage(
+    out_dir: str, jobs, teacher, *, types=None, limit=None, holdout=False
+) -> dict:
     """Render prose rows for *jobs*; write ``sft/`` + ``dead_letter/``; report.
 
     Same shape as ``stage.run_pack_stage`` on purpose -- filter by types
@@ -255,7 +326,9 @@ def run_render_stage(out_dir: str, jobs, teacher, *, types=None, limit=None) -> 
     stage) -- ``skipped_by_pack_gate``, a recorded skip, not an error. The
     fact never existed; there is nothing to render and nobody to blame.
     """
-    selected = select_prose_jobs(jobs, types=types, limit=limit)
+    selected = select_prose_jobs(jobs, types=types, limit=limit, holdout=holdout)
+    shard = write.shard_kind(holdout)
+    keep_logs = config.keep_teacher_messages()
 
     pack_cache: dict[str, dict[tuple[str, str, int], dict] | None] = {}
 
@@ -283,6 +356,8 @@ def run_render_stage(out_dir: str, jobs, teacher, *, types=None, limit=None) -> 
         "skipped_by_pack_gate": [],
         "missing_packs": [],
         "by_kind": {},
+        "bucket": shard,
+        "teacher_logs": 0,
     }
     rows: dict[str, list[dict]] = {}
     deads: dict[str, list[dict]] = {}
@@ -297,7 +372,7 @@ def run_render_stage(out_dir: str, jobs, teacher, *, types=None, limit=None) -> 
             seen_ids.add(rid)
             if kind not in known:
                 known[kind] = write.existing_ids(
-                    write.path_for("sft", kind, out_dir)
+                    write.path_for(shard, kind, out_dir)
                 ) | write.existing_ids(write.path_for("dead_letter", kind, out_dir))
             if rid in known[kind]:
                 report["existing"] += 1
@@ -328,12 +403,23 @@ def run_render_stage(out_dir: str, jobs, teacher, *, types=None, limit=None) -> 
                 )
                 bucket.append(entry)
                 continue
-            outcome = render_prose_row(teacher, pack_line, kind=kind)
+            outcome = render_prose_row(
+                teacher, pack_line, kind=kind, holdout=job.holdout
+            )
             cell = report["by_kind"].setdefault(kind, {"rendered": 0, "existing": 0})
             if outcome["row"] is not None:
                 rows.setdefault(kind, []).append(outcome["row"])
                 report["rendered"] += 1
                 cell["rendered"] += 1
+                if keep_logs and outcome.get("log"):
+                    # Written as the row is made rather than in the finally
+                    # block: the log's whole value is post-mortem, and a run
+                    # that dies mid-stage is exactly the run whose transcripts
+                    # somebody wants.
+                    write.write_teacher_log(
+                        write.teacher_log_path(kind, rid, out_dir), outcome["log"]
+                    )
+                    report["teacher_logs"] += 1
             else:
                 deads.setdefault(kind, []).append(outcome["dead_letter"])
                 report["dead_lettered"] += 1
@@ -346,7 +432,7 @@ def run_render_stage(out_dir: str, jobs, teacher, *, types=None, limit=None) -> 
         # contract that was supposed to make that cheap never got the chance,
         # because nothing had reached the disk to resume from.
         for kind in sorted(rows):
-            write.append_unique(write.path_for("sft", kind, out_dir), rows[kind])
+            write.append_unique(write.path_for(shard, kind, out_dir), rows[kind])
         for kind in sorted(deads):
             write.append_unique(
                 write.path_for("dead_letter", kind, out_dir), deads[kind]

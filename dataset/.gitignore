@@ -5,8 +5,19 @@
 # pipelines/generate.py output
 shards/
 
-# pipelines/progress.py output, rewritten on every generation run
-progress/
+# pipelines/progress.py output, rewritten on every generation run.
+# `progress/*` rather than `progress/`, because git does not descend into an
+# excluded *directory* -- a negation below it would never be consulted.
+progress/*
+
+# ...except the think ablation, which is a decision record rather than a
+# regenerated report. Amendment §B fixes this path, `dataset_build.sh full`
+# refuses while it reads NOT YET MEASURED, and a precondition whose evidence
+# cannot be committed is a precondition every box has to re-satisfy alone and
+# nobody can review. Found the hard way: the corpus validated clean on a
+# second machine and the audit refused there for want of a file that could
+# not have arrived. Same reasoning as gold_bar.jsonl at the foot of this file.
+!progress/v3_think_ablation.md
 
 # scripts/publish_dataset.py default output name
 dataset_v2_*.json
@@ -35,3 +46,5 @@ __pycache__/
 # Deliberately tracked, despite being generated:
 #   taxonomy/coverage.json  - the brief requires coverage tracked as data, not prose
 #   goldbar/gold_bar.jsonl  - a measurement instrument; must be diffable and reviewable
+#   progress/v3_think_ablation.md - the §B bake-off's verdict; the publish path
+#                             gates on it, so it has to travel with the repo

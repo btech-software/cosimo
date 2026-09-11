@@ -21,12 +21,25 @@ for _p in (_HERE, os.path.join(_HERE, "fixtures")):
 import make_prose_fixture as prose_harness  # noqa: E402
 from pipelines.v3 import config  # noqa: E402
 from pipelines.v3.verification.prose import (  # noqa: E402
+    ROUNDING_DRIFT_TAG,
+    canonical_numbers,
     forbidden_hits,
     gate_violations,
+    integer_format_offenders,
     missing_mentions,
     overprecise_numbers,
+    rounding_drift,
     stems,
     whitelist_for,
+)
+from pipelines.v3.verification.register import (  # noqa: E402
+    DESK_CHAT_MAX_SENTENCES,
+    makes_a_call,
+    DESK_CHAT_WORDS_PER_SENTENCE,
+    REGISTER_MIN_SEPARATION,
+    desk_chat_ceiling,
+    profile_distance,
+    register_profile,
 )
 from pipelines.v3.verification.invented_numbers import invented_numbers  # noqa: E402
 
@@ -45,9 +58,11 @@ def _clean_text() -> str:
     the length test below pins that, so editing this cannot silently drift."""
     return (
         "The dcf value sits below price. Capex is rising. "
-        "Measured against 2500.0 revenue the ratio 1.7 holds, and the "
+        # `2500`, not `2500.0`: §D's format rule says a whole number does not
+        # carry a decimal tail, and this helper has to stay gate-clean.
+        "Measured against 2500 revenue the ratio 1.7 holds, and the "
         "sensitivity is 0.03. As of 2026-03-31, split 100 to 2 over 252 "
-        "sessions. The bridge opens at 2500.0 and closes at 2500.0, the "
+        "sessions. The bridge opens at 2500 and closes at 2500, the "
         "coverage ratio reads 1.7 twice over, and the drift stays near 0.03 "
         "for every desk that checks the file against the pack it was drawn from."
     )
@@ -201,6 +216,10 @@ def _wide_pack() -> dict:
     return {
         "allowed_numbers": [float(i) for i in range(1, 40)] + [0.031, 0.5],
         "as_of": "2025-12-31",
+        # The harness's opener names the work type and the as-of instead of
+        # quoting the question -- see make_prose_fixture.compliant_text -- so a
+        # pack that omits it is a pack the harness cannot write against.
+        "work_type": "synthetic.wide",
         "question": "How do the 39 engineered figures hold together?",
         "must_mention": [
             f"The figure numbered {i} anchors the bridge." for i in range(1, 9)
@@ -209,3 +228,194 @@ def _wide_pack() -> dict:
         "computed": {f"metric_{i}": float(i) for i in range(1, 40)},
         "register": "ic_memo",
     }
+
+
+# --------------------------------------------------------------------------
+# Amendment §D: one official number per quantity, spelled the way a desk spells
+# it. All three rules grade the *answer*; the question stays free to print
+# whatever rounding reads well, which is exactly why the union of
+# `allowed_numbers` could not be the authority for both.
+# --------------------------------------------------------------------------
+
+#: A pack that declares the contract, as every shipped computer now does.
+#: `active_bps` is the amendment's own worked example: the arithmetic says
+#: 372.6, the question opens "behind the policy mix by 373 bp".
+CONTRACT_PACK = {
+    "allowed_numbers": [372.6, 373.0, 430567.0],
+    "canonical": {"active_bps": 372.6, "shares": 430567.0},
+    "aliases": {"active_bps": ["373"]},
+    "display": {"shares": "430,567"},
+    "as_of": "2026-03-31",
+    "must_mention": [],
+    "forbidden_claims": [],
+    "register": "",
+}
+
+
+def test_an_answer_may_claim_the_canonical_figure():
+    assert rounding_drift(CONTRACT_PACK, "Active return is 372.6 bp.") == []
+    assert integer_format_offenders(CONTRACT_PACK, "We work 430,567 shares.") == []
+
+
+def test_the_questions_rounding_in_an_answer_is_named_drift():
+    hits = rounding_drift(CONTRACT_PACK, "Active return is 373 bp on the period.")
+    assert len(hits) == 1
+    assert hits[0].startswith(ROUNDING_DRIFT_TAG)
+    assert "active_bps" in hits[0] and "372.6" in hits[0]
+
+
+def test_drift_reads_whole_numbers_not_prefixes_of_them():
+    """The canonical figure contains its own alias as a prefix: 62.1 holds 62.
+
+    Without the boundary this rejected every correct answer whose official
+    number happened to begin with the digits of its own rounding -- which is
+    most of them, and would have made the axis unusable on its first live run.
+    """
+    pack = {**CONTRACT_PACK, "canonical": {"x": 62.1}, "aliases": {"x": ["62"]}}
+    assert rounding_drift(pack, "The figure is 62.1 exactly.") == []
+    assert rounding_drift(pack, "The figure is 62 exactly.") != []
+
+
+def test_a_sign_stripped_alias_is_a_spelling_not_a_drift():
+    """`abs(round(-164.0))` is 164: the same number, not a different one."""
+    pack = {**CONTRACT_PACK, "canonical": {"x": -164.0}, "aliases": {"x": ["164"]}}
+    assert rounding_drift(pack, "The book ran 164 bp behind.") == []
+
+
+def test_an_integer_with_a_decimal_tail_is_quoted_with_its_desk_spelling():
+    """The repair turn must be able to say what to write, not only what is wrong."""
+    assert integer_format_offenders(CONTRACT_PACK, "We work 430567.0 shares.") == [
+        "'430567.0' -- write 430,567"
+    ]
+
+
+def test_the_answer_gate_grades_canonical_while_the_union_keeps_the_alias():
+    """The split §D exists for, in one assertion pair."""
+    assert canonical_numbers(CONTRACT_PACK) == [372.6, 430567.0]
+    assert 373.0 in CONTRACT_PACK["allowed_numbers"]
+
+
+def test_a_pack_without_a_contract_grades_exactly_as_it_used_to():
+    """Backward compatibility as a property, not a hope: no canonical, no change."""
+    assert canonical_numbers(PACK) == [float(x) for x in PACK["allowed_numbers"]]
+    assert rounding_drift(PACK, _clean_text()) == []
+
+
+# --------------------------------------------------------------------------
+# Amendment §C: register is a gate. Driven through `gate_violations` rather
+# than the register module directly -- the point of §C is that the *repair
+# loop* sees these, and the repair loop calls this one function.
+# --------------------------------------------------------------------------
+
+
+def _desk_pack() -> dict:
+    return {**PACK, "register": "desk_chat"}
+
+
+def test_a_desk_chat_row_wearing_memo_headings_is_a_violation():
+    violations = gate_violations(
+        _desk_pack(), "Finding: the book is long.\n" + _clean_text(), "abstention"
+    )
+    assert any("memo headings" in v for v in violations)
+
+
+def test_a_desk_chat_row_in_plain_prose_clears_the_register_axis():
+    assert not any(
+        "register desk_chat" in v
+        for v in gate_violations(_desk_pack(), _clean_text(), "abstention")
+    )
+
+
+def test_a_risk_committee_row_that_names_no_constraint_is_a_violation():
+    pack = {**PACK, "register": "risk_committee"}
+    violations = gate_violations(pack, _clean_text(), "abstention")
+    assert any("names no limit, horizon or assumption" in v for v in violations)
+
+
+def test_an_ic_memo_may_wear_headings_but_must_make_a_call():
+    """§C's table plus the one requirement it leaves out.
+
+    Headings are permitted and not required -- a memo that leads with its call
+    is a memo. What is required is the call itself: an investment-committee
+    memo exists to produce a decision, and one that surveys the evidence and
+    stops is a research note with the wrong label. It is also the only
+    row-level lever against register collapse, since it gives ic_memo a habit
+    desk_chat does not have.
+    """
+    pack = {**PACK, "register": "ic_memo"}
+    call = " Our call is to hold the position."
+    headed = "Finding: the book is long.\n" + _clean_text() + call
+    assert not any(
+        "register ic_memo" in v for v in gate_violations(pack, headed, "abstention")
+    )
+    # No call: a survey, not a memo.
+    assert any(
+        "states no call" in v
+        for v in gate_violations(pack, _clean_text(), "abstention")
+    )
+    # The exam's closing is still not a memo's call.
+    closed = _clean_text() + call + " FINAL ANSWER: sell."
+    assert any("FINAL ANSWER" in v for v in gate_violations(pack, closed, "abstention"))
+
+
+def test_registers_that_read_alike_are_measurably_close():
+    """Axis 16's instrument, in isolation.
+
+    A per-row gate cannot see register collapse -- no single row is wrong when
+    four voices become one -- so the distinctiveness question is asked over a
+    profile of the slice. This pins that the profile actually separates prose
+    that differs and fails to separate prose that does not, which is the only
+    property that makes the axis worth reading.
+    """
+    terse = ["Cost is 12 bp. Work it patiently. Done."] * 10
+    memo = [
+        "Finding: the book is long duration against its policy weight, and the "
+        "carry no longer compensates for the convexity being given up. "
+        "Evidence: the bridge shows the whole gap in allocation. "
+        "Our call is to trim the overweight into the next print."
+    ] * 10
+    near = register_profile(terse)
+    far = register_profile(memo)
+    assert profile_distance(near, far) >= REGISTER_MIN_SEPARATION
+    # A voice compared with itself is, correctly, not separated at all.
+    assert profile_distance(near, register_profile(terse)) == 0.0
+
+
+def test_the_desk_chat_ceiling_is_reachable_inside_every_lanes_word_floor():
+    """A register and a word budget must not be contracts that cannot both close.
+
+    ``execution.tca.arrival`` speaks desk_chat in every family and still emits
+    `memo` records at a 200-word floor. At a flat twelve sentences that is a
+    17-word average and at the band's top a 46-word one, so the ceiling scales
+    -- and this is the assertion that says by how much, rather than leaving it
+    to be discovered by a lane that dead-letters every row forever.
+    """
+    from pipelines.v3.teacher.prompts import WORD_BUDGETS
+
+    for kind, (low, _high) in WORD_BUDGETS.items():
+        ceiling = desk_chat_ceiling(kind)
+        assert ceiling >= DESK_CHAT_MAX_SENTENCES
+        assert low / ceiling <= DESK_CHAT_WORDS_PER_SENTENCE + 1e-9, kind
+
+
+def test_a_memo_that_states_its_call_as_a_heading_is_making_a_call():
+    """The form the teacher actually uses, which the first version missed.
+
+    Three of four live ic_memo rows were dead-lettered for "states no call"
+    while every one of them ended `Call: <decision>`. The heading *is* the
+    call -- it is the form §C's own table licenses for this register -- and
+    the gate was already matching it in `_MEMO_HEADINGS` to permit memo
+    scaffolding. One regex said yes and one phrase list said no about the same
+    four characters, and the phrase list won.
+    """
+    pack = {**PACK, "register": "ic_memo"}
+    heading = _clean_text() + "\nCall: use 2500 as the central case."
+    assert makes_a_call(heading)
+    assert not any(
+        "states no call" in v for v in gate_violations(pack, heading, "abstention")
+    )
+    # The phrase form still counts, and so does Recommendation:.
+    assert makes_a_call("We would trim the overweight.")
+    assert makes_a_call("Recommendation: hold at the current weight.")
+    # A survey that reaches no decision is still a survey.
+    assert not makes_a_call("Finding: the book is long. Evidence: the bridge shows it.")

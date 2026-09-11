@@ -152,7 +152,11 @@ def test_http_transport_posts_json_with_authorisation(monkeypatch):
     # spelling under test.
     assert seen["headers"]["Content-type"] == "application/json"
     assert "Contenttype" not in seen["headers"], "the misspelling is back"
-    assert seen["timeout"] == 7
+    # The deadline is derived (budget / TEACHER_TOKENS_PER_SECOND, floored at
+    # timeout_s), so assert the contract rather than a literal that moves
+    # whenever a lane's budget does.
+    budget = json.loads(seen["data"].decode("utf8"))["max_tokens"]
+    assert seen["timeout"] == max(7, budget / config.TEACHER_TOKENS_PER_SECOND)
     assert json.loads(seen["data"].decode("utf8"))["model"] == "m"
     assert result.text == "hello"
 
@@ -183,20 +187,20 @@ def test_http_errors_become_teachererrors_naming_the_endpoint(monkeypatch):
         )
 
 
-def test_the_deadline_scales_with_the_budget_it_is_waiting_on(monkeypatch):
+def test_the_deadline_follows_the_work_not_a_ratio(monkeypatch):
     """A wall clock against a variable token budget is the wrong shape.
 
-    Measured on the reference box: the teacher generates ~23.6 tok/s, so a
-    fully-consumed 16384-token call needs ~694s and fits inside a 900s
-    deadline -- but the renderer buys headroom on truncation, and a 32768
-    call needs ~1388s and cannot. The whole render stage aborts on a
-    transport timeout, so an escalation that outruns the deadline turns a
-    recoverable truncation into a lost run.
+    The deadline used to be ``timeout_s * (budget / DEFAULT_MAX_TOKENS)``,
+    which was right while every call asked for 16384 and wrong the moment the
+    lanes carried their own budgets: it scaled the allowance *down* toward the
+    flat 120s for exactly the calls that needed patience. Three of four live
+    probe calls at a 20,000-token ceiling timed out while the fourth returned
+    5,080 tokens in 144s -- the endpoint was never the problem, the arithmetic
+    was.
 
-    TEACHER_TIMEOUT_S therefore means "how long one default-sized call may
-    take", and a call that asks for more tokens is allowed proportionally
-    more time. It is never allowed *less*: queueing and prefill do not shrink
-    with the budget.
+    So the deadline is now the work divided by a declared throughput, floored
+    at ``timeout_s``. Never *less* than the floor: queueing and prefill do not
+    shrink with the budget.
     """
     seen = {}
 
@@ -207,15 +211,19 @@ def test_the_deadline_scales_with_the_budget_it_is_waiting_on(monkeypatch):
     monkeypatch.setattr("pipelines.v3.teacher.client._urlopen", fake_urlopen)
     teacher = Teacher(HttpTransport("https://t.example", "k", timeout_s=100))
     messages = [{"role": "user", "content": "q"}]
-    for budget in (DEFAULT_MAX_TOKENS // 4, DEFAULT_MAX_TOKENS, DEFAULT_MAX_TOKENS * 3):
+    rate = config.TEACHER_TOKENS_PER_SECOND
+    small, large = 800, 12800
+    for budget in (small, large):
         teacher.complete(messages, model="m", max_tokens=budget)
-    assert seen[DEFAULT_MAX_TOKENS] == 100
-    assert seen[DEFAULT_MAX_TOKENS * 3] == 300, (
-        "three times the tokens, three times the wait"
-    )
-    assert seen[DEFAULT_MAX_TOKENS // 4] == 100, (
-        "a small budget never shortens the deadline"
-    )
+
+    # Below the floor the configured allowance wins: a 800-token call at 20
+    # tok/s wants 40s, and nobody gains from a 40s deadline.
+    assert seen[small] == 100, "timeout_s is a floor, never scaled down"
+    # Above it, the deadline is the work. 12,800 tokens at 20 tok/s is 640s --
+    # which the old formula would have cut to 100s, timing out a call the
+    # teacher was going to answer.
+    assert seen[large] == large / rate
+    assert seen[large] > seen[small], "more tokens, more patience"
 
 
 def test_non_json_reply_is_refused(monkeypatch):

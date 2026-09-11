@@ -109,7 +109,9 @@ ABSTENTION_PATTERNS = (
     re.compile(r"\bnot enough information\b", re.I),
     re.compile(r"\b(?:is|are) (?:not specified|unspecified|missing)\b", re.I),
     re.compile(r"\bwhich (?:.{0,30})?\b(?:did you mean|are you asking)", re.I),
-    re.compile(r"\bthis question (?:is|cannot)\b.{0,40}\b(?:ill-posed|be answered)", re.I),
+    re.compile(
+        r"\bthis question (?:is|cannot)\b.{0,40}\b(?:ill-posed|be answered)", re.I
+    ),
     re.compile(r"\bno (?:single |one )?(?:correct|right) answer\b", re.I),
 )
 
@@ -431,6 +433,38 @@ def register_match(text: str, register: str) -> bool | None:
 # --------------------------------------------------------------------------
 
 
+#: The v3 factory's own signature. A *generation* that carries it means the
+#: student learned the labelling protocol -- it is reproducing the brief it was
+#: never supposed to see -- and that is the single most direct measurement of
+#: whether the two-surface change (amendment §A) actually held. Kept as a
+#: literal for the same reason the one in `data_schema` is: `jobs` does not
+#: import `dataset`.
+TEACHER_FINGERPRINT = "Cosimo v3 teacher"
+
+#: The shapes a leaked brief takes even when the exact phrase does not survive
+#: paraphrase. Each is a token of the *contract*, not of finance: a desk answer
+#: has no reason to write "allowed_numbers", and a model that does is quoting
+#: the JSON it was trained on.
+_PROTOCOL_TELLS = (
+    "allowed_numbers",
+    "must_mention",
+    "forbidden_claim",
+    "fact_pack",
+    "word_budget",
+    "register_hint",
+    "number_policy",
+)
+
+
+def teacher_leak(text: str) -> list[str]:
+    """The factory tells this generation reproduces, in order. Empty is clean."""
+    lowered = str(text or "").casefold()
+    found = [tell for tell in _PROTOCOL_TELLS if tell.casefold() in lowered]
+    if TEACHER_FINGERPRINT.casefold() in lowered:
+        found.insert(0, TEACHER_FINGERPRINT)
+    return found
+
+
 def summarize_open_ended(rows: list[dict]) -> dict:
     """Aggregate open-ended and calibration rows into the metrics block."""
     n = len(rows)
@@ -443,14 +477,19 @@ def summarize_open_ended(rows: list[dict]) -> dict:
             "mean_new_tokens": 0.0,
             "unknown_term_rate": 0.0,
             "unknown_terms": {},
+            "teacher_leak_rate": 0.0,
+            "teacher_leak_tells": {},
         }
     marker_counts: dict[str, int] = {}
     term_counts: dict[str, int] = {}
+    tell_counts: dict[str, int] = {}
     for row in rows:
         for marker in row.get("exam_shape_markers", []):
             marker_counts[marker] = marker_counts.get(marker, 0) + 1
         for term in row.get("unknown_terms", []):
             term_counts[term] = term_counts.get(term, 0) + 1
+        for tell in row.get("teacher_leak", []) or ():
+            tell_counts[tell] = tell_counts.get(tell, 0) + 1
 
     # The three v3 metrics apply only to rows that declare the contract they
     # measure, so each carries its own denominator. Scoring an unlabelled row as
@@ -464,6 +503,16 @@ def summarize_open_ended(rows: list[dict]) -> dict:
         "exam_shape_markers": dict(sorted(marker_counts.items())),
         "abstention_rate": sum(1 for r in rows if r.get("abstention")) / n,
         "mean_new_tokens": sum(float(r.get("new_tokens") or 0) for r in rows) / n,
+        # Amendment §G's fourth number. Unlike the three above it needs no
+        # per-row contract to be scored against -- every generation either
+        # quotes the factory or does not -- so its denominator is the whole
+        # suite. A non-zero rate is not a style finding; it is the corpus
+        # having trained the labelling protocol, and it is the number that
+        # says whether §A worked.
+        "teacher_leak_rate": sum(1 for r in rows if r.get("teacher_leak")) / n,
+        "teacher_leak_tells": dict(
+            sorted(tell_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ),
         "unknown_term_rate": sum(1 for r in rows if r.get("unknown_terms")) / n,
         # Most frequent first: a term invented once is noise, a term invented in
         # thirty responses is a learned error.
@@ -488,7 +537,9 @@ def summarize_open_ended(rows: list[dict]) -> dict:
                 len(r.get("must_mention_hit") or [])
                 / (len(r.get("must_mention_hit") or []) + len(r["must_mention_missed"]))
                 for r in mentioned
-                if (len(r.get("must_mention_hit") or []) + len(r["must_mention_missed"]))
+                if (
+                    len(r.get("must_mention_hit") or []) + len(r["must_mention_missed"])
+                )
             )
             / len(mentioned)
             if mentioned
@@ -534,9 +585,7 @@ def summarize_agentic(rows: list[dict]) -> dict:
             if call_rows
             else 0.0
         ),
-        "hallucinated_tool_rate": sum(
-            1 for r in rows if r.get("hallucinated_tools")
-        )
+        "hallucinated_tool_rate": sum(1 for r in rows if r.get("hallucinated_tools"))
         / n,
         # Broken out because training contains exactly one round-trip per
         # example: this is the number that says whether chaining generalised.

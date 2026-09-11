@@ -21,10 +21,11 @@ from ..seed import pack_seed, rng_for
 from .base import (
     FactPack,
     PackError,
-    assemble_numbers,
+    assemble_contract,
     make_ticker,
     pick_as_of,
 )
+from .registers import pick_register
 
 WORK_TYPE = "valuation.equity.dcf"
 FAMILIES = ("mature_consumer", "cyclical_industrial", "fade_required")
@@ -34,6 +35,20 @@ FAMILIES = ("mature_consumer", "cyclical_industrial", "fade_required")
 # name pool the scenario is dressed in. The bands are the *scenario*, and the
 # holdout family (fade_required) is drawn from the same structural space --
 # held out by family, unseen by the student, never by luck of the seed.
+#: Issuer names, composed rather than listed. Three per family was the old
+#: pool, so twenty variants of a family were twenty write-ups of the same three
+#: companies -- the numbers moved, the scenario did not, which is the stem
+#: repaint v1 was built out of. Cross-multiplying a stem with a suffix widens
+#: the pool without a wall of literals, and the draw count is unchanged (one
+#: `rng.choice`, whatever the pool holds), so every figure these packs compute
+#: is byte-identical to what it computed before.
+_ISSUER_SUFFIXES = ("Group", "Holdings", "Co", "Industries", "Partners")
+
+
+def _issuers(*stems: str) -> tuple[str, ...]:
+    return tuple(f"{stem} {suffix}" for stem in stems for suffix in _ISSUER_SUFFIXES)
+
+
 _BANDS = {
     "mature_consumer": {
         "rev_m": (400.0, 6000.0, 1),
@@ -42,7 +57,14 @@ _BANDS = {
         "nwc_pct": (0.05, 0.20, 4),
         "wacc": (0.070, 0.115, 4),
         "g": (0.015, 0.030, 4),
-        "names": ("Northwind Consumer", "Hearthstone Foods", "Copperfield Retail"),
+        "names": _issuers(
+            "Northwind Consumer",
+            "Hearthstone Foods",
+            "Copperfield Retail",
+            "Amberlee Provisions",
+            "Fairbanks Grocery",
+            "Silverbrook Staples",
+        ),
     },
     "cyclical_industrial": {
         "rev_m": (200.0, 4000.0, 1),
@@ -51,7 +73,14 @@ _BANDS = {
         "nwc_pct": (0.08, 0.24, 4),
         "wacc": (0.085, 0.130, 4),
         "g": (0.020, 0.050, 4),
-        "names": ("Ironvale Foundry", "Blackridge Machinery", "Kestrel Industrial"),
+        "names": _issuers(
+            "Ironvale Foundry",
+            "Blackridge Machinery",
+            "Kestrel Industrial",
+            "Stonemarch Castings",
+            "Redalloy Works",
+            "Halbrook Engineering",
+        ),
     },
     "fade_required": {
         # The margin that "looks perpetual" is the teaching point of the holdout
@@ -62,7 +91,14 @@ _BANDS = {
         "nwc_pct": (0.04, 0.14, 4),
         "wacc": (0.075, 0.110, 4),
         "g": (0.025, 0.060, 4),
-        "names": ("Meridian Luxe", "Aurelian Brands Co", "Gilded Arc Holdings"),
+        "names": _issuers(
+            "Meridian Luxe",
+            "Aurelian Brands",
+            "Gilded Arc",
+            "Veranda Maison",
+            "Lumiere Atelier",
+            "Cassini Couture",
+        ),
     },
 }
 
@@ -70,7 +106,7 @@ _TAX_RATES = (0.19, 0.21, 0.24, 0.25)
 _MIN_WACC_SPREAD = 0.005
 
 
-def _draw(rng: random.Random, family: str) -> dict:
+def _draw(rng: random.Random, family: str, variant: int) -> dict:
     bands = _BANDS.get(family)
     if bands is None:
         raise PackError(f"{WORK_TYPE}: unknown scenario family {family!r}")
@@ -80,7 +116,10 @@ def _draw(rng: random.Random, family: str) -> dict:
         params[key] = round(rng.uniform(lo, hi), dp)
     params["tax"] = rng.choice(list(_TAX_RATES))
     params["n"] = rng.randint(4, 8)
-    params["name"] = rng.choice(list(bands["names"]))
+    # Indexed, not drawn -- see ``_issuers``. ``variant`` is threaded into the
+    # draw for this one field only; every figure below still comes off ``rng``.
+    issuers = bands["names"]
+    params["name"] = issuers[variant % len(issuers)]
     return params
 
 
@@ -191,24 +230,31 @@ def _build(
             "TV = FCFF_n (1 + g) / (WACC - g)",
             "EV = sum PV(FCFF_1..n) + PV(TV)",
         ],
-        # Every *printed* form joins the allow-list next to its source value:
-        # "{:.1f}" renders 21.17 as 21.2, and a token the gate cannot match is
-        # an invented number no matter which rounding produced it.
-        allowed_numbers=assemble_numbers(
+        # Every *printed* form still joins the allow-list next to its source
+        # value -- "{:.1f}" renders 21.17 as 21.2, and a token the gate cannot
+        # match is an invented number no matter which rounding produced it --
+        # but it joins as a declared *alias* of the quantity it rounds. That is
+        # the difference the amendment is after: the question may print 21.2,
+        # the answer must claim 0.2117 (or its percent), and the gate can now
+        # tell those two apart instead of admitting both as peers.
+        **assemble_contract(
             inputs,
             computed,
-            extra=(
-                round(rev),
-                round(ebit * 100, 1),
-                round(tax * 100),
-                round(capex_pct * 100, 1),
-                round(nwc_pct * 100, 1),
-                round(wacc * 100, 2),
-                round(g * 100, 2),
-                float(n),
-                20.0,
-                100.0,
-            ),
+            aliases={
+                "revenue_m": [f"{round(rev)}"],
+                "ebit_margin": [f"{ebit * 100:.1f}"],
+                "cash_tax_rate": [f"{round(tax * 100)}"],
+                "capex_pct_revenue": [f"{capex_pct * 100:.1f}"],
+                "nwc_pct_revenue_build": [f"{nwc_pct * 100:.1f}"],
+                "wacc": [f"{wacc * 100:.2f}"],
+                "terminal_growth": [f"{g * 100:.2f}"],
+            },
+            display={"revenue_m": f"{rev:,.0f}"},
+            # The sensitivity band is the question's own parameter rather than
+            # a figure about the company -- it names how far terminal growth is
+            # flexed -- but it is still a quantity an answer must be able to
+            # state, so it is canonical under its own name.
+            canonical_extra={"growth_sensitivity_pct": 20.0},
         ),
         forbidden_claims=[
             "point EV without the sensitivity",
@@ -219,7 +265,7 @@ def _build(
             "reinvestment capex working-capital",
             "terminal-growth sensitivity",
         ],
-        register=rng.choice(("desk_chat", "ic_memo")),
+        register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,
     )
@@ -229,7 +275,7 @@ def compute(family: str, variant: int) -> FactPack:
     """Deterministically build the scenario; raises PackError, never guesses."""
     seed = pack_seed(WORK_TYPE, family, variant)
     rng = rng_for(seed)
-    params = _draw(rng, family)
+    params = _draw(rng, family, variant)
     return _build(WORK_TYPE, family, variant, params, rng)
 
 

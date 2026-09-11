@@ -21,7 +21,8 @@ from __future__ import annotations
 import random
 
 from ..seed import pack_seed, rng_for
-from .base import FactPack, PackError, assemble_numbers, make_ticker, pick_as_of
+from .base import FactPack, PackError, assemble_contract, make_ticker, pick_as_of
+from .registers import pick_register
 
 WORK_TYPE = "execution.tca.arrival"
 FAMILIES = ("large_cap_intraday", "mid_cap_swing", "etf_rebalance")
@@ -51,6 +52,18 @@ _BANDS = {
         "sigma_daily": (0.013, 0.028, 4),
     },
 }
+
+#: The issuer name, as two cycled axes (see the note where it is composed).
+_HOUSES = ("North", "Vale", "Cobalt", "Reed", "Onyx", "Marrow", "Thorne")
+_SECTORS = (
+    "Materials",
+    "Logistics",
+    "Industrials",
+    "Power",
+    "Mining",
+    "Freight",
+    "Chemicals",
+)
 
 _MAX_PARTICIPATION = 0.10
 
@@ -83,10 +96,14 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
     avg_fill = round(arrival * (1.0 + signed * cost_bps / 1e4), 4)
     dollar_cost = shares * arrival * cost_bps / 1e4
 
-    name = (
-        f"{rng.choice(('North', 'Vale', 'Cobalt', 'Reed', 'Onyx'))} "
-        f"{rng.choice(('Materials', 'Logistics', 'Industrials', 'Power', 'Mining'))}"
-    )
+    # Indexed on two axes with different strides, so the twenty-five
+    # combinations are walked in order rather than sampled with collisions.
+    # Two `rng.choice` calls used to sit here and five houses times five
+    # sectors gave about sixteen distinct names over twenty variants; this
+    # gives twenty, and it costs the pack no randomness it needed elsewhere.
+    house = _HOUSES[variant % len(_HOUSES)]
+    sector = _SECTORS[(variant // len(_HOUSES)) % len(_SECTORS)]
+    name = f"{house} {sector}"
     ticker = make_ticker(rng)
     question = (
         f"Work {shares:,} shares of {name} ({ticker}) {'buy' if side == 'buy' else 'sell'}; "
@@ -127,18 +144,35 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "cost_bps = spread_bps / 2 + impact_bps",
             "avg_fill = arrival * (1 +/- cost_bps / 1e4)",
         ],
-        allowed_numbers=assemble_numbers(
+        # The question prints the vol as a percent and the participation the
+        # same way; both are roundings of a canonical fraction, so they are
+        # declared as aliases rather than smuggled into the allow-list as if
+        # they were quantities of their own. ``display`` carries the two
+        # figures the desk writes with separators -- an answer that prints
+        # `430567.0` for a share count is not wrong, it is unpublishable, and
+        # the repair turn can now name the spelling it wants.
+        **assemble_contract(
             inputs,
             computed,
-            extra=(
-                float(shares),
-                float(adv),
-                arrival,
-                spread,
-                round(sigma * 100, 2),
-                round(participation * 100, 2),
-                10.0,
-            ),
+            # One entry, because the question prints exactly one token that is
+            # not already a canonical value: the daily vol as a percent. The
+            # declaration authorises it (a pack whose question quotes a token
+            # its allow-list does not carry is a corrupt pack) and the drift
+            # axis then ignores it, `sigma * 100` being an exact spelling
+            # rather than a rounding.
+            #
+            # `participation` is deliberately absent. The question never prints
+            # it, so it is not a question rounding -- and declaring its percent
+            # form here failed every correct answer that wrote "4.86% of ADV",
+            # which is how a desk says it.
+            aliases={"sigma_daily": [f"{sigma * 100:.2f}"]},
+            display={
+                "shares": f"{shares:,}",
+                "adv_shares": f"{adv:,}",
+                "arrival_price": f"{arrival:,.2f}",
+            },
+            # The schedule cap the question asks the answer to measure against.
+            canonical_extra={"participation_cap_pct": _MAX_PARTICIPATION * 100},
         ),
         forbidden_claims=[
             "the printable mid is achievable",
@@ -151,7 +185,7 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "participation against ADV",
             "arrival versus decision benchmark",
         ],
-        register="desk_chat",
+        register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,
     )

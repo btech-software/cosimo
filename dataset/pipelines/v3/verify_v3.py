@@ -76,9 +76,11 @@ CLI -- formatting is the CLI's job, not this one's.
 
 from __future__ import annotations
 
+import itertools
 import os
 
 from . import config, write
+from . import row as rowlib
 from .packs import PackError, compute_pack
 from .render.prose import row_id
 from .oracle.runtime import SCHEMA_NAMES as ADVERTISED_NAMES
@@ -96,9 +98,18 @@ from .verification.exam import (
 )
 from .verification.prose import (
     FINAL_ANSWER_TAG,
+    canonical_numbers,
     forbidden_hits,
+    integer_format_offenders,
     missing_mentions,
+    rounding_drift,
     whitelist_for,
+)
+from .verification.register import (
+    REGISTER_MIN_SEPARATION,
+    profile_distance,
+    register_profile,
+    register_violations,
 )
 from .verification.invented_numbers import invented_numbers
 from .verification.implementation import (
@@ -127,7 +138,13 @@ from .verification.preference import (
 #: run that reports them skipped rather than having paid for them. The publish
 #: gate, by contrast, refuses on a report where any of them was skipped.
 EXPENSIVE_AXES = frozenset(
-    {"hidden tests", "preference disjointness", "gold-bar near-dup"}
+    {
+        "hidden tests",
+        "preference disjointness",
+        "gold-bar near-dup",
+        "corpus near-dup",
+        "register separation",
+    }
 )
 
 #: The axes implemented so far, in spec order, named as the board prints them.
@@ -146,6 +163,13 @@ AXES = (
     (12, "preference disjointness"),
     (13, "gold-bar near-dup"),
     (14, "teacher pinned"),
+    # The two axes the numeric gates are blind to by construction. Every row a
+    # fact computer produces is impeccable *about its own pack*, so a corpus
+    # can repaint one scenario twenty times, or write four registers in one
+    # voice, and axes 1-14 stay green on every one of them. Both are properties
+    # of the *slice*, so both are measured after the rows are read.
+    (15, "corpus near-dup"),
+    (16, "register separation"),
 )
 
 #: The agentic record type, named once: the board branches on it, the
@@ -153,43 +177,50 @@ AXES = (
 #: are populated only by rows that claim it.
 AGENTIC_KIND = "agentic"
 
+#: What every row must carry before a model's word is even read.
+#: ``variant`` + ``scenario_id`` are not decoration: without them the row
+#: cannot be re-derived from the computers, and axis 2 is the axis the whole
+#: v3 design rests on.
+#:
+#: ``messages`` is gone from the shared list and that is the amendment's §A
+#: change. A prose row's prompt *is* its question; the message list it used to
+#: carry was the teacher's brief, and requiring it here is what made the brief
+#: look like part of the contract. The three kinds whose prompt genuinely is a
+#: transcript still declare it, in their own required lists below.
+#:
+#: ``family``, ``holdout``, ``fact_pack`` and ``verified`` are new and required:
+#: they are what lets a reader downstream refuse a leak without re-deriving one
+#: (``holdout``), score a row against its own contract without re-running the
+#: generator (``fact_pack``), and read the corpus's claim about a row rather
+#: than a proxy for it (``verified``).
+ROW_REQUIRED = (
+    "id",
+    "record_type",
+    "work_type",
+    "scenario_id",
+    "family",
+    "holdout",
+    "variant",
+    "question",
+    "answer",
+    "register",
+    "fact_pack",
+    "verified",
+    "verification",
+)
+
 #: What every agentic row must carry before any transcript is read: the
 #: prose fields' coordinates plus the two the replay and the registry audit
 #: cannot do without (the advertised schemas, and the calls the transcript
 #: claims ran -- the second is redundant with the transcript and checked as
 #: consistency, which is exactly why an ``answer`` can be tampered with here
 #: and still be caught).
-_AGENTIC_ROW_REQUIRED = (
-    "id",
-    "record_type",
-    "work_type",
-    "scenario_id",
-    "variant",
-    "question",
-    "answer",
+_AGENTIC_ROW_REQUIRED = ROW_REQUIRED + (
     "messages",
-    "register",
-    "verification",
     "tool_names",
     "tool_schemas",
 )
 
-#: What every prose row must carry before a model's word is even read.
-#: ``variant`` + ``scenario_id`` are not decoration: without them the row
-#: cannot be re-derived from the computers, and axis 2 is the axis the whole
-#: v3 design rests on.
-ROW_REQUIRED = (
-    "id",
-    "record_type",
-    "work_type",
-    "scenario_id",
-    "variant",
-    "question",
-    "answer",
-    "messages",
-    "register",
-    "verification",
-)
 
 #: What every exam row must carry beyond the shared coordinates: the item's
 #: own anatomy. ``options``/``answer_value`` are redundant with the answer by
@@ -197,6 +228,8 @@ ROW_REQUIRED = (
 #: pack, and every stored field that disagrees with the recomposition is a
 #: tamper finding, not a style choice.
 _EXAM_ROW_REQUIRED = ROW_REQUIRED + (
+    "messages",
+    "question_text",
     "options",
     "answer_value",
     "answer_key",
@@ -208,6 +241,7 @@ _EXAM_ROW_REQUIRED = ROW_REQUIRED + (
 #: the pack -- their presence here is only so a half-pasted row is a *schema*
 #: finding rather than a ``KeyError`` inside the sandbox call.
 _IMPL_ROW_REQUIRED = ROW_REQUIRED + (
+    "messages",
     "spec",
     "reference_code",
     "public_tests",
@@ -222,7 +256,11 @@ def _family_of(row: dict) -> str:
 
 
 def _check_row(
-    row: dict, dead_ids: frozenset[str], *, quick: bool = False
+    row: dict,
+    dead_ids: frozenset[str],
+    *,
+    quick: bool = False,
+    expect_holdout: bool = False,
 ) -> dict[str, list[str]]:
     """Per-axis failure messages for one row; empty lists mean clean."""
     failures: dict[str, list[str]] = {name: [] for _, name in AXES}
@@ -239,10 +277,15 @@ def _check_row(
         missing = [field for field in _AGENTIC_ROW_REQUIRED if field not in row]
         if missing:
             failures["schema"].append(f"missing fields: {', '.join(missing)}")
-        if roles[:2] != ["system", "user"] or (roles and roles[-1] != "assistant"):
+        if roles[:1] != ["user"] or (roles and roles[-1] != "assistant"):
             failures["schema"].append(
-                f"an agentic transcript must open system/user and close on the "
-                f"desk's answer; roles read {roles!r}"
+                f"an agentic transcript must open on the user's goal and close "
+                f"on the desk's answer; roles read {roles!r}"
+            )
+        if "system" in roles:
+            failures["schema"].append(
+                "an agentic transcript carries a system turn -- that is the "
+                "factory's brief, not the student's prompt (amendment §A)"
             )
         if isinstance(answer, str) and answer.strip() and roles[-1:] == ["assistant"]:
             if (row["messages"][-1] or {}).get("content") != answer:
@@ -268,9 +311,21 @@ def _check_row(
         missing = [field for field in _EXAM_ROW_REQUIRED if field not in row]
         if missing:
             failures["schema"].append(f"missing fields: {', '.join(missing)}")
-        if roles != ["system", "user", "assistant"]:
+        if roles != ["user", "assistant"]:
             failures["schema"].append(
-                f"an exam row must read system/user/assistant; roles read {roles!r}"
+                f"an exam row must read user/assistant -- the answer protocol is "
+                f"the harness's to bind, not the corpus's; roles read {roles!r}"
+            )
+        # Guarded on `roles`, not on the key: `_EXAM_ROW_REQUIRED` catches a
+        # *missing* `messages`, and an empty list would sail past it straight
+        # into an IndexError. The board reports findings; it does not crash on
+        # the malformed rows it exists to find.
+        if roles and row.get("question_text") != (row["messages"][0] or {}).get(
+            "content"
+        ):
+            failures["schema"].append(
+                "question_text and the user turn have drifted apart; the item's "
+                "options must be one string, not two"
             )
         if isinstance(answer, str) and roles[-1:] == ["assistant"]:
             if (row["messages"][-1] or {}).get("content") != answer:
@@ -287,10 +342,11 @@ def _check_row(
         missing = [field for field in _IMPL_ROW_REQUIRED if field not in row]
         if missing:
             failures["schema"].append(f"missing fields: {', '.join(missing)}")
-        if roles != ["system", "user", "assistant"]:
+        if roles != ["user", "assistant"]:
             failures["schema"].append(
-                f"an implementation row must read system/user/assistant; roles "
-                f"read {roles!r}"
+                f"an implementation row must read user/assistant -- the spec is "
+                f"the prompt, the factory's brief around it is not; roles read "
+                f"{roles!r}"
             )
         if isinstance(answer, str) and roles[-1:] == ["assistant"]:
             if (row["messages"][-1] or {}).get("content") != answer:
@@ -299,19 +355,18 @@ def _check_row(
                     "text, ship another)"
                 )
     else:
-        if roles != ["system", "user", "assistant"]:
+        # A prose row carries no transcript at all. Its prompt is its question
+        # and its target is its answer; the brief that produced it -- system
+        # turn, JSON contract, word budget -- is the teacher log's, and a prose
+        # row that still has `messages` came out of a renderer that predates
+        # the two-surface split (amendment §A).
+        if "messages" in row:
             failures["schema"].append(
-                f"message roles are {roles!r}, not the prose triad system/user/assistant"
+                "a prose row carries `messages` -- that is the teacher's brief, "
+                "and the only trainable surface is question + answer"
             )
         if not isinstance(answer, str) or not answer.strip():
             failures["schema"].append("answer is empty")
-        elif roles == ["system", "user", "assistant"]:
-            assistant = (row["messages"][2] or {}).get("content")
-            if assistant != answer:
-                failures["schema"].append(
-                    "answer and the assistant turn have drifted apart (verify one "
-                    "text, ship another)"
-                )
         if kind not in BRIEF_KINDS:
             failures["schema"].append(f"record_type {kind!r} is not a prose kind")
     if not str(rid).startswith(f"{config.SUPERVISED_ID_PREFIX}_"):
@@ -323,6 +378,28 @@ def _check_row(
         failures["schema"].append(
             "row is simultaneously live in sft/ and dead-lettered -- one of the "
             "two files is lying; delete the entry that is wrong and replay"
+        )
+    # The §A leak fingerprint, read at the board as well as at prepare. Two
+    # gates on one rule is deliberate: the corpus must refuse to *ship* a row
+    # that carries the factory's protocol, and the harness must refuse to
+    # *train* on one, because the two subsystems join on the Hub and either can
+    # be handed bytes the other never saw.
+    if rowlib.carries_teacher_brief(row):
+        failures["schema"].append(
+            f"row carries the teacher fingerprint {config.TEACHER_FINGERPRINT!r} "
+            "-- the factory's own brief reached a trainable surface (§A)"
+        )
+    if row.get("verified") is not True:
+        failures["schema"].append(
+            "row does not claim `verified: true`; a shard row is the corpus's "
+            "assertion that its gates passed, not a place to leave the claim open"
+        )
+    if bool(row.get("holdout")) is not bool(expect_holdout):
+        where = "eval/" if expect_holdout else "sft/"
+        failures["schema"].append(
+            f"row says holdout={row.get('holdout')!r} but was read out of "
+            f"{where} -- a holdout family in a training shard is the one leak "
+            "no downstream number can un-certify"
         )
     if failures["schema"]:
         # Axes 2-5 and 10 grade content, and content cannot be located
@@ -468,10 +545,23 @@ def _check_row(
 
     # -- axes 3-5: the words, against the re-derived contract --------------
     pack_dict = pack.to_dict()
+    # Against ``canonical``, not the union, exactly as the render gate now
+    # reads it: one policy, three call sites is the rule this whole module
+    # exists to keep, and an auditor that graded against a looser authority
+    # than the generator did would certify rows the generator would have
+    # repaired (amendment §D).
     for token in invented_numbers(
-        answer, pack.allowed_numbers, whitelist_for(pack_dict)
+        answer, canonical_numbers(pack_dict), whitelist_for(pack_dict)
     ):
         failures["invented numbers"].append(f"{token!r} is not in the fact pack")
+    for drift in rounding_drift(pack_dict, answer):
+        failures["invented numbers"].append(drift)
+    for spelled in integer_format_offenders(pack_dict, answer):
+        failures["invented numbers"].append(
+            f"whole number written with a decimal tail: {spelled}"
+        )
+    for violation in register_violations(pack.register, answer, kind=kind):
+        failures["schema"].append(violation)
     for point in missing_mentions(pack_dict, answer):
         failures["must_mention / forbidden_claims"].append(
             f"must_mention not covered: {point!r}"
@@ -660,6 +750,145 @@ def _measure_teacher_pinning(axes_report: dict, rows: list[dict]) -> None:
             )
 
 
+#: Record types whose answers are *meant* to repeat, so the repaint axis must
+#: not read them. ``implementation`` ships the reviewed reference instrument
+#: from ``verification.impl_references`` -- one function per work type, byte
+#: identical across every variant, and that identity is the contract: the board
+#: re-executes those exact bytes, and a lane that wrote a different instrument
+#: per variant would be a lane nobody had reviewed. Their *diversity* lives in
+#: the suites and the dirty fixture, which the hidden-test axis already proves.
+_NEAR_DUP_EXEMPT = frozenset({IMPL_KIND})
+
+
+def _measure_corpus_near_dup(axes_report: dict, rows: list[dict]) -> None:
+    """Axis 15: no two rows of a cell may be the same telling, numbers aside.
+
+    The gold-bar fence looks outward and this looks in. Nothing else on the
+    board can: a repainted scenario passes the recompute axis (its pack is
+    real), the invented-number axis (its figures are the pack's) and the share
+    axes (it is one row like any other). The only thing wrong with it is that
+    the corpus already contains it, and that is a statement about a *pair*.
+
+    Compared within ``(work_type, record_type)`` rather than across the corpus.
+    Two work types answering different questions should differ, and saying so
+    costs a quadratic sweep over thousands of rows to learn nothing; the repaint
+    this exists to catch lives between variants of one family and between
+    families of one computer, and both sit inside the cell.
+    """
+    axis = axes_report["corpus near-dup"]
+    cells: dict[tuple[str, str], list[dict]] = {}
+    for row in rows:
+        answer = row.get("answer")
+        if not isinstance(answer, str) or not answer.strip():
+            continue  # a shapeless row is axis 1's finding, already filed
+        if row.get("record_type") in _NEAR_DUP_EXEMPT:
+            continue
+        cells.setdefault(
+            (str(row.get("work_type")), str(row.get("record_type"))), []
+        ).append(row)
+
+    checked = pairs = flagged = 0
+    thin: list[str] = []
+    for (work_type, kind), cell in sorted(cells.items()):
+        checked += len(cell)
+        if len(cell) < config.NEAR_DUP_MIN_ROWS:
+            thin.append(f"{work_type}/{kind} ({len(cell)})")
+            continue
+        for left, right in itertools.combinations(cell, 2):
+            pairs += 1
+            overlap = shingle_overlap(left["answer"], right["answer"])
+            if overlap < config.CORPUS_NEAR_DUP_THRESHOLD:
+                continue
+            flagged += 1
+            if len(axis["failures"]) < config.NEAR_DUP_MAX_REPORTED:
+                axis["failures"].append(
+                    {
+                        "id": left.get("id", "?"),
+                        "problem": (
+                            f"reads {overlap:.2f} against {right.get('id', '?')} "
+                            f"(threshold {config.CORPUS_NEAR_DUP_THRESHOLD}) -- two "
+                            "rows of one cell telling the same thing is repaint, "
+                            "not coverage"
+                        ),
+                    }
+                )
+    axis["checked"] = checked
+    notes = []
+    if pairs:
+        notes.append(f"{flagged} of {pairs} in-cell pairs at or over threshold")
+    if flagged > len(axis["failures"]):
+        notes.append(f"only the first {len(axis['failures'])} named")
+    if thin:
+        notes.append(
+            f"below the {config.NEAR_DUP_MIN_ROWS}-row support, not swept: "
+            + ", ".join(thin[:4])
+        )
+    if notes and not axis["failures"]:
+        axis["note"] = "; ".join(notes)
+
+
+def _measure_register_separation(axes_report: dict, rows: list[dict]) -> None:
+    """Axis 16: the registers must be *distinguishable*, not merely labelled.
+
+    ``verification.register`` is a per-row gate and it can only ask whether a
+    row breaks the shape its own register forbids. That catches a desk note
+    wearing memo headings; it cannot catch every register writing one voice,
+    because no single row is wrong -- the corpus is. So the distinctiveness
+    question is asked here, where the slice is, and asked as a measurement
+    rather than a rule: a row is never failed for it.
+
+    The profile is deliberately crude -- how long the sentences run, how often
+    headings appear, how often a call is made. Three numbers a reader can
+    argue with beat a similarity score nobody can act on, and the failure this
+    is watching for is gross: ``register_match`` collapsing while every other
+    axis reads clean.
+    """
+    axis = axes_report["register separation"]
+    by_register: dict[str, list[dict]] = {}
+    for row in rows:
+        answer = row.get("answer")
+        register = str(row.get("register") or "")
+        if register and isinstance(answer, str) and answer.strip():
+            by_register.setdefault(register, []).append(row)
+    axis["checked"] = sum(len(v) for v in by_register.values())
+
+    profiles = {
+        register: register_profile([r["answer"] for r in cell])
+        for register, cell in by_register.items()
+        if len(cell) >= config.NEAR_DUP_MIN_ROWS
+    }
+    if len(profiles) < 2:
+        axis["note"] = (
+            "fewer than two registers have the "
+            f"{config.NEAR_DUP_MIN_ROWS}-row support a comparison needs; "
+            "separation not measured"
+        )
+        return
+    collapsed = []
+    for left, right in itertools.combinations(sorted(profiles), 2):
+        distance = profile_distance(profiles[left], profiles[right])
+        if distance < REGISTER_MIN_SEPARATION:
+            collapsed.append(f"{left} vs {right} ({distance:.2f})")
+    summary = ", ".join(
+        f"{name}={profiles[name]['sentence_len']:.0f}w/sentence "
+        f"heads={profiles[name]['heading_rate']:.2f} "
+        f"calls={profiles[name]['call_rate']:.2f}"
+        for name in sorted(profiles)
+    )
+    if collapsed:
+        # Reported, never red. A collapsed register is a finding about the
+        # *briefs* -- the teacher was asked for four voices and gave one -- and
+        # failing the board would block a publish on prose nobody has read yet.
+        # The number belongs where a human decides, which is this note and the
+        # `register_match` column of `09_assistant_eval`.
+        axis["note"] = (
+            "registers read alike, separation below "
+            f"{REGISTER_MIN_SEPARATION}: " + "; ".join(collapsed) + f" | {summary}"
+        )
+    else:
+        axis["note"] = f"separated | {summary}"
+
+
 def _measure_gold_bar(axes_report: dict, rows: list[dict], gold_bar_path: str) -> None:
     """Axis 13: no training row may read like a gold-bar item (spec §5.11).
 
@@ -824,29 +1053,40 @@ def verify_dir(
     for kind in kinds:
         if kind == PREFER_KIND:
             continue  # pairs live in their own shard and their own config
-        path = write.path_for("sft", kind, out_dir)
-        try:
-            rows = write.read_jsonl(path)
-        except ValueError as exc:  # a corrupt shard is itself a finding
-            axes_report["schema"]["failures"].append({"id": path, "problem": str(exc)})
-            ok = False
-            continue
         dead_ids = write.existing_ids(write.path_for("dead_letter", kind, out_dir))
-        for row in rows:
-            rows_seen += 1
-            all_rows.append(row)
-            # One audit per row, all axes read from it: ``_check_row``
-            # re-derives the pack, and doing that once per axis multiplied the
-            # bill by the number of axes for nothing.
-            result = _check_row(row, dead_ids, quick=quick)
-            for _, name in AXES:
-                if name in skipped:
-                    continue
-                axes_report[name]["checked"] += 1
-                for problem in result[name]:
-                    axes_report[name]["failures"].append(
-                        {"id": row.get("id", "?"), "problem": problem}
-                    )
+        # Both cohorts, each audited against what its own bucket claims. The
+        # eval tree is held to exactly the same axes -- a gold-bar row nobody
+        # verified is worth less than no eval slice at all -- but its rows are
+        # kept out of ``all_rows``, because the share axes measure the *training*
+        # distribution and an eval family is not competing for training rows.
+        for bucket, expect_holdout in (("sft", False), ("eval", True)):
+            path = write.path_for(bucket, kind, out_dir)
+            try:
+                rows = write.read_jsonl(path)
+            except ValueError as exc:  # a corrupt shard is itself a finding
+                axes_report["schema"]["failures"].append(
+                    {"id": path, "problem": str(exc)}
+                )
+                ok = False
+                continue
+            for row in rows:
+                rows_seen += 1
+                if not expect_holdout:
+                    all_rows.append(row)
+                # One audit per row, all axes read from it: ``_check_row``
+                # re-derives the pack, and doing that once per axis multiplied
+                # the bill by the number of axes for nothing.
+                result = _check_row(
+                    row, dead_ids, quick=quick, expect_holdout=expect_holdout
+                )
+                for _, name in AXES:
+                    if name in skipped:
+                        continue
+                    axes_report[name]["checked"] += 1
+                    for problem in result[name]:
+                        axes_report[name]["failures"].append(
+                            {"id": row.get("id", "?"), "problem": problem}
+                        )
     if PREFER_KIND in kinds and not quick:
         parent_cache: dict[str, dict[str, dict]] = {}
 
@@ -889,5 +1129,7 @@ def verify_dir(
     _measure_teacher_pinning(axes_report, all_rows)
     if not quick:
         _measure_gold_bar(axes_report, all_rows, bar_path)
+        _measure_corpus_near_dup(axes_report, all_rows)
+        _measure_register_separation(axes_report, all_rows)
     ok = ok and not any(a["failures"] for a in axes_report.values())
     return {"ok": ok, "rows": rows_seen, "axes": axes_report}

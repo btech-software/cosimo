@@ -71,11 +71,10 @@ from pipelines.v3.prefer import gate_problems, rejected_problems_of  # noqa: E40
 from pipelines.v3.render.prose import select_prose_jobs  # noqa: E402
 from pipelines.v3.teacher import routing  # noqa: E402
 from pipelines.v3.teacher.client import (  # noqa: E402
-    DEFAULT_MAX_TOKENS,
     build_body,
     canonical_request,
 )
-from pipelines.v3.teacher.prompts import render_brief  # noqa: E402
+
 from pipelines.v3.verification.invented_numbers import invented_numbers  # noqa: E402
 from pipelines.v3.verification.preference import (  # noqa: E402
     WRONG_MODEL_SIGNS,
@@ -92,9 +91,18 @@ DUMMY_MODEL = "fixture-pref"
 #: for a subset of what is captured -- capture wider than any one run asks,
 #: deep enough that the walk visits every work type and therefore every
 #: licensed crime: ``overconfident_abstention_fail`` is only licensed by the
-#: var_es families, and a fixture that has never met a detector has never
-#: tested it.
-DEFAULT_LIMIT = 120
+#: var_es families, ``look_ahead`` only by the dcf ones, and a fixture that has
+#: never met a detector has never tested it.
+#:
+#: 240, up from 120. The depth needed is a property of the *plan*, not a
+#: constant: the walk visits work types in sorted order, so how far it must go
+#: to reach ``valuation.equity.dcf`` -- the sole licensor of ``look_ahead`` --
+#: depends on how many rows the three work types ahead of it contribute. The
+#: amendment's WIP counts left every family untruncated by the family cap, and
+#: 120 no longer reached the fourth work type. ``test_preference_fixture``
+#: asserts the coverage rather than the number, so a plan edit that moves it
+#: again fails loudly here instead of silently retiring a detector.
+DEFAULT_LIMIT = 240
 DEFAULT_TYPES = tuple(sorted(config.PREF_PROBABILITIES))
 
 #: The figure from memory the ``tool_skip`` rejected side quotes, tried in
@@ -155,15 +163,36 @@ def compose_chosen(pack: dict, kind: str) -> str:
 
     low, high = WORD_BUDGETS[kind]
     figures = _quoteable_figures(pack)
+    # Three figures to a sentence, matching the prose harness. One apiece put
+    # a desk_chat paraphrase at fifteen sentences against the §C ceiling of
+    # twelve -- the register gate's first catch on its own build, and the right
+    # catch: a second telling that runs longer than the desk speaks is not the
+    # same register, whatever the pack's label says.
     figure_lines = [
-        f"The {key.replace('_', ' ')} reads {_dec(value)} in this telling."
-        for key, value in figures
+        "This telling reads "
+        + ", ".join(
+            f"{key.replace('_', ' ')} at {_dec(value)}"
+            for key, value in figures[i : i + 3]
+        )
+        + "."
+        for i in range(0, len(figures), 3)
     ]
     tail_lines = [
         point.strip().rstrip(".") + "."
         for point in reversed(pack.get("must_mention") or [])
     ] + [
-        f"On the question: {pack['question'].strip()}",
+        # Not the question verbatim, which is what this line used to carry.
+        # A question prints the roundings the answer may not claim -- `1.89%`
+        # of a canonical `0.0189` -- so quoting it made the paraphrase commit
+        # the rounding drift §D now gates, and the build assertion below said
+        # so. The pair's distance from its target comes from the reordering
+        # and the figure spellings, not from a block of shared prose.
+        f"The scenario is a {pack['work_type']} read, as of {pack['as_of']}.",
+        # The register's own closing move, borrowed from the prose harness:
+        # `ic_memo` must make a call, and a paraphrase that dropped it would
+        # flunk the gate its target passed. A second telling changes the
+        # telling, not the register.
+        prose_harness._CLOSINGS.get(pack.get("register") or "", ""),
         "Figures as the pack prints them; the arranging is mine.",
     ]
 
@@ -181,10 +210,19 @@ def compose_chosen(pack: dict, kind: str) -> str:
     #: Padding with no digits of its own: a filler that carried a numeral
     #: would be the paraphrase inventing one, caught by the very gate this
     #: build is proving against.
+    #:
+    #: Long, not terse, and that is the register gate's doing. Each filler is
+    #: one sentence, so short ones bought words at the price of sentences --
+    #: and a desk_chat memo has a 200-word floor under a 15-sentence ceiling,
+    #: which three-line padding cannot reach. Roughly twenty words apiece
+    #: clears both.
     fillers = (
-        "Restated for the pair: the pack's own numbers, the desk's own words.",
-        "Nothing here reaches beyond the pack, and nothing of the pack is left out.",
-        "The figures stand; only the ordering moves.",
+        "Restated for the pair: these are the pack's own numbers arranged in "
+        "the desk's own words, with nothing added and nothing quietly dropped.",
+        "Nothing in this telling reaches beyond the fact pack, and nothing the "
+        "pack asks to be covered has been left out of it on the way through.",
+        "The figures stand exactly as they were computed; only the ordering of "
+        "the argument around them has moved, which is the whole of the change.",
     )
     filler = 0
     while words(lines) < low and filler < 60:
@@ -319,20 +357,28 @@ def compose_rejected(
 
 
 def _prompt(pack: dict, kind: str) -> list[dict]:
-    """The two turns the pair answers into -- as the stage will rebuild them
-    from the shipped row's own messages, role and content only."""
-    return [
-        {"role": message["role"], "content": message["content"]}
-        for message in render_brief(pack, kind=kind)[:2]
-    ]
+    """The turn the pair answers into -- the student's question, as the stage
+    builds it.
+
+    One user turn, not the parent row's first two messages. Those were the
+    teacher's system turn and the JSON contract, and copying them onto every
+    pair put the labelling protocol into the preference config as squarely as
+    it sat in the supervised one (§A). ``kind`` is unused now and kept in the
+    signature because the callers key their tables on (pack, kind) pairs.
+    """
+    del kind
+    return [{"role": "user", "content": pack["question"]}]
 
 
 def request_body_chosen(pack: dict, kind: str, answer: str) -> dict:
     return build_body(
-        chosen_brief(_prompt(pack, kind), answer),
+        chosen_brief(_prompt(pack, kind), answer, kind),
         model=DUMMY_MODEL,
         temperature=config.PREF_TEMPERATURES[0],
-        max_tokens=DEFAULT_MAX_TOKENS,
+        # The lane's cap, not the client's flat default: the amendment moved
+        # the completion budget onto the route (think-off 800, think-on 2048),
+        # and the budget is part of every body this table hashes.
+        max_tokens=routing.route(kind).max_tokens,
         think=routing.route(kind).think,
     )
 
@@ -342,7 +388,10 @@ def request_body_rejected(pack: dict, kind: str, pitfall: str) -> dict:
         rejected_brief(_prompt(pack, kind), pack["work_type"], pitfall),
         model=DUMMY_MODEL,
         temperature=config.PREF_TEMPERATURES[0],
-        max_tokens=DEFAULT_MAX_TOKENS,
+        # The lane's cap, not the client's flat default: the amendment moved
+        # the completion budget onto the route (think-off 800, think-on 2048),
+        # and the budget is part of every body this table hashes.
+        max_tokens=routing.route(kind, rejected=True).max_tokens,
         think=routing.route(kind, rejected=True).think,
     )
 

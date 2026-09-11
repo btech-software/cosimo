@@ -17,7 +17,8 @@ import math
 import random
 
 from ..seed import pack_seed, rng_for
-from .base import FactPack, PackError, assemble_numbers, pick_as_of
+from .base import FactPack, PackError, assemble_contract, pick_as_of
+from .registers import pick_register
 
 WORK_TYPE = "portfolio.attribution.brinson_carino"
 FAMILIES = ("global_equity_long", "us_small_cap", "em_multi_asset")
@@ -41,11 +42,68 @@ _SECTORS = {
     # Brinson arithmetic most often gets quietly mis-stated.
     "em_multi_asset": ("Local Equity", "Hard-Debt", "Commodities", "Local Rates"),
 }
-_BOOKS = {
-    "global_equity_long": "Global Equity Long",
-    "us_small_cap": "US Small Cap Core",
-    "em_multi_asset": "EM Multi-Asset",
+#: The book each family's scenario is attributed for, as a *pool* rather than a
+#: name. It used to be one string per family, so twenty variants of
+#: ``us_small_cap`` were twenty attributions of "US Small Cap Core" -- the same
+#: book, the same three sectors, different arithmetic. That is v1's stem repaint
+#: at a smaller constant: the numbers vary and the scenario does not, and a
+#: student reading twenty of them learns the mandate, not the method.
+#:
+#: Composed from parts so the pool is wide without being a wall of literals,
+#: and *indexed by variant* rather than drawn (see ``_book_for``).
+_BOOK_HOUSES = {
+    "global_equity_long": (
+        "Global",
+        "International",
+        "World",
+        "Developed Markets",
+        "Cross-Border",
+        "Pan-Regional",
+    ),
+    "us_small_cap": (
+        "US Small Cap",
+        "Domestic Small Cap",
+        "Russell Complement",
+        "Micro & Small Cap",
+        "North American Small Cap",
+        "Small Cap Value",
+    ),
+    "em_multi_asset": (
+        "EM",
+        "Frontier & EM",
+        "Emerging Markets",
+        "EM Local",
+        "Asia ex-Japan",
+        "LatAm & EEMEA",
+    ),
 }
+
+#: The sleeve names a house is run under. Cross-multiplied with the houses
+#: above, so six houses and five sleeves give thirty distinct books per family
+#: -- more than the twenty variants any family currently plans, which is what
+#: makes ``_book_for`` collision-free rather than merely less collision-prone.
+_BOOK_SLEEVES = ("Core", "Composite", "Sleeve", "Mandate", "Book")
+
+_BOOKS = {
+    family: tuple(f"{house} {sleeve}" for house in houses for sleeve in _BOOK_SLEEVES)
+    for family, houses in _BOOK_HOUSES.items()
+}
+
+
+def _book_for(family: str, variant: int) -> str:
+    """The book this variant attributes, cycled over the family's pool.
+
+    Indexed, not drawn, and that is deliberate twice over. It consumes no
+    ``rng`` draw -- the old code was a bare dict lookup, so every figure in
+    this pack stays byte-identical to what it computed before -- and cycling
+    beats sampling at the job in hand: twenty draws from a thirty-name pool
+    collide about seven times by the birthday argument, while twenty indices
+    into it collide never.
+    """
+    pool = _BOOKS.get(family)
+    if not pool:
+        raise PackError(f"{WORK_TYPE}: unknown scenario family {family!r}")
+    return pool[variant % len(pool)]
 
 
 def _carino_factors(rp: float, rb: float) -> float:
@@ -120,7 +178,7 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             for s in chosen
         },
     }
-    book = _BOOKS[family]
+    book = _book_for(family, variant)
     sector_list = ", ".join(chosen)
     direction = "ahead of" if active_bps >= 0 else "behind"
     question = (
@@ -148,16 +206,28 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "sel_i = wp_i (rp_i - rb_i) k",
             "inter_i = (wp_i - wb_i)(rp_i - rb_i) k",
         ],
-        allowed_numbers=assemble_numbers(
+        # The amendment's worked example: the question says "behind the policy
+        # mix by 373 bp" because that is how a memo opens, while the arithmetic
+        # is 372.6. Both used to sit in ``allowed_numbers`` as peers, so an
+        # answer could quote either and the gate had no opinion. Now 373 is
+        # declared for what it is -- the question's rounding of ``active_bps``
+        # -- and an answer that reaches for it is reported as rounding drift.
+        **assemble_contract(
             inputs,
             computed,
-            extra=(
-                round(rp_total * 100, 2),
-                round(rb_total * 100, 2),
-                abs(round(active_bps)),
-                float(abs(round(active_bps))),
-                100.0,
-            ),
+            # Every token the question prints that is not already canonical.
+            # All three are authorised by being declared; only the first can
+            # ever be *drift*, and it is the amendment's own example -- the
+            # question opens "behind the policy mix by 373 bp" where the
+            # arithmetic says 372.6. The two returns are printed to two
+            # decimals, and "the book returned 3.31%" of a 3.309% figure is how
+            # a memo is written, so `rounding_drift` refuses to argue with it.
+            aliases={
+                "active_bps": [f"{abs(round(active_bps))}"],
+                "portfolio_return": [f"{rp_total * 100:.2f}"],
+                "benchmark_return": [f"{rb_total * 100:.2f}"],
+            },
+            display={"active_bps": f"{active_bps:,.1f}"},
         ),
         forbidden_claims=[
             "attribution explains the next period",
@@ -168,7 +238,7 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "allocation versus selection",
             "skill signal",
         ],
-        register="ic_memo",
+        register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,
     )

@@ -23,6 +23,7 @@ for _p in (_HERE, os.path.join(_HERE, "fixtures")):
 
 import make_prose_fixture as prose_harness  # noqa: E402
 from pipelines.v3 import cli, config, inventory, stage, write  # noqa: E402
+from pipelines.v3.verify_v3 import AXES  # noqa: E402
 
 
 def _outerr(capsys) -> str:
@@ -100,7 +101,10 @@ def test_render_then_verify_exit_zero_over_a_clean_corpus(
     assert "6 rows rendered" in rendered and "0 dead-lettered" in rendered
     assert cli.main(["verify", "--out", out]) == cli.EXIT_OK
     board = _outerr(capsys)
-    assert "clean across 14 axes" in board
+    # Read off the table, not a literal: the board grows (the amendment
+    # added the two axes the numeric gates are blind to), and a test that
+    # pinned the count would fail for the one reason that is good news.
+    assert f"clean across {len(AXES)} axes" in board
     assert len(write.read_jsonl(write.path_for("sft", "analysis", out))) == 6
 
 
@@ -201,7 +205,6 @@ def test_verify_fails_the_exit_code_on_a_tampered_shard(
     path = write.path_for("sft", "analysis", out)
     rows = write.read_jsonl(path)
     rows[0]["answer"] += " FINAL ANSWER: tampered."
-    rows[0]["messages"][-1]["content"] = rows[0]["answer"]
     write.write_jsonl(path, rows)
     assert cli.main(["verify", "--out", out]) == cli.EXIT_DATA
     assert "VERIFY FAIL" in _outerr(capsys)

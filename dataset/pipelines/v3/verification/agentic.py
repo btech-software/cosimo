@@ -195,11 +195,20 @@ def trajectory_violations(
     post-mortems the dead letter.
     """
     violations: list[str] = []
-    if not messages or messages[0].get("role") != "system" or len(messages) < 2:
-        return ["the conversation does not open with the system turn"]
-    if messages[1].get("role") != "user":
-        violations.append("the first exchange is not the user's goal")
-    body = messages[2:]
+    # The shipped transcript opens on the user's goal, not on a system turn.
+    # The factory's ``AGENTIC_SYSTEM`` is a brief -- it announces the mode and
+    # quotes the number policy -- and the amendment's §A keeps it off every
+    # trainable surface. A *system* turn here is therefore itself a finding:
+    # this gate runs over the row that shipped, and the row that shipped must
+    # not carry the factory's instructions.
+    if not messages or messages[0].get("role") != "user":
+        return ["the conversation does not open with the user's goal"]
+    if any(m.get("role") == "system" for m in messages):
+        violations.append(
+            "the conversation carries a system turn -- the factory's brief is "
+            "not part of the trajectory the student is trained on (§A)"
+        )
+    body = messages[1:]
     if not body:
         return violations + ["the conversation has no exchanges at all"]
     for position, message in enumerate(body):
@@ -240,10 +249,12 @@ def trajectory_violations(
             f"{len(calls)} calls were made but {len(tool_turns)} results were "
             "returned -- a call without a result is a lie about the server"
         )
-    # The band counts the *exchanges*: everything but the boilerplate system
-    # turn, the user's goal included -- "6-16 turns" with a two-call loop
-    # (user, call, result, call, result, answer) landing exactly on the floor.
-    n_exchange = len(messages) - 1
+    # The band counts the *exchanges*: the user's goal and everything after
+    # it -- "6-16 turns" with a two-call loop (user, call, result, call,
+    # result, answer) landing exactly on the floor. It used to subtract the
+    # system turn; there is no longer one to subtract, so the arithmetic is
+    # the same number reached without the correction.
+    n_exchange = len(messages)
     if mode == "no_call":
         if calls or tool_turns:
             violations.append(

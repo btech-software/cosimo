@@ -11,10 +11,25 @@ from __future__ import annotations
 import random
 
 from ..seed import pack_seed, rng_for
-from .base import FactPack, PackError, assemble_numbers, make_ticker, pick_as_of
+from .base import FactPack, PackError, assemble_contract, make_ticker, pick_as_of
+from .registers import pick_register
 
 WORK_TYPE = "valuation.equity.multiples"
 FAMILIES = ("specialty_retail", "enterprise_software", "consumer_platforms")
+
+#: Issuer names, composed rather than listed. Three per family was the old
+#: pool, so twenty variants of a family were twenty write-ups of the same three
+#: companies -- the numbers moved, the scenario did not, which is the stem
+#: repaint v1 was built out of. Cross-multiplying a stem with a suffix widens
+#: the pool without a wall of literals, and the draw count is unchanged (one
+#: `rng.choice`, whatever the pool holds), so every figure these packs compute
+#: is byte-identical to what it computed before.
+_ISSUER_SUFFIXES = ("Group", "Holdings", "Co", "Industries", "Partners")
+
+
+def _issuers(*stems: str) -> tuple[str, ...]:
+    return tuple(f"{stem} {suffix}" for stem in stems for suffix in _ISSUER_SUFFIXES)
+
 
 _BANDS = {
     "specialty_retail": {
@@ -22,17 +37,27 @@ _BANDS = {
         "p_e": (9.0, 16.0, 1),
         "ebitda_m": (80.0, 900.0, 1),
         "margin": (0.06, 0.13, 4),
-        "names": ("Harbor & Main Retail", "Crestline Outfitters", "Vantage Home Group"),
+        "names": _issuers(
+            "Harbor & Main Retail",
+            "Crestline Outfitters",
+            "Vantage Home",
+            "Bramblewood Supply",
+            "Tidewater Outfitters",
+            "Calderwood Stores",
+        ),
     },
     "enterprise_software": {
         "ev_ebitda": (14.0, 26.0, 2),
         "p_e": (22.0, 48.0, 1),
         "ebitda_m": (60.0, 800.0, 1),
         "margin": (0.14, 0.32, 4),
-        "names": (
+        "names": _issuers(
             "Latticesoft Systems",
             "Nimbus Enterprise Cloud",
             "Ledgerline Software",
+            "Quarrystone Data",
+            "Fenwick Platform",
+            "Arborline Analytics",
         ),
     },
     "consumer_platforms": {
@@ -42,7 +67,14 @@ _BANDS = {
         "p_e": (17.0, 36.0, 1),
         "ebitda_m": (40.0, 500.0, 1),
         "margin": (0.09, 0.22, 4),
-        "names": ("Bazaarly Marketplace", "Trellis Commerce", "Portico Network Co"),
+        "names": _issuers(
+            "Bazaarly Marketplace",
+            "Trellis Commerce",
+            "Portico Network",
+            "Wayfarer Exchange",
+            "Junction Social",
+            "Beacon Marketplace",
+        ),
     },
 }
 
@@ -97,7 +129,9 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
     if implied_equity_m <= 0:
         raise PackError(f"{work_type}/{family}: net debt swallows the enterprise value")
 
-    name = rng.choice(list(bands["names"]))
+    # Indexed, not drawn -- see ``_issuers``.
+    issuers = bands["names"]
+    name = issuers[variant % len(issuers)]
     ticker = make_ticker(rng)
     peer_ev_list = ", ".join(f"{p['ev_ebitda']:.2f}" for p in peers)
     question = (
@@ -138,24 +172,26 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "Implied equity = Implied EV - net debt",
             "Value per share = Implied equity / shares",
         ],
-        allowed_numbers=assemble_numbers(
+        # The peer multiples are quantities in their own right (they live under
+        # `inputs.peers.*`, so `assemble_contract` names each one); what is
+        # declared here is only the *roundings the question prints*. The two
+        # medians are computed figures and need no alias -- they are already
+        # canonical.
+        **assemble_contract(
             inputs,
             computed,
-            extra=(
-                round(ebitda_m, 1),
-                margin * 100,
-                round(margin * 100, 1),
-                net_debt_m,
-                shares_m,
-                net_income_m,
-                round(net_debt_m),
-                round(shares_m, 1),
-                round(net_income_m, 2),
-                float(med_ev),
-                float(med_pe),
-                100.0,
-                *[float(p["ev_ebitda"]) for p in peers],
-            ),
+            aliases={
+                "ebitda_m": [f"{ebitda_m:.1f}"],
+                "ebit_margin": [f"{margin * 100:.1f}"],
+                "net_debt_m": [f"{net_debt_m:.1f}"],
+                "shares_m": [f"{shares_m:.1f}"],
+                "net_income_m": [f"{net_income_m:.2f}"],
+            },
+            display={
+                "net_debt_m": f"{net_debt_m:,.1f}",
+                "shares_m": f"{shares_m:,.1f}",
+                "net_income_m": f"{net_income_m:,.2f}",
+            },
         ),
         forbidden_claims=[
             "a single multiple as sufficient evidence",
@@ -166,7 +202,7 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "equity net debt",
             "median versus mean",
         ],
-        register=rng.choice(("desk_chat", "ic_memo")),
+        register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,
     )

@@ -62,6 +62,19 @@ def _tally(out_dir: str) -> dict:
                 work_types.add(work_type)
             if isinstance(work_type, str) and isinstance(scenario, str):
                 families.add((work_type, scenario[len(work_type) + 1 :]))
+    # The holdout tree, counted separately and never added to `rows`. Before
+    # amendment §E there was no such tree -- holdout families rendered nothing
+    # -- so the card's "eval rows" line reported the exam and implementation
+    # *shards* instead, which are training data with a grading contract, not an
+    # eval slice. Two different things were wearing one word.
+    eval_by_kind: dict[str, int] = {}
+    for kind in SHARD_KINDS:
+        try:
+            eval_by_kind[kind] = len(
+                write.read_jsonl(write.path_for("eval", kind, out_dir))
+            )
+        except ValueError:
+            eval_by_kind[kind] = 0
     try:
         pairs = len(write.read_jsonl(write.path_for("preference", "pairs", out_dir)))
     except ValueError:
@@ -71,7 +84,14 @@ def _tally(out_dir: str) -> dict:
         "by_kind": by_kind,
         "rows": sum(by_kind.values()),
         "supervised": supervised,
+        # Kept under its old name so every existing reader keeps working: the
+        # exam and implementation shards, the two kinds carrying a machine-
+        # checkable answer.
         "eval": by_kind.get(EXAM_KIND, 0) + by_kind.get(IMPL_KIND, 0),
+        # The real eval slice: the scenario families the plan holds out, which
+        # §E finally renders.
+        "holdout_rows": sum(eval_by_kind.values()),
+        "holdout_by_kind": eval_by_kind,
         "pairs": pairs,
         "families": len(families),
         "work_types": len(work_types),
@@ -136,7 +156,8 @@ def _card(
     lines.append(f"| {PREFER_KIND} (pairs) | {tally['pairs']} |")
     lines += [
         "",
-        f"- supervised rows: {tally['supervised']} · eval rows: {tally['eval']} "
+        f"- supervised rows: {tally['supervised']} · gradeable rows: {tally['eval']} "
+        f"· holdout-family rows (eval/): {tally['holdout_rows']} "
         f"· pairs: {tally['pairs']} · total: {tally['rows']}",
         f"- coverage: {tally['work_types']} work types, {tally['families']} scenario families",
         "",

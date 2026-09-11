@@ -2,9 +2,10 @@
 
 One function, :func:`gate_violations`, is the whole difference between "the
 teacher wrote something" and "the corpus may carry it": invented numbers
-(against the pack's ``allowed_numbers``, with the tiny structural whitelist),
-``must_mention`` coverage, ``forbidden_claims``, the exam-only ``FINAL ANSWER:``
-tag, and the word budget. The renderer's repair loop calls it per attempt;
+(against the pack's ``canonical`` map, with the tiny structural whitelist),
+rounding drift, integer spelling, ``must_mention`` coverage,
+``forbidden_claims``, the exam-only ``FINAL ANSWER:`` tag, the word budget, and
+-- since the amendment -- the shape the row's register promises. The renderer's repair loop calls it per attempt;
 ``verify_v3`` calls the same helpers over the written shards; the publish-time
 audit slice calls it again. One policy, three call sites -- the v1/v2 failure
 of having the generator and the auditor disagree about "clean" is exactly the
@@ -44,6 +45,7 @@ from ..config import NUMBER_WHITELIST  # noqa: E402
 from ..teacher.prompts import WORD_BUDGETS  # noqa: E402
 from .invented_numbers import decimal_places  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
+from .register import register_violations  # noqa: E402
 
 
 def whitelist_for(pack: dict) -> frozenset[str]:
@@ -163,6 +165,182 @@ def overprecise_numbers(text: str) -> list[str]:
     return seen
 
 
+#: The tag a rounding-drift violation opens with, so the board can file it on
+#: the invented-number axis without re-parsing English.
+ROUNDING_DRIFT_TAG = "rounding_drift: "
+
+#: An integer wearing a decimal tail. ``430567.0`` is the share count the first
+#: live TCA rows all printed, straight out of a pack that stores counts as
+#: floats. It is not a *wrong* number, which is why four numeric axes passed it
+#: without comment; it is a number no desk would publish, and one that tells a
+#: reader the count is known to a tenth of a share.
+_INTEGER_WITH_ZERO_TAIL = re.compile(r"(?<![\d.])(\d{1,3}(?:,\d{3})+|\d+)\.0+(?![\d])")
+
+
+def canonical_numbers(pack: dict) -> list[float]:
+    """The values an *answer* may claim, as opposed to those a question prints.
+
+    ``allowed_numbers`` is a union and has to be: the oracle serves pack figures
+    as tool results, the exam composer derives distractors from them, the
+    implementation suite pins them into generated tests. What it cannot do is
+    tell 372.6 from the 373 the question rounds it to, because it holds both as
+    peers. ``canonical`` holds one value per named quantity, and that is what
+    this returns -- falling back to the union for a pack that declares none, so
+    a fixture pack is graded exactly as loosely as it was before, never looser.
+    """
+    canonical = pack.get("canonical") or {}
+    if not canonical:
+        return [float(x) for x in pack["allowed_numbers"]]
+    values: list[float] = []
+
+    def walk(node: object) -> None:
+        if isinstance(node, bool):
+            return
+        if isinstance(node, (int, float)):
+            values.append(round(float(node), 12))
+        elif isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, (list, tuple)):
+            for value in node:
+                walk(value)
+
+    walk(canonical)
+    return sorted(set(values))
+
+
+def _round_trips_exactly(token: str, value: object) -> bool:
+    """True when *token* is the same number as *value*, only spelled differently.
+
+    "Differently" covers a dropped sign and the two unit conversions the number
+    gate already blesses -- a fraction written as a percent, a percent written
+    as a fraction. What it does not cover is a loss of precision, and that is
+    the whole distinction the drift axis rests on:
+
+    * ``1.21`` against a canonical ``0.0121`` is the *percent spelling* of the
+      same figure. Nothing was rounded away, so a desk that writes "1.21% daily
+      vol" has drifted nowhere and must not be failed for it.
+    * ``373`` against a canonical ``372.6`` threw away a decimal the answer was
+      supposed to carry. That is drift, and it is the amendment's own example.
+
+    Exact, not the number gate's 0.5% tolerance -- 373 sits comfortably inside
+    that tolerance of 372.6, which is precisely why the tolerance cannot be the
+    instrument here.
+    """
+    try:
+        got = abs(nums.val(str(token)))
+        want = abs(float(value))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return False
+    # The scale factors of `invented_numbers`, applied exactly. Compared with a
+    # relative epsilon rather than `==` because 1.21 * 0.01 is 0.0121000000...2
+    # in binary, and a gate that turned on float representation would fire at
+    # random.
+    for scale in (1.0, 100.0, 0.01):
+        scaled = got * scale
+        if scaled == want or (want and abs(scaled - want) <= 1e-9 * abs(want)):
+            return True
+    return False
+
+
+def rounding_drift(pack: dict, text: str) -> list[str]:
+    """Quantities the answer spelled with the question's rounding, in pack order.
+
+    The amendment's worked case: an attribution pack computes ``active_bps`` as
+    372.6 and its question opens "behind the policy mix by 373 bp", because
+    that is how a memo opens. Both numbers used to sit in ``allowed_numbers``,
+    so an answer could quote either and every axis stayed green -- which is how
+    a corpus teaches a model that the official figure is whichever one it saw
+    last.
+
+    Matched on the token as *written*, with word boundaries, because the mercy
+    and the crime are both about what the reader sees. A quantity with no
+    canonical value contributes nothing: an alias of nothing is just a number,
+    and the invented-number gate already has an opinion about those.
+
+    Deliberately narrow: only a *whole-number* alias of a fractional canonical
+    is reported. See the two skips in the loop for why -- the axis is worth
+    having exactly as far as it can be defended against correct prose, and no
+    further.
+    """
+    canonical = pack.get("canonical") or {}
+    aliases = pack.get("aliases") or {}
+    if not canonical or not aliases:
+        return []
+    haystack = str(text or "")
+    hits: list[str] = []
+    for quantity in sorted(aliases):
+        if quantity not in canonical:
+            continue
+        official = canonical[quantity]
+        for token in (
+            aliases[quantity]
+            if isinstance(aliases[quantity], (list, tuple))
+            else [aliases[quantity]]
+        ):
+            token = str(token)
+            if not token:
+                continue
+            if _round_trips_exactly(token, official):
+                # A spelling, not a rounding -- see the helper. `abs(round(x))`
+                # on a negative figure and `x * 100` on a fraction both land
+                # here, and neither is a claim about a different number.
+                continue
+            if decimal_places(token) > 0:
+                # A *finer* rounding than a whole number is desk practice, not
+                # drift, and this axis will not argue with it. A Brinson memo
+                # that writes "the book returned 3.31%" of a 3.309% figure has
+                # rounded the way a desk rounds; failing it would push every
+                # attribution answer to three decimals, which is the precision
+                # complaint `overprecise_numbers` exists to make in reverse.
+                #
+                # What is left is the case the amendment actually names: the
+                # question dropped the fraction entirely -- "behind the policy
+                # mix by 373 bp" of a 372.6 -- and the answer is reporting the
+                # figure, not opening a memo. That is a difference a filter can
+                # see. Everything subtler is a judgement the numeric gate
+                # cannot make, and §D says so: it stays a gold-bar problem, and
+                # a gate that pretended otherwise would be the third instrument
+                # in this file to be rewritten after it failed correct prose.
+                continue
+            # The token must be the *whole* number, not its head: an answer
+            # that correctly writes 62.1 contains "62", and reading that as
+            # the 62 the question rounds to would fail every correct answer
+            # whose canonical figure happens to start with its own alias.
+            if re.search(rf"(?<![\d.\-]){re.escape(token)}(?![\d])(?!\.\d)", haystack):
+                hits.append(
+                    f"{ROUNDING_DRIFT_TAG}{quantity} is {official}, and the answer "
+                    f"writes {token!r} -- that spelling belongs to the question, "
+                    "not to the figure you are reporting"
+                )
+                break
+    return hits
+
+
+def integer_format_offenders(pack: dict, text: str) -> list[str]:
+    """Whole numbers written with a ``.0`` tail, each with the desk's spelling.
+
+    A format rule, run *before* the repair turn is composed, which is the whole
+    reason it is worth having as its own axis: the repair can then say "write
+    430,567 not 430567.0" instead of asking the teacher to intuit house style
+    from a violation about decimals it did not commit.
+    """
+    display = {
+        str(v).replace(",", ""): str(v) for v in (pack.get("display") or {}).values()
+    }
+    out: list[str] = []
+    seen: set[str] = set()
+    for match in _INTEGER_WITH_ZERO_TAIL.finditer(str(text or "")):
+        token = match.group(0)
+        if token in seen:
+            continue
+        seen.add(token)
+        whole = match.group(1)
+        spelled = display.get(whole.replace(",", "")) or whole
+        out.append(f"{token!r} -- write {spelled}")
+    return out
+
+
 def missing_mentions(pack: dict, text: str) -> list[str]:
     """``must_mention`` anchors the text failed to carry, in pack order.
 
@@ -255,14 +433,31 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
     Empty list means shippable. The returned strings are written to be read
     twice -- once by the repair prompt (the model must be able to find its
     own error in them) and once by whoever post-mortems a dead letter.
+
+    Order is deliberate. The two *format* rules -- the integer tail and the
+    rounding drift -- are stated before the coverage and length ones, because
+    the repair turn quotes this list in order and a teacher that reads "write
+    430,567 not 430567.0" first fixes the spelling rather than rewriting the
+    paragraph that happened to contain it.
     """
     violations: list[str] = []
-    offenders = invented_numbers(text, pack["allowed_numbers"], whitelist_for(pack))
+    # Answers are graded against `canonical`, not against the union: the union
+    # necessarily holds the question's own roundings, and a gate that admits
+    # both spellings of one quantity is not measuring the thing it names.
+    offenders = invented_numbers(text, canonical_numbers(pack), whitelist_for(pack))
     if offenders:
         violations.append(
             "invented numbers not in the fact pack: "
             + ", ".join(repr(t) for t in offenders)
         )
+    badly_spelled = integer_format_offenders(pack, text)
+    if badly_spelled:
+        violations.append(
+            "whole numbers written with a decimal tail: "
+            + "; ".join(badly_spelled)
+            + " -- a count is not known to a tenth"
+        )
+    violations.extend(rounding_drift(pack, text))
     overprecise = overprecise_numbers(text)
     if overprecise:
         violations.append(
@@ -291,4 +486,8 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
         violations.append(
             f"length {words} words is outside the {kind} budget {low}-{high}"
         )
+    # The §C axis. Last, because it is the only one that judges *shape* rather
+    # than content, and a row that is still inventing numbers has a worse
+    # problem than its section headings.
+    violations.extend(register_violations(pack.get("register") or "", text, kind=kind))
     return violations

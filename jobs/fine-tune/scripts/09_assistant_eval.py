@@ -54,10 +54,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--merged", default=None, help="merged model directory")
     parser.add_argument("--base-id", default=None, help="override model.base_id")
     parser.add_argument(
-        "--suites", nargs="+", default=None, help="suites to run (default: assistant.run)"
+        "--suites",
+        nargs="+",
+        default=None,
+        help="suites to run (default: assistant.run)",
     )
     parser.add_argument(
         "--limit", type=int, default=None, help="at most N items per suite"
+    )
+    parser.add_argument(
+        "--eval-shards",
+        default=None,
+        help="a v3 corpus root; its eval/ tree (the holdout scenario families) "
+        "is scored as an extra prose suite. This is what makes "
+        "`invented_number_rate` a measurement against real fact packs rather "
+        "than against the curated prompts, which carry no numeric contract.",
     )
     config_mod.add_config_args(parser)
     return parser
@@ -75,9 +86,93 @@ def load_suite(cfg: dict, name: str, limit: int | None) -> list[dict]:
     if not path.is_file():
         raise SystemExit(f"suite file not found: {path}")
     rows = [
-        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
     ]
     return rows[:limit] if limit else rows
+
+
+#: The eval-shard record types that read as prose: one question in, one answer
+#: out. `exam` has its own grading contract and `implementation` and `agentic`
+#: have their own shapes, so none of the three belongs in a prose suite.
+EVAL_SHARD_KINDS = ("analysis", "memo", "grounded", "critique", "abstention")
+
+#: The suite name the eval tree reports under. Distinct from every curated
+#: suite so a metrics.json can never confuse "the model on our prompts" with
+#: "the model on scenario families it has never seen".
+EVAL_SHARDS_SUITE = "eval_shards"
+
+
+def load_eval_shards(root: str, limit: int | None) -> list[dict]:
+    """The corpus's own holdout rows, projected into prose-suite shape.
+
+    The curated suites under ``suites/`` are hand-written prompts with no
+    numeric contract attached, so ``invented_numbers`` scores ``None`` on every
+    one of them -- the metric exists but has nothing to measure. Amendment §E
+    gives the corpus an ``eval/`` tree (the scenario families the plan holds
+    out, rendered but never trained on) and §A puts the fact pack on every row,
+    so the contract the generator enforced is now readable here.
+
+    ``allowed_numbers`` comes from the pack's ``canonical`` map rather than its
+    ``allowed_numbers`` union, matching the amendment's §D rule: the union
+    carries the question's own roundings, so grading an answer against it would
+    accept the drift the corpus side now repairs.
+    """
+    eval_dir = Path(root).expanduser().resolve() / "eval"
+    if not eval_dir.is_dir():
+        raise SystemExit(
+            f"--eval-shards {root}: no eval/ directory. Render the holdout "
+            "families first: `python -m dataset.pipelines.v3.cli render --holdout`."
+        )
+    rows: list[dict] = []
+    for kind in EVAL_SHARD_KINDS:
+        path = eval_dir / f"{kind}.jsonl"
+        if not path.is_file():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            pack = record.get("fact_pack") or {}
+            canonical = pack.get("canonical") or {}
+            allowed = sorted(
+                {
+                    float(value)
+                    for value in _scalars(canonical)
+                    if isinstance(value, (int, float))
+                }
+            ) or [float(x) for x in (pack.get("allowed_numbers") or [])]
+            rows.append(
+                {
+                    "id": record.get("id"),
+                    "prompt": record.get("question_text") or record.get("question"),
+                    "register": record.get("register"),
+                    "record_type": kind,
+                    "scenario_id": record.get("scenario_id"),
+                    "must_mention": pack.get("must_mention"),
+                    "allowed_numbers": allowed or None,
+                }
+            )
+    if not rows:
+        raise SystemExit(f"--eval-shards {root}: eval/ holds no prose rows")
+    rows.sort(key=lambda r: str(r["id"]))
+    return rows[:limit] if limit else rows
+
+
+def _scalars(node) -> list[float]:
+    out: list[float] = []
+    if isinstance(node, bool):
+        return out
+    if isinstance(node, (int, float)):
+        return [float(node)]
+    if isinstance(node, dict):
+        for value in node.values():
+            out.extend(_scalars(value))
+    elif isinstance(node, (list, tuple)):
+        for value in node:
+            out.extend(_scalars(value))
+    return out
 
 
 def run_prose_suite(
@@ -135,6 +230,7 @@ def run_prose_suite(
                 "must_mention_hit": hit,
                 "must_mention_missed": missed,
                 "register_match": assistant.register_match(text, row.get("register")),
+                "teacher_leak": assistant.teacher_leak(text),
             }
         )
     return scored
@@ -199,7 +295,9 @@ def run_agentic_suite(
                 )
         else:
             LOGGER.warning(
-                "%s: hit the %d-turn budget without a final answer", row["id"], max_turns
+                "%s: hit the %d-turn budget without a final answer",
+                row["id"],
+                max_turns,
             )
 
         grade = assistant.grade_trajectory(
@@ -284,18 +382,25 @@ def main() -> None:
     out_dir = run.root / "assistant_eval"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    suite_names = args.suites or config_mod.get(cfg, "assistant.run", [])
+    suite_names = list(args.suites or config_mod.get(cfg, "assistant.run", []))
+    # The corpus's own holdout tree rides as one more prose suite, named for
+    # what it is. It is the only suite whose rows carry a numeric contract, so
+    # it is the only one whose `invented_number_rate` measures anything.
+    if args.eval_shards:
+        suite_names.append(EVAL_SHARDS_SUITE)
     suites: dict[str, dict] = {}
     for name in suite_names:
-        rows = load_suite(cfg, name, args.limit)
+        rows = (
+            load_eval_shards(args.eval_shards, args.limit)
+            if name == EVAL_SHARDS_SUITE
+            else load_suite(cfg, name, args.limit)
+        )
         LOGGER.info("suite %s: %d prompts", name, len(rows))
         if name == "agentic":
             scored = run_agentic_suite(model, tokenizer, cfg, rows, system)
             suites[name] = assistant.summarize_agentic(scored)
         else:
-            scored = run_prose_suite(
-                model, tokenizer, cfg, rows, system, vocabulary
-            )
+            scored = run_prose_suite(model, tokenizer, cfg, rows, system, vocabulary)
             suites[name] = assistant.summarize_open_ended(scored)
         write_json(out_dir / f"{name}_generations.json", scored)
 
@@ -325,6 +430,7 @@ def main() -> None:
         else:
             line = (
                 f"{name}: n={stats['n']} exam_shape={stats['exam_shape_rate']:.3f} "
+                f"teacher_leak={stats['teacher_leak_rate']:.3f} "
                 f"abstention={stats['abstention_rate']:.3f} "
                 f"mean_tokens={stats['mean_new_tokens']:.0f} "
                 f"unknown_terms={stats['unknown_term_rate']:.3f}"

@@ -29,6 +29,22 @@ import pytest
 
 from cosimo_ft import chat, data_schema
 
+
+def _prepare_module():
+    """``01_prepare_data.py`` loaded by path -- its name is not an identifier."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "prepare_data",
+        Path(__file__).resolve().parents[1] / "scripts" / "01_prepare_data.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+prepare = _prepare_module()
+
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 SYSTEM = "You are Cosimo."
@@ -56,19 +72,32 @@ def v3_row(record_type: str, **overrides) -> dict:
         "record_type": record_type,
         "work_type": WORK_TYPE,
         "scenario_id": SCENARIO,
+        # The two columns the amendment added so the harness can refuse a leak
+        # without re-deriving one: `family` was only ever recoverable by slicing
+        # `scenario_id` at the length of a work type that itself contains dots,
+        # and `holdout` was not on the row at all -- so a row did not know
+        # whether it was allowed to train.
+        "family": SCENARIO[len(WORK_TYPE) + 1 :],
+        "holdout": False,
         "variant": 3,
         "question": "What is the one-day VaR?",
         "answer": "The one-day 99% VaR is 4.2m.",
-        "messages": [
-            {"role": "system", "content": "You are sitting a Cosimo item."},
-            {"role": "user", "content": "Desk brief. What is the one-day VaR?"},
-            {"role": "assistant", "content": "The one-day 99% VaR is 4.2m."},
-        ],
+        # No `messages`. A prose row's prompt is its question; the transcript it
+        # used to carry was the teacher's brief, and that is exactly what the
+        # harness must never train on. The kinds whose target really is a
+        # transcript (agentic) or whose prompt really differs from the pack
+        # question (exam) pass their own via **overrides.
         "register": "desk_chat",
+        "fact_pack": {"scenario_id": SCENARIO, "work_type": WORK_TYPE},
+        "verified": True,
         "verification": {
             "computed_by": "dataset.pipelines.v3.packs.risk_var",
             "pack_seed": "88405e883240d1ed",
-            "teacher": {"model": "deepseek-v4-flash", "think_present": True},
+            "teacher": {"model": "deepseek-v4-flash", "think_present": False},
+            "attempts": 1,
+            "invented_numbers": [],
+            "missing_mentions": [],
+            "register_ok": True,
             "render": {"kind": record_type, "attempts": 1},
         },
     }
@@ -143,17 +172,23 @@ def test_eval_row_fields_are_the_same_shape_for_both_corpora(exam_row):
 # --------------------------------------------------------------------------
 
 
-def test_exam_question_is_the_user_turn_not_the_question_column(exam_row):
-    """The options live in `messages[1]`, not in `question`.
+def test_exam_question_is_the_item_text_not_the_bare_question_column(exam_row):
+    """The options live in `question_text`, not in `question`.
 
     Preparing the bare `question` column would ask the model to pick a letter
     without ever showing it the letters -- and the row would still look valid.
+
+    The column is a *named* one now rather than `messages[1]`. That index used
+    to be the teacher's brief for every other record type, so reading it here
+    was reading two different things through one accessor; an exam item's
+    prompt is a real column, and the prose kinds have no message list at all.
     """
     rec = data_schema.normalize_v3_record(exam_row)
     assert "Options:" in rec.question
     assert "(A)" in rec.question and "(D)" in rec.question
     assert rec.question != exam_row["question"]
-    assert rec.question == exam_row["messages"][1]["content"]
+    assert rec.question == exam_row["question_text"]
+    assert rec.question == exam_row["messages"][0]["content"]
 
 
 def test_exam_target_round_trips_through_build_completion(exam_row):
@@ -194,9 +229,10 @@ def test_exam_answer_is_gradeable_as_an_mcq(exam_row):
     # `<letter> -- <value> <unit>` surface, which parse_number alone cannot
     # resolve and grade_cosimo does not need it to.
     assert exam_row["answer_value"] in grading.numbers_in(rec.answer)
-    assert rec.answer == exam_row["messages"][-1]["content"].splitlines()[-1].split(
-        TAG
-    )[-1].strip()
+    assert (
+        rec.answer
+        == exam_row["messages"][-1]["content"].splitlines()[-1].split(TAG)[-1].strip()
+    )
 
 
 def test_exam_row_grades_its_own_answer_correct(exam_row):
@@ -434,3 +470,111 @@ def test_v3_preference_carries_the_pitfall_as_its_mode():
     assert rec.pitfall == "false_precision"
     assert rec.pref_mode == "false_precision"
     assert rec.record_type == data_schema.PREFERENCE
+
+
+# --------------------------------------------------------------------------
+# amendment §A / §G: the two leak gates, on this side of the join
+# --------------------------------------------------------------------------
+
+
+def test_a_row_carrying_the_teacher_brief_is_refused():
+    """The fingerprint gate, which the corpus side also runs.
+
+    Two gates on one rule is deliberate. `dataset` and `jobs` join on the Hub
+    and neither can see the other's tree, so "the corpus would never ship that"
+    is a claim this side cannot verify. An old shard tree, a hand-edited file
+    or a `local_dir` pointed at last month's render all produce exactly this
+    row -- and the failure it causes downstream is a model that answers a desk
+    question by reciting a JSON contract, which nobody would diagnose from a
+    loss curve.
+    """
+    row = v3_row("analysis")
+    assert not data_schema.carries_teacher_brief(row)
+    leaked = v3_row(
+        "analysis",
+        messages=[
+            {"role": "system", "content": "You are the Cosimo v3 teacher, writing..."},
+            {"role": "user", "content": "Answer strictly from the fact pack below."},
+            {"role": "assistant", "content": "The one-day 99% VaR is 4.2m."},
+        ],
+    )
+    assert data_schema.carries_teacher_brief(leaked)
+    # It leaks the same however it is spelled: the check reads the whole row,
+    # not a message list, because a brief pasted into `question` trains just as
+    # hard as one left in `messages`.
+    in_question = v3_row(
+        "analysis", question="You are the Cosimo v3 teacher. What is the VaR?"
+    )
+    assert data_schema.carries_teacher_brief(in_question)
+
+
+def test_a_holdout_row_is_refused_even_though_the_corpus_should_not_emit_one():
+    """Defence in depth for the one leak no downstream number can un-certify."""
+    assert not data_schema.is_holdout(v3_row("analysis"))
+    assert data_schema.is_holdout(v3_row("analysis", holdout=True))
+
+
+def test_verified_is_the_rows_own_claim_not_a_proxy_for_a_stamp():
+    """§G.2. The old reading was "carries a verification stamp", which a row
+    that failed its gate and was written anyway satisfies just as well."""
+    assert prepare.is_verified(v3_row("analysis")) is True
+    assert prepare.is_verified(v3_row("analysis", verified=False)) is False
+    unclaimed = v3_row("analysis")
+    del unclaimed["verified"]
+    assert prepare.is_verified(unclaimed) is False
+    # The stamp is still required alongside the claim: asserting `verified`
+    # with no provenance behind it is asserting something nobody can check.
+    assert prepare.is_verified(v3_row("analysis", verification={})) is False
+
+
+def test_the_agentic_transcript_loses_the_factory_turns_not_the_tool_turns():
+    """§G.1: ignore `messages` except for agentic, and even then strip it."""
+    rec = data_schema.normalize_v3_record(
+        v3_row(
+            "agentic",
+            messages=[
+                {"role": "system", "content": "You are the Cosimo v3 teacher..."},
+                {"role": "user", "content": "Work the goal with the tools."},
+                {"role": "assistant", "content": "", "tool_calls": [{"id": "1"}]},
+                {"role": "tool", "content": '{"var": 4.2}'},
+                {"role": "assistant", "content": "The one-day 99% VaR is 4.2m."},
+            ],
+        )
+    )
+    roles = [m["role"] for m in rec.conversation]
+    assert "system" not in roles
+    assert roles == ["user", "assistant", "tool", "assistant"], roles
+
+
+def test_the_exam_share_cap_thins_an_exam_heavy_tree():
+    """§G.4: the prepared mix is a claim only this side can make good on."""
+    records = [
+        data_schema.normalize_v3_record(
+            v3_row("exam", id=f"cosimov3_exam_{i:016x}", question_text="Q?")
+        )
+        for i in range(40)
+    ] + [
+        data_schema.normalize_v3_record(
+            v3_row("analysis", id=f"cosimov3_analysis_{i:016x}")
+        )
+        for i in range(60)
+    ]
+    kept, dropped = prepare.cap_exam_share(records, 0.18, seed=3407)
+    exam = [r for r in kept if data_schema.is_exam(r)]
+    assert dropped == 40 - len(exam)
+    assert len(exam) / len(kept) <= 0.18 + 1e-9
+    # A mix already inside the band is left alone -- the cap is a ceiling, not
+    # a target, and thinning a compliant corpus would be discarding data.
+    assert prepare.cap_exam_share(kept, 0.18, seed=3407) == (kept, 0)
+
+
+def test_the_fact_pack_reaches_the_eval_sidecar_and_not_a_chat_turn():
+    """§G.5. Scoring an invented-number rate needs the row's own contract; a
+    prompt that carried it would be the labelling protocol under a new name."""
+    row = v3_row("analysis", fact_pack={"canonical": {"var95": 4.2}, "question": "Q?"})
+    rec = data_schema.normalize_v3_record(row)
+    assert rec.fact_pack == {"canonical": {"var95": 4.2}, "question": "Q?"}
+    eval_row = data_schema.to_eval_row(rec)
+    assert eval_row["fact_pack"]["canonical"] == {"var95": 4.2}
+    assert tuple(eval_row) == data_schema.EVAL_FIELDS
+    assert "canonical" not in rec.question

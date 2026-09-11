@@ -14,7 +14,7 @@ Makefile is the real risk this feature carries; that is what gets an unguarded t
 from __future__ import annotations
 
 import os
-import re
+import subprocess
 import sys
 
 import pytest
@@ -32,18 +32,40 @@ import cosimo_v3_corpus as dag  # noqa: E402  (needs the path bootstrap just abo
 
 
 def _makefile_recipes() -> dict[str, str]:
-    """target -> command for each ``v3-*`` stage that shells the corpus CLI."""
+    """target -> the command ``make`` would actually run, for each v3-* stage.
+
+    Expanded through ``make -n`` rather than read off the file. The recipes
+    carry variables now (amendment §F gave the targets TYPES/LIMIT/WORK/OUT/
+    LIVE/QUICK/HOLDOUT), so the literal text of a recipe line is
+    ``$(V3) render $(V3_OUT) ...`` and comparing the DAG against *that* would
+    compare it against a template nobody runs. ``make -n`` with no variables
+    set prints the un-scoped line, which is exactly the command the DAG's
+    un-scoped task must equal -- and it also proves the empty-by-default
+    variables really do expand to nothing.
+    """
     recipes: dict[str, str] = {}
-    with open(_MAKEFILE, encoding="utf8") as handle:
-        lines = handle.read().splitlines()
-    target = re.compile(r"^([A-Za-z0-9_-]+):\s*$")
-    for index, line in enumerate(lines):
-        match = target.match(line)
-        if not match:
-            continue
-        following = lines[index + 1] if index + 1 < len(lines) else ""
-        if following.startswith("\t") and "dataset.pipelines.v3.cli" in following:
-            recipes[match.group(1)] = following.strip()
+    for target in (
+        "v3-inventory",
+        "v3-packs",
+        "v3-smoke",
+        "v3-render",
+        "v3-verify",
+        "v3-prefer",
+        "v3-publish",
+    ):
+        printed = subprocess.run(
+            ["make", "-s", "-n", target],
+            cwd=_REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        for line in printed.splitlines():
+            if "dataset.pipelines.v3.cli" in line:
+                # Collapse the runs of spaces an unset variable leaves behind:
+                # `render $(V3_OUT) $(V3_TYPES)` with both empty prints as
+                # `render   `, and the DAG builds its argv from a list.
+                recipes[target] = " ".join(line.split())
     return recipes
 
 
@@ -150,3 +172,28 @@ def test_the_dag_wires_the_six_stages_and_two_mapped_waves():
     assert render_ids <= by_id["verify"].upstream_task_ids
     assert "verify" in by_id["prefer"].upstream_task_ids
     assert "prefer" in by_id["publish"].upstream_task_ids
+
+
+def test_the_dag_renders_on_the_fixture_unless_a_variable_says_otherwise():
+    """Amendment §F: the licence to spend is a deployment Variable, not a repo line.
+
+    ``dataset_build.sh`` used to export ``COSIMO_V3_LIVE=1`` at the top of the
+    file, which committed the licence to git and handed it to anything that
+    sourced it -- a scheduled run included. The DAG asks the deployment
+    instead, and the answer without Airflow (or without the Variable set) is
+    the safe one.
+    """
+    assert "--live" not in dag.render_command(live=False)
+    assert "--live" not in dag.prefer_command(live=False)
+    assert dag.render_command(live=True).endswith("--live")
+    # No Airflow in the locked test group, so the accessor must answer False
+    # rather than raise -- a DAG module that cannot be imported without a
+    # scheduler is a DAG module nobody can unit-test.
+    assert dag.live_render_enabled() is False
+    assert "--live" not in dag.render_command()
+
+
+def test_the_eval_tree_is_a_separate_render_not_a_flag_on_the_training_one():
+    """§E: holdout families render, and they render somewhere else."""
+    assert dag.render_command(holdout=True, live=False).endswith("--holdout")
+    assert "--holdout" not in dag.render_command(live=False)

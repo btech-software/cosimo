@@ -28,7 +28,6 @@ import os
 from . import config, inventory, write
 from .packs import PackError, compute_pack
 from .teacher import routing
-from .teacher.client import DEFAULT_MAX_TOKENS
 from .verification.preference import (
     PREFER_KIND,
     chosen_brief,
@@ -61,7 +60,7 @@ def _licensed(plan: dict, work_type: str) -> list[str]:
 
 
 def select_pair_jobs(
-    out_dir: str, plan: dict, *, types=None, limit=None
+    out_dir: str, plan: dict, *, types=None, limit=None, holdout=False
 ) -> list[tuple[str, dict, str]]:
     """``(parent_kind, row, pitfall)`` for every shipped row the draw pairs.
 
@@ -81,7 +80,7 @@ def select_pair_jobs(
         )
     selected: list[tuple[str, dict, str]] = []
     for kind in sorted(wanted):
-        path = write.path_for("sft", kind, out_dir)
+        path = write.path_for(write.shard_kind(holdout), kind, out_dir)
         if not os.path.isfile(path):
             continue
         rows = write.read_jsonl(path)
@@ -142,14 +141,21 @@ def build_pair_row(teacher, kind: str, row: dict, pitfall: str) -> dict:
     except PackError as exc:
         return dead(f"pack: {exc}")
 
-    messages = row.get("messages") or []
-    if [m.get("role") for m in messages] != ["system", "user", "assistant"]:
+    # The pair's prompt is the *student's* question, not the parent's brief.
+    #
+    # It used to be `row["messages"][:2]` -- the teacher's system turn and the
+    # JSON contract -- copied onto every pair, so the preference config carried
+    # the factory protocol into DPO as faithfully as the SFT config carried it
+    # into training. Prose rows no longer have `messages` at all, and the row
+    # they do have says everything a pair needs: the question the desk asked
+    # and the answer that shipped.
+    answer = str(row.get("answer") or "")
+    if not answer.strip():
         return dead(
-            "parent: the SFT row is not the prose triad; a pair is not "
-            "a repair kit for a malformed row"
+            "parent: the SFT row carries no answer; a pair is not a repair kit "
+            "for a malformed row"
         )
-    prompt = [{"role": m["role"], "content": m["content"]} for m in messages[:2]]
-    answer = str(messages[2]["content"])
+    prompt = [{"role": "user", "content": pack["question"]}]
 
     route_parent = routing.route(kind)
     route_rejected = routing.route(kind, rejected=True)
@@ -157,7 +163,7 @@ def build_pair_row(teacher, kind: str, row: dict, pitfall: str) -> dict:
     temperatures = {"chosen": [], "rejected": []}
 
     # -- the chosen side: the full prose gate, plus not being the target ----
-    exchange = chosen_brief(prompt, answer)
+    exchange = chosen_brief(prompt, answer, kind)
     problems: list[str] = []
     chosen = ""
     chosen_stamp: dict = {}
@@ -167,7 +173,7 @@ def build_pair_row(teacher, kind: str, row: dict, pitfall: str) -> dict:
             exchange,
             model=route_parent.model,
             temperature=temperature,
-            max_tokens=DEFAULT_MAX_TOKENS,
+            max_tokens=route_parent.max_tokens,
             think=route_parent.think,
         )
         attempts["chosen"] += 1
@@ -210,7 +216,7 @@ def build_pair_row(teacher, kind: str, row: dict, pitfall: str) -> dict:
             exchange,
             model=route_rejected.model,
             temperature=temperature,
-            max_tokens=DEFAULT_MAX_TOKENS,
+            max_tokens=route_rejected.max_tokens,
             think=route_rejected.think,
         )
         attempts["rejected"] += 1
@@ -330,7 +336,9 @@ def rejected_problems_of(
     return problems
 
 
-def run_prefer_stage(out_dir: str, teacher, *, types=None, limit=None) -> dict:
+def run_prefer_stage(
+    out_dir: str, teacher, *, types=None, limit=None, holdout=False
+) -> dict:
     """Pair the shipped rows; write ``preference/`` + ``dead_letter/``; report.
 
     The id gate is the bill's keeper: a pair already on the shard (or
@@ -339,7 +347,13 @@ def run_prefer_stage(out_dir: str, teacher, *, types=None, limit=None) -> dict:
     for none of it, and costs nothing.
     """
     plan = inventory.load_plan(config.taxonomy_path())
-    selected = select_pair_jobs(out_dir, plan, types=types, limit=limit)
+    selected = select_pair_jobs(
+        out_dir, plan, types=types, limit=limit, holdout=holdout
+    )
+    # A holdout family's pairs are eval material like its prose: the DPO stage
+    # reads `preference/pairs.jsonl`, so a gold family paired into that file is
+    # the same leak the render side just stopped making, one shard over.
+    pair_shard = "eval_pairs" if holdout else "pairs"
     report = {
         "jobs_seen": len(selected),
         "rendered": 0,
@@ -347,8 +361,9 @@ def run_prefer_stage(out_dir: str, teacher, *, types=None, limit=None) -> dict:
         "dead_lettered": 0,
         "skipped_by_pack_gate": [],
         "by_kind": {},
+        "shard": pair_shard,
     }
-    known = write.existing_ids(write.path_for("preference", "pairs", out_dir)) | (
+    known = write.existing_ids(write.path_for("preference", pair_shard, out_dir)) | (
         write.existing_ids(write.path_for("dead_letter", PREFER_KIND, out_dir))
     )
     pairs: list[dict] = []
@@ -378,7 +393,7 @@ def run_prefer_stage(out_dir: str, teacher, *, types=None, limit=None) -> dict:
             deads.append(outcome["dead_letter"])
             report["dead_lettered"] += 1
     if pairs:
-        write.append_unique(write.path_for("preference", "pairs", out_dir), pairs)
+        write.append_unique(write.path_for("preference", pair_shard, out_dir), pairs)
     if deads:
         write.append_unique(write.path_for("dead_letter", PREFER_KIND, out_dir), deads)
     return report

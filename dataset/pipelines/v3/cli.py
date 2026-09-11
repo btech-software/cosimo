@@ -263,7 +263,12 @@ def cmd_render(args) -> int:
             (
                 "prose",
                 lambda: run_render_stage(
-                    out_dir, jobs, teacher, types=prose_types, limit=args.limit
+                    out_dir,
+                    jobs,
+                    teacher,
+                    types=prose_types,
+                    limit=args.limit,
+                    holdout=args.holdout,
                 ),
             )
         )
@@ -271,16 +276,27 @@ def cmd_render(args) -> int:
         runs.append(
             (
                 "agentic",
-                lambda: run_agentic_stage(out_dir, jobs, teacher, limit=args.limit),
+                lambda: run_agentic_stage(
+                    out_dir, jobs, teacher, limit=args.limit, holdout=args.holdout
+                ),
             )
         )
     if types is None or EXAM_KIND in types:
-        runs.append(("exam", lambda: run_exam_stage(out_dir, jobs, limit=args.limit)))
+        runs.append(
+            (
+                "exam",
+                lambda: run_exam_stage(
+                    out_dir, jobs, limit=args.limit, holdout=args.holdout
+                ),
+            )
+        )
     if types is None or IMPL_KIND in types:
         runs.append(
             (
                 "implementation",
-                lambda: run_impl_stage(out_dir, jobs, teacher, limit=args.limit),
+                lambda: run_impl_stage(
+                    out_dir, jobs, teacher, limit=args.limit, holdout=args.holdout
+                ),
             )
         )
     try:
@@ -292,11 +308,14 @@ def cmd_render(args) -> int:
         return EXIT_DATA
     missing_total = 0
     for label, report in boards:
+        bucket = report.get("bucket", "sft")
+        logs = report.get("teacher_logs", 0)
         print(
             f"render: {report['rendered']} rows rendered, "
             f"{report['existing']} already on disk, {report['dead_lettered']} dead-lettered "
             f"(of {report['jobs_seen']} planned {label} jobs; "
-            f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate) -> {out_dir}"
+            f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate) "
+            f"-> {out_dir}/{bucket}" + (f"  [+{logs} teacher logs]" if logs else "")
         )
         for kind in sorted(report["by_kind"]):
             cell = report["by_kind"][kind]
@@ -387,7 +406,9 @@ def cmd_prefer(args) -> int:
         return EXIT_USAGE
     try:
         teacher = teacher_from_env(live=True if args.live else None)
-        report = run_prefer_stage(out_dir, teacher, types=types, limit=args.limit)
+        report = run_prefer_stage(
+            out_dir, teacher, types=types, limit=args.limit, holdout=args.holdout
+        )
     except (TeacherError, ValueError, OSError) as exc:
         print(f"prefer: {exc}", file=sys.stderr)
         return EXIT_DATA
@@ -491,6 +512,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="force the live teacher (COSIMO_V3_LIVE=1 also does; default is the fixture)",
     )
+    p.add_argument(
+        "--holdout",
+        action="store_true",
+        help="render the HOLDOUT families into eval/ instead of the train "
+        "families into sft/ (amendment §E: the eval slice is generated, not "
+        "borrowed from shipped families)",
+    )
     p.set_defaults(func=cmd_render)
 
     p = sub.add_parser("verify", help="the v3 verification board (axes 1-5 in PR2)")
@@ -513,6 +541,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--live",
         action="store_true",
         help="force the live teacher (COSIMO_V3_LIVE=1 also does; default is the fixture)",
+    )
+    p.add_argument(
+        "--holdout",
+        action="store_true",
+        help="pair the eval/ rows into preference/eval_pairs.jsonl instead of "
+        "the sft/ rows into preference/pairs.jsonl",
     )
     p.set_defaults(func=cmd_prefer)
 

@@ -53,7 +53,16 @@ def test_the_walk_met_every_kind_and_every_licensed_crime():
     with open(COMMITTED, encoding="utf8") as handle:
         payload = json.load(handle)
     meta = payload["meta"]
-    assert meta["entries"] == 2 * meta["pairs"], (
+    # At most two bodies per pair, and often fewer: the rejected brief is a
+    # function of (question, work_type, pitfall) and nothing else, so two lanes
+    # drawing the same crime on the same pack now post byte-identical requests
+    # and share one entry. That is honest -- the rejected side is graded on the
+    # crime and a word band, never on the parent lane's budget -- and it only
+    # became visible once §A reduced the pair's prompt from the parent's whole
+    # brief to the student's question. What must still hold is that no pair
+    # ships with one side captured and the other missing, which the build
+    # asserts per pair before it writes a byte.
+    assert 0 < meta["entries"] <= 2 * meta["pairs"], (
         "both sides or none: no half-pairs in the table"
     )
     assert payload["model"] == pref_harness.DUMMY_MODEL

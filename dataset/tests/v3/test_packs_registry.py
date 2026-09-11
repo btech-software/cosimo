@@ -15,6 +15,7 @@ import pytest
 
 import yaml
 
+from pipelines.v3 import config, inventory  # noqa: E402
 from pipelines.v3.config import SCHEMA_VERSION, VALID_REGISTERS, out_dir  # noqa: E402
 from pipelines.v3.packs import COMPUTERS, FAMILIES, PackError, compute_pack  # noqa: E402
 from pipelines.v3.seed import pack_seed  # noqa: E402
@@ -64,7 +65,14 @@ def test_registry_matches_the_plan():
             f"{work_type}: no holdout family -- unseen_scenario_family would "
             "silently measure nothing"
         )
-        assert 0.0 < cell["max_share"] <= 0.03
+        # The cap is derived from the plan's own train-family count now
+        # (config.family_max_share): a flat 0.03 was arithmetic that only ever
+        # closed for a fifteen-family plan, and this one has ten.
+        assert (
+            0.0
+            < cell["max_share"]
+            <= config.family_max_share(inventory.train_family_count(spec))
+        )
 
 
 @pytest.mark.parametrize("work_type", sorted(COMPUTERS))

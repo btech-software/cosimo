@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 
+from .. import row as rowlib
 from .. import write
 from ..verification.exam import EXAM_KIND, compose_exam_item
 from .prose import _PACK_ENVELOPE, _family_of, row_id_from_coords
@@ -40,16 +41,21 @@ EXAM_PROTOCOL = (
 )
 
 
-def select_exam_jobs(jobs, *, limit=None) -> list:
-    """The render-eligible exam slice of *jobs*: train only, sorted, capped.
+def select_exam_jobs(jobs, *, limit=None, holdout=False) -> list:
+    """The render-eligible exam slice of *jobs*: one cohort, sorted, capped.
 
     The prose selector's discipline, unchanged, for the same reasons (the
     fixture harnesses capture replies for exactly what a run will ask); the
     exam slice is deterministic, so a captured run and a live run must ask
-    the same questions of the same packs.
+    the same questions of the same packs. ``holdout`` selects the cohort
+    rather than filtering one away -- see ``prose.select_prose_jobs``.
     """
     selected = sorted(
-        (job for job in jobs if job.record_type == EXAM_KIND and not job.holdout),
+        (
+            job
+            for job in jobs
+            if job.record_type == EXAM_KIND and bool(job.holdout) is bool(holdout)
+        ),
         key=lambda job: (job.work_type, job.family, job.record_type, job.variant),
     )
     if limit is not None:
@@ -57,7 +63,7 @@ def select_exam_jobs(jobs, *, limit=None) -> list:
     return selected
 
 
-def build_exam_row(pack_line: dict) -> dict:
+def build_exam_row(pack_line: dict, *, holdout: bool = False) -> dict:
     """One stored pack line -> ``{"row": .., "dead_letter": ..}``, no I/O.
 
     The pair shape of :func:`pipelines.v3.render.prose.render_prose_row`
@@ -84,48 +90,53 @@ def build_exam_row(pack_line: dict) -> dict:
                 "scenario_id": pack["scenario_id"],
             },
         }
+    # No system turn on the shipped row. ``EXAM_PROTOCOL`` is the *factory's*
+    # instruction about answer form, and the harness composes its own from
+    # `prompt.exam_protocol` -- binding both would put two protocols in front
+    # of one item, which is what `normalize_v3_record` was already stripping
+    # back out on the way in. The item's prompt (the four labelled options)
+    # lives in a named field instead of at message index 1: a column an
+    # auditor can read beats an index into a list.
     messages = [
-        {"role": "system", "content": EXAM_PROTOCOL},
         {"role": "user", "content": item["question_text"]},
         {"role": "assistant", "content": item["answer_text"]},
     ]
     return {
-        "row": {
-            "id": row_id_from_coords(
+        "row": rowlib.student_row(
+            row_id=row_id_from_coords(
                 EXAM_KIND, pack["work_type"], _family_of(pack), pack["variant"]
             ),
-            "record_type": EXAM_KIND,
-            "work_type": pack["work_type"],
-            "scenario_id": pack["scenario_id"],
-            "variant": pack["variant"],
-            "question": pack["question"],
-            "messages": messages,
-            "answer": item["answer_text"],
-            "options": item["options"],
-            "answer_value": item["answer_value"],
-            "answer_key": item["answer_key"],
-            "unit": item["unit"],
-            "register": pack["register"],
-            "verification": {
-                "computed_by": stamp.get("computed_by", "unknown"),
-                "pack_seed": stamp.get("pack_seed", f"{pack['seed']:016x}"),
-                "teacher": None,  # composed, not dictated: the row says so
-                "render": {
-                    "kind": EXAM_KIND,
-                    "attempts": 0,
-                    "style": item["style"],
-                    "liturgy": item["liturgy"],
-                    "distractors": item["distractor_names"],
-                },
+            kind=EXAM_KIND,
+            pack=pack,
+            holdout=holdout,
+            answer=item["answer_text"],
+            stamp=stamp,
+            teacher=None,  # composed, not dictated: the row says so
+            render={
+                "kind": EXAM_KIND,
+                "attempts": 0,
+                "style": item["style"],
+                "liturgy": item["liturgy"],
+                "distractors": item["distractor_names"],
             },
-        },
+            attempts=0,
+            extra={
+                "question_text": item["question_text"],
+                "messages": messages,
+                "options": item["options"],
+                "answer_value": item["answer_value"],
+                "answer_key": item["answer_key"],
+                "unit": item["unit"],
+            },
+        ),
         "dead_letter": None,
     }
 
 
-def run_exam_stage(out_dir: str, jobs, *, limit=None) -> dict:
-    """Compose exam rows for *jobs*; write ``sft/`` + ``dead_letter/``; report."""
-    selected = select_exam_jobs(jobs, limit=limit)
+def run_exam_stage(out_dir: str, jobs, *, limit=None, holdout=False) -> dict:
+    """Compose exam rows for *jobs*; write the shard + ``dead_letter/``; report."""
+    selected = select_exam_jobs(jobs, limit=limit, holdout=holdout)
+    shard = write.shard_kind(holdout)
     pack_cache: dict[str, dict | bool] = {}
 
     def pack_for(job):
@@ -153,10 +164,12 @@ def run_exam_stage(out_dir: str, jobs, *, limit=None) -> dict:
         "missing_packs": [],
         "by_kind": {},
         "liturgy": 0,
+        "bucket": shard,
+        "teacher_logs": 0,
     }
     rows: list[dict] = []
     deads: list[dict] = []
-    known = write.existing_ids(write.path_for("sft", EXAM_KIND, out_dir)) | (
+    known = write.existing_ids(write.path_for(shard, EXAM_KIND, out_dir)) | (
         write.existing_ids(write.path_for("dead_letter", EXAM_KIND, out_dir))
     )
     seen: set[str] = set()
@@ -193,7 +206,7 @@ def run_exam_stage(out_dir: str, jobs, *, limit=None) -> dict:
                 else report["missing_packs"]
             ).append(entry)
             continue
-        outcome = build_exam_row(pack_line)
+        outcome = build_exam_row(pack_line, holdout=job.holdout)
         cell = report["by_kind"].setdefault(EXAM_KIND, {"rendered": 0, "existing": 0})
         if outcome["row"] is not None:
             rows.append(outcome["row"])
@@ -205,7 +218,7 @@ def run_exam_stage(out_dir: str, jobs, *, limit=None) -> dict:
             deads.append(outcome["dead_letter"])
             report["dead_lettered"] += 1
     if rows:
-        write.append_unique(write.path_for("sft", EXAM_KIND, out_dir), rows)
+        write.append_unique(write.path_for(shard, EXAM_KIND, out_dir), rows)
     if deads:
         write.append_unique(write.path_for("dead_letter", EXAM_KIND, out_dir), deads)
     return report

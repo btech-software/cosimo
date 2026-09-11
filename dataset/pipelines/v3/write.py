@@ -26,7 +26,22 @@ import os
 
 #: Buckets of the on-disk layout. An unlisted kind is a wiring bug, so
 #: :func:`path_for` refuses it instead of inventing a directory nobody verifies.
-KINDS = ("fact_packs", "sft", "preference", "dead_letter")
+#:
+#: ``eval`` is the amendment's §E addition and it is a *separate bucket*, not a
+#: flag on a row: a holdout family's rendered prose must never be reachable
+#: from the same listing the training shards are read out of. Two directories
+#: cannot be confused by a glob; a boolean on a row can be, and was.
+KINDS = ("fact_packs", "sft", "eval", "preference", "dead_letter")
+
+
+#: Where a *shard* row goes, given whether its family is held out. The one
+#: place that mapping is written down: four renderers and the preference stage
+#: all ask this rather than each spelling out its own ``"eval" if holdout else
+#: "sft"``, because five copies of a leak rule is five chances to get it wrong
+#: once.
+def shard_kind(holdout: bool) -> str:
+    """``"eval"`` for a holdout family's row, ``"sft"`` for a trainable one."""
+    return "eval" if holdout else "sft"
 
 
 def path_for(kind: str, name: str, out_dir: str) -> str:
@@ -36,6 +51,36 @@ def path_for(kind: str, name: str, out_dir: str) -> str:
     if not name or "/" in name or name in (".", ".."):
         raise ValueError(f"unsafe shard name {name!r}: names are single segments")
     return os.path.join(out_dir, kind, f"{name}.jsonl")
+
+
+def teacher_log_path(kind: str, row_id: str, out_dir: str) -> str:
+    """``<out>/teacher_logs/<kind>/<id>.json`` -- the debug surface (§A).
+
+    Not a shard: one file per row, JSON rather than JSONL, and outside
+    :data:`KINDS` entirely so no reader that walks the corpus tree can pick it
+    up by accident. That separation is the whole point of the two-surface
+    change -- the transcript exists for a post-mortem, and a post-mortem
+    artefact that any glob can reach is an artefact something will eventually
+    train on.
+    """
+    if not kind or "/" in kind or kind in (".", ".."):
+        raise ValueError(f"unsafe teacher-log kind {kind!r}: kinds are single segments")
+    if not row_id or "/" in row_id or row_id in (".", ".."):
+        raise ValueError(f"unsafe teacher-log id {row_id!r}: ids are single segments")
+    return os.path.join(out_dir, "teacher_logs", kind, f"{row_id}.json")
+
+
+def write_teacher_log(path: str, payload: dict) -> str:
+    """Write one teacher transcript, atomically. Same tmp+swap as the shards."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf8") as handle:
+        json.dump(payload, handle, sort_keys=True, ensure_ascii=False, indent=1)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(tmp, path)
+    return path
 
 
 def read_jsonl(path: str) -> list[dict]:

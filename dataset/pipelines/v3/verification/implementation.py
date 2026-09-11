@@ -345,14 +345,20 @@ def impl_gate_violations(pack: dict, row: dict) -> list[str]:
                 f"{TAG_TAMPER} {field} on the shard is not what the pack entails"
             )
     messages = row.get("messages") or []
-    if [m.get("role") for m in messages] != ["system", "user", "assistant"]:
-        violations.append(f"{TAG_SHAPE} message roles are not the impl triad")
+    # Two turns, not three, and the user turn is the *spec* rather than
+    # ``impl_brief``'s wrapper around it. The brief asks the teacher for a
+    # statement of limitations -- it is the factory talking, and §A keeps it
+    # off every trainable surface. What the record's prompt has always been is
+    # the instrument's own spec, which is what the pack entails and what the
+    # recomposition below re-derives.
+    if [m.get("role") for m in messages] != ["user", "assistant"]:
+        violations.append(f"{TAG_SHAPE} message roles are not the impl pair")
     else:
         if messages[-1].get("content") != answer:
             violations.append(
                 f"{TAG_SHAPE} answer and the assistant turn have drifted apart"
             )
-        if messages[1].get("content") != impl_brief(pack, item)[1]["content"]:
+        if messages[0].get("content") != item["spec"]:
             violations.append(
                 f"{TAG_TAMPER} the question on the shard is not what the pack entails"
             )

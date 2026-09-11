@@ -27,9 +27,9 @@ from __future__ import annotations
 import os
 
 from .. import config
+from .. import row as rowlib
 from .. import write
 from ..teacher import routing
-from ..teacher.client import DEFAULT_MAX_TOKENS
 from ..verification.implementation import (
     IMPL_KIND,
     compose_impl_item,
@@ -40,10 +40,14 @@ from ..verification.implementation import (
 from .prose import _PACK_ENVELOPE, row_id_from_coords
 
 
-def select_impl_jobs(jobs, *, limit=None) -> list:
-    """The render-eligible implementation slice of *jobs*: train only, sorted, capped."""
+def select_impl_jobs(jobs, *, limit=None, holdout=False) -> list:
+    """The render-eligible implementation slice: one cohort, sorted, capped."""
     selected = sorted(
-        (job for job in jobs if job.record_type == IMPL_KIND and not job.holdout),
+        (
+            job
+            for job in jobs
+            if job.record_type == IMPL_KIND and bool(job.holdout) is bool(holdout)
+        ),
         key=lambda job: (job.work_type, job.family, job.record_type, job.variant),
     )
     if limit is not None:
@@ -55,7 +59,7 @@ def _family(pack: dict) -> str:
     return pack["scenario_id"][len(pack["work_type"]) + 1 :]
 
 
-def build_impl_row(teacher, pack_line: dict) -> dict:
+def build_impl_row(teacher, pack_line: dict, *, holdout: bool = False) -> dict:
     """One stored pack line -> ``{"row": .., "dead_letter": ..}``.
 
     The pair shape of the prose builder; the failure taxonomy is richer:
@@ -74,6 +78,7 @@ def build_impl_row(teacher, pack_line: dict) -> dict:
     def dead(reason: str, **extra) -> dict:
         return {
             "row": None,
+            "log": None,
             "dead_letter": {
                 "id": rid,
                 "record_type": IMPL_KIND,
@@ -109,7 +114,7 @@ def build_impl_row(teacher, pack_line: dict) -> dict:
             exchange,
             model=route.model,
             temperature=temperature,
-            max_tokens=DEFAULT_MAX_TOKENS,
+            max_tokens=route.max_tokens,
             think=route.think,
         )
         attempts += 1
@@ -117,39 +122,51 @@ def build_impl_row(teacher, pack_line: dict) -> dict:
         violations = limitations_violations(pack, limitations)
         if not violations:
             return {
-                "row": {
-                    "id": rid,
-                    "record_type": IMPL_KIND,
-                    "work_type": pack["work_type"],
-                    "scenario_id": pack["scenario_id"],
-                    "variant": pack["variant"],
-                    "question": pack["question"],
-                    "messages": [
-                        *brief,
-                        {"role": "assistant", "content": item["reference_code"]},
-                    ],
-                    "answer": item["reference_code"],
-                    "reference_code": item["reference_code"],
-                    "spec": item["spec"],
-                    "public_tests": item["public_tests"],
-                    "hidden_tests": item["hidden_tests"],
-                    "dirty_fixture": item["dirty_fixture"],
-                    "limitations": limitations,
-                    "register": pack["register"],
-                    "verification": {
-                        "computed_by": stamp.get("computed_by", "unknown"),
-                        "pack_seed": stamp.get("pack_seed", f"{pack['seed']:016x}"),
-                        "teacher": result.to_verification(),
-                        "render": {
-                            "kind": IMPL_KIND,
-                            "attempts": attempts,
-                            "public_tests": len(item["public_tests"]),
-                            "hidden_tests": len(item["hidden_tests"]),
-                            "sandbox": "passed",
-                        },
+                "row": rowlib.student_row(
+                    row_id=rid,
+                    kind=IMPL_KIND,
+                    pack=pack,
+                    holdout=holdout,
+                    answer=item["reference_code"],
+                    stamp=stamp,
+                    teacher=result.to_verification(),
+                    render={
+                        "kind": IMPL_KIND,
+                        "attempts": attempts,
+                        "public_tests": len(item["public_tests"]),
+                        "hidden_tests": len(item["hidden_tests"]),
+                        "sandbox": "passed",
                     },
-                },
+                    attempts=attempts,
+                    extra={
+                        # The spec is the *record's* prompt and it is the pack's,
+                        # not the teacher's: `impl_brief` wraps it in the factory
+                        # contract to ask for limitations, and that wrapper is
+                        # what may not ship. The two turns kept here are the
+                        # instrument's own -- ask and reference implementation.
+                        "messages": [
+                            {"role": "user", "content": item["spec"]},
+                            {
+                                "role": "assistant",
+                                "content": item["reference_code"],
+                            },
+                        ],
+                        "reference_code": item["reference_code"],
+                        "spec": item["spec"],
+                        "public_tests": item["public_tests"],
+                        "hidden_tests": item["hidden_tests"],
+                        "dirty_fixture": item["dirty_fixture"],
+                        "limitations": limitations,
+                    },
+                ),
                 "dead_letter": None,
+                "log": rowlib.teacher_log(
+                    row_id=rid,
+                    kind=IMPL_KIND,
+                    pack=pack,
+                    messages=[*brief, {"role": "assistant", "content": limitations}],
+                    result=result,
+                ),
             }
         exchange = [
             *exchange,
@@ -172,9 +189,11 @@ def build_impl_row(teacher, pack_line: dict) -> dict:
     )
 
 
-def run_impl_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
-    """Render implementation rows for *jobs*; write ``sft/`` + ``dead_letter/``."""
-    selected = select_impl_jobs(jobs, limit=limit)
+def run_impl_stage(out_dir: str, jobs, teacher, *, limit=None, holdout=False) -> dict:
+    """Render implementation rows for *jobs*; write the shard + ``dead_letter/``."""
+    selected = select_impl_jobs(jobs, limit=limit, holdout=holdout)
+    shard = write.shard_kind(holdout)
+    keep_logs = config.keep_teacher_messages()
     pack_cache: dict[str, dict | bool] = {}
 
     def pack_for(job):
@@ -201,10 +220,12 @@ def run_impl_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
         "skipped_by_pack_gate": [],
         "missing_packs": [],
         "by_kind": {},
+        "bucket": shard,
+        "teacher_logs": 0,
     }
     rows: list[dict] = []
     deads: list[dict] = []
-    known = write.existing_ids(write.path_for("sft", IMPL_KIND, out_dir)) | (
+    known = write.existing_ids(write.path_for(shard, IMPL_KIND, out_dir)) | (
         write.existing_ids(write.path_for("dead_letter", IMPL_KIND, out_dir))
     )
     seen: set[str] = set()
@@ -241,17 +262,22 @@ def run_impl_stage(out_dir: str, jobs, teacher, *, limit=None) -> dict:
                 else report["missing_packs"]
             ).append(entry)
             continue
-        outcome = build_impl_row(teacher, pack_line)
+        outcome = build_impl_row(teacher, pack_line, holdout=job.holdout)
         cell = report["by_kind"].setdefault(IMPL_KIND, {"rendered": 0, "existing": 0})
         if outcome["row"] is not None:
             rows.append(outcome["row"])
             report["rendered"] += 1
             cell["rendered"] += 1
+            if keep_logs and outcome.get("log"):
+                write.write_teacher_log(
+                    write.teacher_log_path(IMPL_KIND, rid, out_dir), outcome["log"]
+                )
+                report["teacher_logs"] += 1
         else:
             deads.append(outcome["dead_letter"])
             report["dead_lettered"] += 1
     if rows:
-        write.append_unique(write.path_for("sft", IMPL_KIND, out_dir), rows)
+        write.append_unique(write.path_for(shard, IMPL_KIND, out_dir), rows)
     if deads:
         write.append_unique(write.path_for("dead_letter", IMPL_KIND, out_dir), deads)
     return report

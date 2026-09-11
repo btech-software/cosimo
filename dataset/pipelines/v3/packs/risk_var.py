@@ -19,7 +19,8 @@ import math
 import random
 
 from ..seed import pack_seed, rng_for
-from .base import FactPack, PackError, assemble_numbers, pick_as_of
+from .base import FactPack, PackError, assemble_contract, pick_as_of
+from .registers import pick_register
 
 WORK_TYPE = "risk.market.var_es"
 FAMILIES = ("rates_book", "equity_longonly", "credit_focused")
@@ -27,18 +28,46 @@ FAMILIES = ("rates_book", "equity_longonly", "credit_focused")
 _Z95, _Z99 = 1.645, 2.326
 _INV_SQRT_2PI = 1.0 / math.sqrt(2.0 * math.pi)
 
+#: The sleeve words a book is run under, cross-multiplied with the desks below.
+#: Two names per family was the old pool, so ten variants of `rates_book` were
+#: ten VaR papers on the same two books -- the scenario repainted, which is the
+#: v1 pathology at a smaller constant. Thirty names per family is wide enough
+#: that a twenty-variant family rarely repeats, and the draw count is unchanged
+#: (one `rng.choice`, whatever the pool holds), so every figure these packs
+#: compute is byte-identical to what it computed before.
+_BOOK_SLEEVES = ("Book", "Sleeve", "Portfolio", "Mandate", "Desk")
+
+
+def _books(*desks: str) -> tuple[str, ...]:
+    return tuple(f"{desk} {sleeve}" for desk in desks for sleeve in _BOOK_SLEEVES)
+
+
 _BANDS = {
     "rates_book": {
         "value_m": (200.0, 4000.0, 1),
         "sigma_daily": (0.0020, 0.0110, 5),
         "mu_daily": (-0.0006, 0.0006, 5),
-        "books": ("Sovereign Curve Book", "Duration Overlay Sleeve"),
+        "books": _books(
+            "Sovereign Curve",
+            "Duration Overlay",
+            "Govvie Relative Value",
+            "Rates Carry",
+            "Inflation-Linked",
+            "Swap Spread",
+        ),
     },
     "equity_longonly": {
         "value_m": (80.0, 1500.0, 1),
         "sigma_daily": (0.0070, 0.0240, 5),
         "mu_daily": (-0.0010, 0.0012, 5),
-        "books": ("Global Long Extension", "Small/Mid Alpha Book"),
+        "books": _books(
+            "Global Long Extension",
+            "Small/Mid Alpha",
+            "Quality Compounder",
+            "Dividend Growth",
+            "Concentrated Conviction",
+            "Low Volatility",
+        ),
     },
     "credit_focused": {
         # Holdout family: wide, gappy distributions -- the Gaussian z is the
@@ -46,7 +75,14 @@ _BANDS = {
         "value_m": (60.0, 900.0, 1),
         "sigma_daily": (0.0100, 0.0330, 5),
         "mu_daily": (-0.0015, 0.0010, 5),
-        "books": ("IG Credit Sleeve", "BB/B Transition Book"),
+        "books": _books(
+            "IG Credit",
+            "BB/B Transition",
+            "Crossover Credit",
+            "Short Duration Credit",
+            "Subordinated Financials",
+            "Fallen Angel",
+        ),
     },
 }
 
@@ -77,7 +113,10 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             f"(mu={mu}, sigma={sigma}); nothing to price"
         )
 
-    book = rng.choice(list(bands["books"]))
+    # Indexed, not drawn -- see ``_books``. Every book in the family's pool is
+    # reached before any is repeated.
+    books = bands["books"]
+    book = books[variant % len(books)]
     computed = {
         "var95_1d_m": round(var95_1, 3),
         "var99_1d_m": round(var99_1, 3),
@@ -120,19 +159,29 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "VaR_a(h) = V (z_a sigma - mu) sqrt(h)",
             "ES_a(h) = V (sigma phi(z_a) / (1 - a) - mu) sqrt(h)",
         ],
-        allowed_numbers=assemble_numbers(
+        # The question prints the book value to one decimal and both daily
+        # moments as percents; each is a rounding of a canonical figure, so
+        # each is an alias of it rather than a peer in the allow-list. The
+        # confidence levels are the *contract's* numbers, not the book's --
+        # 95 and 99 name which VaR is being asked for -- so they stay extras.
+        **assemble_contract(
             inputs,
             computed,
-            extra=(
-                round(value_m, 1),
-                round(mu * 100, 2),
-                round(sigma * 100, 2),
-                float(horizon),
-                95.0,
-                99.0,
-                1.0,
-                100.0,
-            ),
+            aliases={
+                "book_value_m": [f"{value_m:.1f}"],
+                "mu_daily": [f"{mu * 100:.2f}"],
+                "sigma_daily": [f"{sigma * 100:.2f}"],
+            },
+            display={"book_value_m": f"{value_m:,.1f}"},
+            # The question's own quantities: which two VaRs it asks for, and
+            # the one-day horizon it always prints beside the h-day one. Named
+            # rather than dropped into the allow-list, because an answer that
+            # says "the 95% VaR" is stating a quantity, not inventing one.
+            canonical_extra={
+                "confidence_95_pct": 95.0,
+                "confidence_99_pct": 99.0,
+                "horizon_1d": 1.0,
+            },
         ),
         forbidden_claims=[
             "the book will not lose more than VaR",
@@ -144,7 +193,7 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "square-root horizon scaling",
             "expected shortfall tail",
         ],
-        register="risk_committee",
+        register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,
     )

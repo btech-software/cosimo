@@ -58,7 +58,6 @@ from pipelines.v3.render.implementation import (  # noqa: E402
 )
 from pipelines.v3.teacher import routing  # noqa: E402
 from pipelines.v3.teacher.client import (  # noqa: E402
-    DEFAULT_MAX_TOKENS,
     build_body,
     canonical_request,
 )
@@ -110,7 +109,10 @@ def request_body(pack: dict) -> dict:
         impl_brief(pack, item),
         model=DUMMY_MODEL,
         temperature=config.IMPL_TEMPERATURES[0],
-        max_tokens=DEFAULT_MAX_TOKENS,
+        # The lane's cap, not the client's flat default: the amendment moved
+        # the completion budget onto the route (think-off 800, think-on 2048),
+        # and the budget is part of every body this table hashes.
+        max_tokens=routing.route(IMPL_KIND).max_tokens,
         think=routing.route(IMPL_KIND).think,
     )
 

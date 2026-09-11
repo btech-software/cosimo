@@ -15,6 +15,7 @@ import json
 
 import pytest
 
+from pipelines.v3 import config
 from pipelines.v3.packs import compute_pack
 from pipelines.v3.teacher import prompts, routing
 from pipelines.v3.teacher.prompts import TEACHER_SYSTEM, render_brief, render_repair
@@ -32,20 +33,53 @@ ALL_TYPES = (
 
 
 def test_every_plan_routes_the_spec_table_exactly():
+    # Amendment §B. Think is on for the four lanes whose quality is a
+    # derivation and off for the four whose quality is voice; `abstention`
+    # crossed to the prose lane with it, because a lane that does not think has
+    # no business paying reasoning-model prices, and an abstention's failure
+    # mode is a chain of thought that talks itself into answering.
     expected = {
         "exam": ("reasoning", True),
         "implementation": ("reasoning", True),
         "agentic": ("reasoning", True),
         "critique": ("reasoning", True),
-        "abstention": ("reasoning", False),
-        "analysis": ("prose", True),
-        "memo": ("prose", True),
-        "grounded": ("prose", True),
+        "abstention": ("prose", False),
+        "analysis": ("prose", False),
+        "memo": ("prose", False),
+        "grounded": ("prose", False),
     }
     for record_type, (lane, think) in expected.items():
         decision = routing.route(record_type)
         assert (decision.lane, decision.think) == (lane, think), record_type
         assert decision.record_type == record_type
+        # The budget follows the flag, never the client's old flat default.
+        assert decision.max_tokens == (
+            config.MAX_TOKENS_THINK_ON if think else config.MAX_TOKENS_THINK_OFF
+        ), record_type
+
+
+def test_memo_think_is_an_operator_measurement_not_a_default(monkeypatch):
+    """The one lane §B leaves movable, and it stays off until measured."""
+    monkeypatch.delenv(config.MEMO_THINK_ENV, raising=False)
+    assert routing.route("memo").think is False
+    assert routing.route("memo").max_tokens == config.MAX_TOKENS_THINK_OFF
+    monkeypatch.setenv(config.MEMO_THINK_ENV, "1")
+    assert routing.route("memo").think is True
+    assert routing.route("memo").max_tokens == config.MAX_TOKENS_THINK_ON
+    # It moves memo and nothing else: a bake-off that quietly turned analysis
+    # back on would not be a bake-off of memo.
+    assert routing.route("analysis").think is False
+
+
+def test_agentic_thinks_on_the_planner_turn_only():
+    """§B's split entry: plan with reasoning, react to tool bytes without it."""
+    route = routing.route("agentic")
+    assert routing.agentic_turn_think(route, tool_results_seen=False) is True
+    assert routing.agentic_turn_think(route, tool_results_seen=True) is False
+    # A lane that does not think on its planner turn does not start thinking
+    # on its tool turns either.
+    prose = routing.route("analysis")
+    assert routing.agentic_turn_think(prose, tool_results_seen=False) is False
 
 
 def test_no_plan_routes_an_unknown_record_type(monkeypatch):
@@ -69,8 +103,11 @@ def test_implementations_follow_the_environment_per_lane(monkeypatch):
 
 
 def test_rejected_sides_take_their_parents_model_and_lose_their_think():
-    parent = routing.route("analysis")
-    child = routing.route("analysis", rejected=True)
+    # `critique` rather than `analysis`: §B turned the prose lanes' think off
+    # outright, so a prose parent no longer has a think flag to lose and the
+    # assertion would pass on a routing table that had stopped forcing it.
+    parent = routing.route("critique")
+    child = routing.route("critique", rejected=True)
     assert child.model == parent.model
     assert child.think is False and parent.think is True
     abstention_child = routing.route("abstention", rejected=True)
@@ -132,3 +169,36 @@ def test_repairs_carry_the_violations_and_the_original_transcript():
     assert "invented 7%" in repaired[3]["content"]
     assert "missed point" in repaired[3]["content"]
     assert messages[0]["content"] == TEACHER_SYSTEM, "repair must not mutate the brief"
+
+
+def test_a_teacher_that_reasons_unconditionally_can_be_given_headroom(monkeypatch):
+    """§B's caps assume the flag decides whether reasoning happens. Some do not.
+
+    Measured on the reference box (2026-09-11, `qwen3.8-flash-next`): the
+    think-off arm of the ablation came back with `think_present: true` on all
+    twenty calls and `finish_reason: length` on all forty. The model reasons
+    whatever the request body says, so at 800 tokens the answer never arrived
+    and both arms scored a meaningless zero.
+
+    The overhead is a deployment statement and defaults to nothing, so the
+    corpus's own numbers are unchanged and every committed fixture -- keyed on
+    request bodies that carry the budget -- stays valid.
+    """
+    monkeypatch.delenv(config.THINK_OVERHEAD_ENV, raising=False)
+    assert routing.budget_for(False) == config.MAX_TOKENS_THINK_OFF
+    assert routing.budget_for(True) == config.MAX_TOKENS_THINK_ON
+
+    monkeypatch.setenv(config.THINK_OVERHEAD_ENV, "8000")
+    assert routing.budget_for(False) == config.MAX_TOKENS_THINK_OFF + 8000
+    assert routing.budget_for(True) == config.MAX_TOKENS_THINK_ON + 8000
+    # It reaches the lane, not only the helper.
+    assert routing.route("analysis").max_tokens == config.MAX_TOKENS_THINK_OFF + 8000
+    # The two lanes stay distinguishable, which COSIMO_V3_MAX_TOKENS would not
+    # have done: an overridden budget flattens them into one number and the
+    # ablation loses the thing it exists to compare.
+    assert routing.budget_for(True) > routing.budget_for(False)
+
+    # Garbage is not a licence to spend: an unparseable value reads as zero
+    # rather than raising in the middle of an 80k-call run.
+    monkeypatch.setenv(config.THINK_OVERHEAD_ENV, "lots")
+    assert routing.budget_for(False) == config.MAX_TOKENS_THINK_OFF

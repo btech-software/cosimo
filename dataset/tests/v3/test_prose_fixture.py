@@ -62,8 +62,16 @@ def test_fifty_rows_render_and_the_invented_number_rate_is_exactly_zero(
     tmp_path, monkeypatch
 ):
     payload = json.load(open(COMMITTED, encoding="utf8"))
-    assert payload["meta"]["entries"] == 50, (
+    # `train_rows`, not `entries`: the table now also carries a holdout arm so
+    # the operator's `eval-slice` mode can be run offline (amendment §E gave
+    # holdout families a render path, and a path with no fixture behind it can
+    # only be exercised by billing a teacher). The PR2 gate is still fifty
+    # *train* rows, exactly.
+    assert payload["meta"]["train_rows"] == 50, (
         "the PR2 gate is fifty rows, not approximately"
+    )
+    assert payload["meta"]["holdout_rows"] > 0, (
+        "the eval tree needs a fixture behind it or `eval-slice` is live-only"
     )
     out = str(tmp_path / "corpus")
     jobs = inventory.expand_jobs(inventory.load_plan())
