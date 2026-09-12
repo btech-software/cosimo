@@ -27,7 +27,7 @@ from __future__ import annotations
 import math
 import re
 
-from ..teacher.prompts import WORD_BUDGETS
+from ..teacher.prompts import KIND_SENTENCE_CAPS, word_budget
 
 #: The memo scaffolding. One regex, anchored at a line start, because the crime
 #: is a *heading* -- "the finding: we are long" mid-sentence is prose, and
@@ -123,7 +123,18 @@ def desk_chat_ceiling(kind: str) -> int:
     work type an ``ic_memo`` family would, and that is a plan edit, made on
     purpose, not a gate quietly widened.
     """
-    low, high = WORD_BUDGETS.get(kind, (0, 0))
+    try:
+        low, high = word_budget(kind, "desk_chat")
+    except KeyError:
+        low, high = 0, 0
+    # A kind may be stricter than its register, and where it is, its number is
+    # the ceiling. `grounded` is eight sentences and `abstention` is five
+    # wherever they are written; a brief that asked for twelve here and eight
+    # in the kind rule would be two ceilings for one answer, and the model
+    # obeys whichever it read last.
+    kind_cap = KIND_SENTENCE_CAPS.get(kind)
+    if kind_cap:
+        return kind_cap
     return max(
         DESK_CHAT_MAX_SENTENCES,
         math.ceil(low / DESK_CHAT_WORDS_PER_SENTENCE),
@@ -169,6 +180,26 @@ _REGISTER_SHAPE = {
 }
 
 
+#: The record types an ic_memo family may write *without* reaching a decision.
+#: A committee memo ends in a call; a citation and a refusal do not, and their
+#: briefs say so in as many words ("no call unless the question asked for one",
+#: "offer no substitute figure"). Requiring one of them anyway is the
+#: contradiction this file's own docstring warns about -- a teacher told to
+#: make a call by its register and not to by its kind has been given no brief
+#: -- and it would have dead-lettered every grounded row of every attribution
+#: family, all of which are ic_memo.
+_CALL_EXEMPT_KINDS = frozenset({"grounded", "abstention"})
+
+
+#: What ``ic_memo`` asks of a row that is not there to decide. The register's
+#: other habit -- never the exam's closing tag -- survives; the demand for a
+#: labelled call does not, because the kind has already ruled it out.
+_CALL_EXEMPT_SHAPE = (
+    "write for the committee's file: the figures, and what they rest on. Do "
+    "not close on a labelled call and never write 'FINAL ANSWER:'"
+)
+
+
 def register_shape(register: str, kind: str = "") -> str:
     """The shape contract for *register*, in the words the gate would use.
 
@@ -179,6 +210,14 @@ def register_shape(register: str, kind: str = "") -> str:
     """
     clauses = []
     shape = _REGISTER_SHAPE.get(register)
+    if register == "ic_memo" and kind in _CALL_EXEMPT_KINDS:
+        # The gate does not ask these kinds for a decision (see
+        # ``_CALL_EXEMPT_KINDS``), so the brief must not either. It did, and a
+        # live attribution `grounded` row spent all three attempts on it: told
+        # by its register to write "Call:" and by its kind to carry no labels,
+        # it obeyed the register every time and was refused every time. Two
+        # instructions that cannot both be followed are not a brief.
+        shape = _CALL_EXEMPT_SHAPE
     if shape:
         clauses.append(shape)
     if register == "desk_chat":
@@ -234,13 +273,14 @@ def register_violations(register: str, text: str, *, kind: str = "") -> list[str
     text = str(text or "")
     if kind == "exam":
         return _exam(text)
+    out = _grounded(text) if kind == "grounded" else []
     if register == "desk_chat":
-        return _desk_chat(text, kind)
+        return out + _desk_chat(text, kind)
     if register == "ic_memo":
-        return _ic_memo(text)
+        return out + _ic_memo(text, kind)
     if register == "risk_committee":
-        return _risk_committee(text)
-    return []
+        return out + _risk_committee(text)
+    return out
 
 
 #: The memo's labelled-call device, *wherever it appears*. Distinct from
@@ -280,6 +320,32 @@ def makes_a_call(text: str) -> bool:
 
 def _headings(text: str) -> list[str]:
     return sorted({m.group(1).lower() for m in _MEMO_HEADINGS.finditer(text)})
+
+
+def _grounded(text: str) -> list[str]:
+    """A citation carries no scaffolding, whatever register it is written in.
+
+    §B.2 tells a ``grounded`` row "no section labels of any kind", and until
+    this existed only ``desk_chat`` enforced it -- so the first live grounded
+    row on an ``ic_memo`` family closed on ``Call: act on Financials
+    allocation``, obeying the register and breaking the kind. A rule stated in
+    the brief and refused by nobody is not a rule.
+    """
+    out: list[str] = []
+    found = _headings(text)
+    if found:
+        out.append(
+            "a grounded answer carries section headings ("
+            + ", ".join(f"{h.title()}:" for h in found)
+            + ") -- it cites, it does not write itself up"
+        )
+    label = _CALL_LABEL.search(text)
+    if label and not found:
+        out.append(
+            f"a grounded answer labels a call ({label.group(0)!r}) -- cite the "
+            "figures and stop; the decision is the analysis row's job"
+        )
+    return out
 
 
 def _desk_chat(text: str, kind: str) -> list[str]:
@@ -329,7 +395,7 @@ def _desk_chat(text: str, kind: str) -> list[str]:
     return out
 
 
-def _ic_memo(text: str) -> list[str]:
+def _ic_memo(text: str, kind: str = "") -> list[str]:
     out: list[str] = []
     # Headings are *permitted* here, not required: the §C table says "Finding +
     # Evidence + Call allowed", and demanding all three would fail a memo that
@@ -348,7 +414,7 @@ def _ic_memo(text: str) -> list[str]:
     #
     # Safe to require because it is already asked for: the teacher's system
     # turn ends "what would move your conclusion, and your call".
-    if not makes_a_call(text):
+    if kind not in _CALL_EXEMPT_KINDS and not makes_a_call(text):
         out.append(
             "register ic_memo states no call -- an investment-committee memo "
             "ends in a decision, not a survey; say what you would do"

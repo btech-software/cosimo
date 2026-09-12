@@ -125,9 +125,16 @@ def test_briefs_render_every_pack_field_that_matters(kind):
     assert f"'{pack['scenario_id']}'" in user or pack["scenario_id"] in user
     for key in ("must_mention", "forbidden_claims", "allowed_numbers", "fact_pack"):
         assert key in user
-    low, high = prompts.WORD_BUDGETS[kind]
+    low, high = prompts.word_budget(kind, pack["register"])
     assert f"{low}-{high} words" in user
-    assert prompts._REGISTER_HINTS[pack["register"]] in user
+    # The register reaches the brief as the *gate's* shape rules, not as a
+    # one-line description of a voice: §B.3 made the two one string, so a row
+    # can no longer be refused for a rule it was never shown.
+    from pipelines.v3.verification.register import register_shape
+
+    assert register_shape(pack["register"], kind) in user
+    assert prompts.kind_shape(kind, pack["register"]) in user
+    assert prompts.work_type_rules(pack["work_type"]) in user
     assert pack["as_of"] in user
 
 

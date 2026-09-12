@@ -139,12 +139,13 @@ def solve(inputs):
     rp = sum(wp * p for _, wp, _, p in cells)
     if rb == 0.0 or rp == rb:
         raise ValueError("no active to attribute")
-    k = math.log((1.0 + rp) / (1.0 + rb)) / ((rp - rb) / rb)
+    k = math.log((1.0 + rp) / (1.0 + rb)) / (rp - rb)
     alloc = sum((wp - wb) * (r - rb) * k for wb, wp, r, _ in cells)
-    select = sum(wp * (p - r) * k for _, wp, r, p in cells)
+    select = sum(wb * (p - r) * k for wb, _, r, p in cells)
     inter = sum((wp - wb) * (p - r) * k for wb, wp, r, p in cells)
     return {
-        "active_bps": round((rp - rb) * 1e4, 1),
+        "active_bps": round((rp - rb) * k * 1e4, 1),
+        "arithmetic_active_bps": round((rp - rb) * 1e4, 1),
         "allocation_total_bps": round(alloc * 1e4, 1),
         "selection_total_bps": round(select * 1e4, 1),
         "interaction_total_bps": round(inter * 1e4, 1),

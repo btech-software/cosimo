@@ -77,8 +77,25 @@ scaffolding. Fixed; the legacy rows that tripped it now pass.
 
 Nine rows from a real teacher (`deepseek-v4-flash-0731`, 2026-09-11): three
 work types x `analysis` / `memo` / `grounded`, three rows in each of the three
-registers the plan emits. **9/9 shipped and all nine clear the full sixteen-axis
-board**, with no dead letters.
+registers the plan emits. At capture, **9/9 shipped and all nine cleared the
+sixteen-axis board**, with no dead letters.
+
+**None of the nine would ship under the v3.2 gates, and that is why the
+amendment exists.** Measured against the current contract: all nine are over
+their kind's word band (288, 237 and 334 words where the desk now takes 160,
+140 and 300), and seven carry one of the three §D contradiction tags --
+`schedule_risk_below_cap` on the three TCA rows (a 4.86% clip written up as a
+pacing problem), `unreconciled_call` on the three attribution rows (an effect
+named worth acting on out of pieces that missed the active return by 371 bp,
+which the old Carino factor made inevitable), and `drift_sign` on the VaR memo
+(a -0.10% daily mean reported as $10M of expected gain). Not one of them
+invented a number, which is exactly why sixteen axes passed them.
+
+The file is kept, not pruned, for the same reason `live_analysis.jsonl` is:
+a captured sample that stops clearing a tightened gate is the evidence the
+tightening was needed. It is not regenerable -- re-rendering these coordinates
+needs a billed teacher -- so read the prose below as a record of what the
+V3.1 briefs produced, never as a statement that the current board accepts it.
 
 Two things make it worth keeping beside `live_analysis.jsonl`.
 

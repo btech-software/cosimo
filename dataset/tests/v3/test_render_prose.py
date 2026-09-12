@@ -360,7 +360,7 @@ def test_dead_letters_land_whole_and_are_never_asked_again(tmp_path, monkeypatch
     deads = write.read_jsonl(dead_file)
     assert len(deads) == 4
     assert all(
-        "must_mention" in d["reason"] or "invented" in d["reason"] for d in deads
+        "does not engage" in d["reason"] or "invented" in d["reason"] for d in deads
     )
     before = transport.calls
     replay = run_render_stage(out, selected, Teacher(transport))

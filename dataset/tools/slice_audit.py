@@ -10,6 +10,12 @@ pass on a file it could not parse.
 The four, in the amendment's own words:
 
 * the invented-number rate on the last slice is 0;
+* no row contradicts its own pack (amendment §D: the schedule called the risk
+  below the cap, a negative drift called a gain, a winning effect named out of
+  pieces that do not add up);
+* ``analysis`` and ``grounded`` on one scenario do not open on the same
+  sentence (§F: two record types that share a first sentence are one record
+  type with two names);
 * no two rows of a cell are near-duplicates (the amendment does not name this
   one; it is the failure the numeric gates are blind to by construction, and
   scaling a repainted slice multiplies the repaint);
@@ -39,6 +45,10 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
 from pipelines.v3 import config, row as rowlib, write  # noqa: E402
 from pipelines.v3.packs import PackError, compute_pack  # noqa: E402
 from pipelines.v3.teacher.prompts import BRIEF_KINDS  # noqa: E402
+from pipelines.v3.verification.contradictions import (  # noqa: E402
+    contradiction_violations,
+    tag_of,
+)
 from pipelines.v3.verification.prose import (  # noqa: E402
     canonical_numbers,
     whitelist_for,
@@ -83,12 +93,19 @@ def audit(out_dir: str) -> list[str]:
             f"{config.TEACHER_FINGERPRINT!r} (first: {leaked[0]})"
         )
 
-    # -- 2. the invented-number rate, recomputed ----------------------------
+    # -- 2. what the recomputed pack says about each row --------------------
     #
     # Against the recomputed pack rather than the row's stored `fact_pack`: the
     # stored copy is what the row *claims*, and a slice audit that trusted the
     # claim would be measuring the renderer's opinion of itself.
+    #
+    # One recompute, every question asked of it -- the shape `_check_row` uses
+    # on the board. A fact computer is not free, and a second pass over the
+    # same rows to ask a second question would double the cost of the audit
+    # for nothing.
     offenders: list[str] = []
+    contradicted: list[str] = []
+    tags: dict[str, int] = {}
     ungradeable = 0
     for record in rows:
         try:
@@ -100,13 +117,16 @@ def audit(out_dir: str) -> list[str]:
         except (PackError, TypeError, ValueError):
             ungradeable += 1
             continue
-        tokens = invented_numbers(
-            str(record.get("answer") or ""),
-            canonical_numbers(pack),
-            whitelist_for(pack),
-        )
+        answer = str(record.get("answer") or "")
+        tokens = invented_numbers(answer, canonical_numbers(pack), whitelist_for(pack))
         if tokens:
             offenders.append(f"{record.get('id', '?')}: {', '.join(tokens[:3])}")
+        # §D: the claims the pack's own arithmetic refutes. Invisible to every
+        # numeric axis above, because not one of them invents a number.
+        for violation in contradiction_violations(pack, answer):
+            tag = tag_of(violation) or "untagged"
+            tags[tag] = tags.get(tag, 0) + 1
+            contradicted.append(f"{record.get('id', '?')}: {violation}")
     graded = len(rows) - ungradeable
     rate = len(offenders) / graded if graded else 1.0
     print(f"slice_audit: invented_number_rate {rate:.4f} over {graded} graded rows")
@@ -121,6 +141,28 @@ def audit(out_dir: str) -> list[str]:
         problems.append(
             f"{ungradeable} rows could not be regraded (their coordinates no "
             "longer compute) -- a slice you cannot audit is not a slice to scale"
+        )
+    print(f"slice_audit: contradictions {len(contradicted)} {tags or ''}".rstrip())
+    if contradicted:
+        for line in contradicted[:5]:
+            print(f"  contradiction: {line}")
+        problems.append(
+            f"{len(contradicted)} rows contradict their own pack "
+            f"({', '.join(f'{tag} x{n}' for tag, n in sorted(tags.items()))}); "
+            "§D wants those repaired, not shipped"
+        )
+
+    # -- 2c. analysis and grounded as two jobs, not two labels --------------
+    shared = _shared_openings(rows)
+    print(f"slice_audit: shared analysis/grounded openings {len(shared)}")
+    if shared:
+        for line in shared[:5]:
+            print(f"  shared opening: {line}")
+        problems.append(
+            f"{len(shared)} scenarios open their analysis and their grounded "
+            "row on the same sentence -- §F wants the two record types to be "
+            "two jobs, and a shared first sentence is the symptom that they "
+            "are one brief with two names"
         )
 
     # -- 3. holdout rows in the training tree -------------------------------
@@ -170,6 +212,54 @@ def audit(out_dir: str) -> list[str]:
                 "20-row bake-off has not been run"
             )
     return problems
+
+
+#: How many opening words of two answers have to match before they are "the
+#: same sentence". Eight, because the failure looks like this: a TCA analysis
+#: and a TCA grounded row that both open "28.16 bp of arrival, 26.66 bp impact,
+#: 1.5 bp half-spread" -- identical for far longer than eight words -- while two
+#: genuinely different openings rarely agree past three or four.
+_OPENING_WORDS = 8
+
+
+def _opening(text: str) -> str:
+    """The first :data:`_OPENING_WORDS` words of *text*, normalised for compare."""
+    words = "".join(
+        char if char.isalnum() or char.isspace() or char in ".%-" else " "
+        for char in str(text or "").casefold()
+    ).split()
+    return " ".join(words[:_OPENING_WORDS])
+
+
+def _shared_openings(rows: list[dict]) -> list[str]:
+    """Scenarios whose ``analysis`` and ``grounded`` rows start the same way.
+
+    Keyed on the *pack*, not on the scenario id: a scenario id names a family,
+    and two variants of one family are two different sets of numbers that would
+    of course open differently. What §F asks is narrower and sharper -- the
+    same pack, answered twice, for two different jobs.
+    """
+    by_coord: dict[tuple, dict[str, str]] = {}
+    for record in rows:
+        kind = record.get("record_type")
+        if kind not in ("analysis", "grounded"):
+            continue
+        coord = (
+            record.get("work_type"),
+            rowlib.family_of(record),
+            record.get("variant"),
+        )
+        by_coord.setdefault(coord, {})[kind] = _opening(record.get("answer"))
+    out: list[str] = []
+    for coord, openings in sorted(by_coord.items(), key=lambda item: str(item[0])):
+        if len(openings) < 2:
+            continue
+        if openings["analysis"] and openings["analysis"] == openings["grounded"]:
+            work_type, family, variant = coord
+            out.append(
+                f"{work_type}/{family} variant {variant}: {openings['analysis']!r}"
+            )
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:

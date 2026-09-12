@@ -66,6 +66,18 @@ class FactPack:
     #: so the repair turn can quote the spelling it wants rather than asking the
     #: teacher to guess at house style.
     display: dict = field(default_factory=dict)
+    #: Anchors and claims whose truth is an *inequality in this pack*, kept
+    #: after they are folded (:func:`fold_conditionals`) so a reader can see
+    #: why a row was told what it was told. Entries are
+    #: ``{"when": "<quantity> <op> <number|quantity>", "mention"|"claim": str}``.
+    #:
+    #: The amendment's §A.2: ``must_mention`` was a slogan list, so a TCA pack
+    #: whose participation is half the cap still had an answer enacting "the
+    #: schedule itself becomes the risk", and a VaR pack with a negative daily
+    #: mean still had one calling it a drift in its favour. A point whose truth
+    #: depends on a number is a *test*, and the pack is where the number is.
+    conditional_mentions: list[dict] = field(default_factory=list)
+    conditional_forbids: list[dict] = field(default_factory=list)
     stimulus: str | None = None
     program: str | None = None
     topic: str | None = None
@@ -237,6 +249,93 @@ def assemble_contract(
             computed,
             extra=(*alias_values, *_scalars(canonical_extra or {})),
         ),
+    }
+
+
+#: The comparisons a ``when`` clause may make. Deliberately three tokens and
+#: nothing else: a pack condition has to be readable in the pack, checkable by
+#: a reader with the canonical map in front of them, and impossible to turn
+#: into a second language nobody debugs. Anything an expression evaluator would
+#: buy here is a quantity the computer can compute and name instead.
+_COMPARATORS = {
+    "<": lambda a, b: a < b,
+    "<=": lambda a, b: a <= b,
+    ">": lambda a, b: a > b,
+    ">=": lambda a, b: a >= b,
+    "==": lambda a, b: a == b,
+    "!=": lambda a, b: a != b,
+}
+
+
+def _resolve(token: str, quantities: dict) -> float:
+    """A ``when`` operand: a quantity of this pack, or a plain number."""
+    if token in quantities:
+        return float(quantities[token])
+    try:
+        return float(token)
+    except ValueError as exc:
+        raise PackError(
+            f"condition names {token!r}, which is neither a quantity of this "
+            f"pack nor a number (known: {', '.join(sorted(quantities)[:8])}...)"
+        ) from exc
+
+
+def holds(when: str, quantities: dict) -> bool:
+    """Is *when* true of this pack? ``PackError`` if it cannot be read.
+
+    Loud on a typo on purpose. A condition that silently evaluated false would
+    quietly drop the forbid it carries, and a forbid nobody notices missing is
+    the exact failure mode §A.2 exists to end.
+    """
+    parts = str(when).split()
+    if len(parts) != 3 or parts[1] not in _COMPARATORS:
+        raise PackError(
+            f"condition {when!r} is not '<quantity> <op> <number|quantity>' "
+            f"(ops: {', '.join(sorted(_COMPARATORS))})"
+        )
+    left, op, right = parts
+    return _COMPARATORS[op](_resolve(left, quantities), _resolve(right, quantities))
+
+
+def fold_conditionals(
+    inputs: dict,
+    computed: dict,
+    *,
+    must_mention: Iterable[str] = (),
+    forbidden_claims: Iterable[str] = (),
+    conditional_mentions: Iterable[dict] = (),
+    conditional_forbids: Iterable[dict] = (),
+) -> dict:
+    """The four contract-of-points fields of a pack, conditions already run.
+
+    Returns ``{"must_mention", "forbidden_claims", "conditional_mentions",
+    "conditional_forbids"}`` ready to splat into :class:`FactPack`. The
+    unconditional lists come first and the conditional entries are appended in
+    declaration order, deduplicated, so a pack reads as one list of points
+    whatever produced them -- the teacher never sees a condition, only the
+    points its own numbers make true, which is the whole of §A.2.
+
+    The declarations survive on the pack because a row is audited long after
+    it is written, and "why was this answer forbidden that sentence" is a
+    question the row itself should be able to answer.
+    """
+    quantities = flatten_quantities(inputs)
+    quantities.update(flatten_quantities(computed))
+    mentions = list(must_mention)
+    claims = list(forbidden_claims)
+    declared_mentions = [dict(entry) for entry in conditional_mentions]
+    declared_forbids = [dict(entry) for entry in conditional_forbids]
+    for entry in declared_mentions:
+        if holds(entry["when"], quantities) and entry["mention"] not in mentions:
+            mentions.append(entry["mention"])
+    for entry in declared_forbids:
+        if holds(entry["when"], quantities) and entry["claim"] not in claims:
+            claims.append(entry["claim"])
+    return {
+        "must_mention": mentions,
+        "forbidden_claims": claims,
+        "conditional_mentions": declared_mentions,
+        "conditional_forbids": declared_forbids,
     }
 
 

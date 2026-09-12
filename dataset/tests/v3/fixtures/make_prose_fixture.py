@@ -55,7 +55,8 @@ from pipelines.v3.packs import PackError, compute_pack  # noqa: E402
 from pipelines.v3.render.prose import select_prose_jobs  # noqa: E402
 from pipelines.v3.teacher import routing  # noqa: E402
 from pipelines.v3.teacher.client import build_body, canonical_request  # noqa: E402
-from pipelines.v3.teacher.prompts import WORD_BUDGETS, render_brief  # noqa: E402
+from pipelines.v3.teacher.prompts import KIND_SENTENCE_CAPS  # noqa: E402
+from pipelines.v3.teacher.prompts import render_brief, word_budget  # noqa: E402
 from pipelines.v3.verification.prose import gate_violations  # noqa: E402
 
 PROSE_FIXTURE_NAME = "prose_fixture.json"
@@ -124,6 +125,30 @@ _CLOSINGS = {
 }
 
 
+def fit_sentences(lines: list[str], cap: int | None) -> list[str]:
+    """Merge *lines* until there are at most *cap* of them.
+
+    The dummy writes one sentence to a line, which is what makes it easy to
+    read and what put a ten-sentence ``grounded`` answer against an
+    eight-sentence ceiling the moment the kinds grew one. Merging rather than
+    dropping, because every line here is carrying something the gate checks --
+    a ``must_mention`` anchor, a figure, the register's closing move -- and a
+    harness that satisfied a ceiling by deleting contract points would be
+    proving the gate against a text that no longer meets it.
+
+    Shared with the preference harness: the two dummies have to clear the same
+    gate, and a second copy of this would drift from the first.
+    """
+    if not cap or len(lines) <= cap:
+        return lines
+    group = math.ceil(len(lines) / cap)
+    merged: list[str] = []
+    for start in range(0, len(lines), group):
+        chunk = [line.strip().rstrip(".") for line in lines[start : start + group]]
+        merged.append("; ".join(part for part in chunk if part) + ".")
+    return merged
+
+
 def compliant_text(pack: dict, kind: str) -> str:
     """A completion that satisfies the contract for *pack*, assembled locally.
 
@@ -140,7 +165,7 @@ def compliant_text(pack: dict, kind: str) -> str:
     caught it the moment they existed. Which is the harness working: a fixture
     that could not pass the live gate was never a fixture for the live gate.
     """
-    low, high = WORD_BUDGETS[kind]
+    low, high = word_budget(kind, pack.get("register") or "")
     lines = [
         f"Answering from the {pack['work_type']} pack as of {pack['as_of']}, "
         "on the figures it authorises and no others."
@@ -178,7 +203,11 @@ def compliant_text(pack: dict, kind: str) -> str:
             position += 1
             guard += 1
             value = float(pack["computed"][key])
-            spelling = _dec(value)
+            # The pack's own spelling wins where it has one: §A.3 made that a
+            # gate, and a dummy that wrote `0.048555` for a `4.86%` figure was
+            # committing the defect the gate exists to catch -- which the
+            # build assertion below caught the hour the axis was added.
+            spelling = (pack.get("display") or {}).get(key) or _dec(value)
             if spelling == "0" and value != 0.0:
                 continue  # too small to quote in plain decimals; skip, do not invent
             clause.append(f"{key.replace('_', ' ')} at {spelling}")
@@ -195,6 +224,7 @@ def compliant_text(pack: dict, kind: str) -> str:
     # profile axis, instead of one voice wearing three labels, which is the
     # collapse axis 16 exists to report.
     lines.append(_CLOSINGS.get(pack.get("register") or "", _CLOSINGS[""]))
+    lines = fit_sentences(lines, KIND_SENTENCE_CAPS.get(kind))
     text = "\n".join(lines)
     count = len(text.split())
     if not low <= count <= high:

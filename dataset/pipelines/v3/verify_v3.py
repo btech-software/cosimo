@@ -85,7 +85,12 @@ from .packs import PackError, compute_pack
 from .render.prose import row_id
 from .oracle.runtime import SCHEMA_NAMES as ADVERTISED_NAMES
 from .seed import pack_seed
-from .teacher.prompts import BRIEF_KINDS
+from .teacher.prompts import (
+    BRIEF_KINDS,
+    KIND_SENTENCE_CAPS,
+    WORD_BUDGETS,
+    word_budget,
+)
 from .verification.agentic import GROUNDING_TAG, REPLAY_TAG, trajectory_violations
 from .verification.exam import (
     EXAM_KIND,
@@ -96,12 +101,15 @@ from .verification.exam import (
     TAG_TAMPER,
     exam_gate_violations,
 )
+from .verification.contradictions import contradiction_violations
 from .verification.prose import (
     FINAL_ANSWER_TAG,
     canonical_numbers,
     forbidden_hits,
     integer_format_offenders,
+    malformed_prose,
     missing_mentions,
+    overprecise_numbers,
     rounding_drift,
     whitelist_for,
 )
@@ -110,6 +118,7 @@ from .verification.register import (
     profile_distance,
     register_profile,
     register_violations,
+    sentence_count,
 )
 from .verification.invented_numbers import invented_numbers
 from .verification.implementation import (
@@ -562,6 +571,38 @@ def _check_row(
         )
     for violation in register_violations(pack.register, answer, kind=kind):
         failures["schema"].append(violation)
+    # The shape rules the *kind* owns, beside the ones the register owns. The
+    # board read the register's sentence ceiling and not the kind's, and none
+    # of the length rules at all -- so a row too long for its band, or a
+    # ten-sentence `grounded`, was repaired at render time and then certified
+    # green here. That is the generator and the auditor disagreeing about
+    # clean, which is the bug class this module exists to make impossible;
+    # `prose.py`'s "one policy, three call sites" has to be true of the
+    # length axis too, not only of the numeric ones.
+    #
+    # Prose kinds only: `exam`, `implementation` and `agentic` answer to their
+    # own gates and carry no word band.
+    if kind in WORD_BUDGETS:
+        low, high = word_budget(kind, pack.register)
+        words = len(answer.split())
+        if not low <= words <= high:
+            failures["schema"].append(
+                f"length {words} words is outside the {kind} budget {low}-{high}"
+            )
+        cap = KIND_SENTENCE_CAPS.get(kind)
+        if cap and sentence_count(answer) > cap:
+            failures["schema"].append(
+                f"a {kind} answer runs {sentence_count(answer)} sentences, over "
+                f"its {cap}-sentence ceiling"
+            )
+        for token in overprecise_numbers(answer):
+            failures["invented numbers"].append(
+                f"{token!r} is written past {config.PROSE_MAX_DECIMALS} decimals"
+            )
+        for broken in malformed_prose(answer):
+            failures["schema"].append(broken)
+    for contradiction in contradiction_violations(pack_dict, answer):
+        failures["must_mention / forbidden_claims"].append(contradiction)
     for point in missing_mentions(pack_dict, answer):
         failures["must_mention / forbidden_claims"].append(
             f"must_mention not covered: {point!r}"

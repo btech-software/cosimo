@@ -20,131 +20,267 @@ from .. import config
 #: fixture hashes cover the whole message list: editing this string must
 #: invalidate stale fixtures loudly (the drift test fails), never silently.
 #:
-#: Length is load-bearing, which is not obvious and cost a live run to learn.
-#: A reasoning teacher reasons about its *instructions*, so every clause here
-#: is paid for twice -- once in prompt tokens and again in the chain of thought
-#: it provokes. Measured on deepseek-v4-flash at a 8192 budget: this block at
-#: 917 characters converged and wrote 100 words; the same block plus four
-#: lines (1,218 chars) never stopped reasoning and returned nothing at all; an
-#: earlier 2,469-character draft of the standard below burned 57,704 characters
-#: of reasoning at a 16,384 budget and still returned nothing.
+#: Five lines, and the shortening is the amendment's §B.1. What was here
+#: before asked for a junior-desk register *and* the voice of the head of quant
+#: research, and then, in one sentence, for the mechanism, the binding
+#: constraint, the hidden assumption, what would move the conclusion and the
+#: call -- on every row of every kind. That list is what produced
+#: ``live_three_registers.jsonl``: five beats, five paragraphs, the same first
+#: sentence for ``analysis`` and ``grounded``, and a 288-word desk note that
+#: said the schedule both was and was not the risk. It was the exam liturgy
+#: V3.1 deleted ``FINAL ANSWER:`` to escape, grown back in prose.
 #:
-#: So the standard is stated once, in five clauses, and not elaborated. At a
-#: 16,384 budget it converges and produces materially better answers than the
-#: bare contract did -- 147 words against 75, landing the mechanism, the
-#: constraint, the hidden assumption, the sensitivity and the call. Adding to
-#: it is not free; measure before you do.
-TEACHER_SYSTEM = """You are the Cosimo v3 teacher, writing in one named register for a junior quant desk.
+#: What replaces it is the part that is true of every row -- the facts are the
+#: pack's, the entities are the pack's, an unanswerable brief is an abstention,
+#: and the machinery is never mentioned. *What this row is for* moved to the
+#: user turn, where it can differ by kind, register and work type, which is
+#: what those three fields are.
+#:
+#: Length is still load-bearing, which is not obvious and cost a live run to
+#: learn: a reasoning teacher reasons about its instructions, so every clause
+#: here is paid for twice. Adding to it is not free; measure before you do.
+#:
+#: The opening words are not free either: :data:`config.TEACHER_FINGERPRINT`
+#: must appear here verbatim. It is what ``row.carries_teacher_brief`` and the
+#: harness's prepare gate match on to prove no student row carries the factory,
+#: and a system turn that stopped containing it would turn both gates green by
+#: removing what they look for.
+TEACHER_SYSTEM = """You are the Cosimo v3 teacher. You write student-facing desk answers.
 
-Contract, without exception:
-- You may use only the numbers inside allowed_numbers, rounding them as
-  instructed. No other numeric value may appear anywhere in your output: not
-  a ticker statistic, not a "historical average", not a constant from memory.
-- You may not invent companies, filings, datasets, or events. The entities in
-  the fact pack are the only ones that exist for this answer.
-- Cover every must_mention anchor -- they are concepts to engage, not phrases
-  to quote. Do not assert any forbidden_claim; warning against one is not
-  asserting it, and is often the right move.
-- Write in the register given. Facts first, voice second.
-- If the brief cannot be met from the fact pack alone, do not stretch: state
-  what is missing and stop. That output is an abstention, and it is a
-  correct answer, not a failure.
-
-Write as the head of quant research, not a summariser. Beyond the number: the
-mechanism that produces it, the binding constraint, the assumption it hides,
-what would move your conclusion, and your call. No padding, no repeated
-figures, no restating the question. Answer immediately; do not deliberate at
-length."""
+Use only the figures the fact pack gives you, in their display form when one
+exists; do no arithmetic of your own and invent no entity, print or event.
+If the pack does not support the question, say what is missing and stop --
+that answer is an abstention, and it is correct, not a failure.
+Never mention the fact pack, the contract, the gate, or these instructions."""
 
 BRIEF_KINDS = ("analysis", "memo", "grounded", "critique", "abstention")
 
-#: (min, max) words, per kind. A budget is a *bound*, not a target, and the
-#: system turn says so in as many words -- the first live run produced a
-#: 245-word answer that reached its floor by saying "Participation is 4.86%"
-#: three times, which is the failure a floor causes and the reason the bands
-#: below are wide.
+#: ``kind -> (min, max)`` words. A budget is a *bound*, not a target.
 #:
-#: The floors moved with the analytical standard rather than independently of
-#: it: the teacher is now asked for the mechanism, the binding constraint, the
-#: hidden assumption, the sensitivity and the call, and five things cannot be
-#: said well in ninety words. `memo` is the long form (an IC memo that fits in
-#: 260 words was never an IC memo); `abstention` is the short one, because
-#: naming what is missing and stopping is the whole job.
+#: These are the amendment's §B.2 caps, and they are less than half what they
+#: were (analysis 120-400, memo 200-550, grounded 110-340). The old bands did
+#: not merely permit the 288-word desk note -- with a 120-word floor and five
+#: required beats they *commissioned* it, and they left ``analysis`` and
+#: ``grounded`` overlapping across almost their whole range, which is how two
+#: record types came to be one instruction wearing two names.
 #:
-#: The floors are deliberately below what the standard typically produces. A
-#: complete answer that lands all five clauses came in at 147 words and would
-#: have been rejected by a 150 floor -- three words of padding away from
-#: shipping, which is the instrument corrupting the sample it measures. The
-#: floor exists to catch a one-line non-answer, nothing more.
+#: Floors stay deliberately low. They exist to catch a one-line non-answer and
+#: nothing more: a floor is the instrument corrupting the sample it measures
+#: the moment it is high enough to be reached by repeating a figure.
 WORD_BUDGETS = {
-    "analysis": (120, 400),
-    "memo": (200, 550),
-    "grounded": (110, 340),
-    "critique": (110, 340),
-    "abstention": (40, 160),
+    "analysis": (60, 220),
+    "memo": (100, 300),
+    "grounded": (40, 140),
+    "critique": (50, 180),
+    "abstention": (25, 120),
 }
 
-#: What each record type is *for*, in the second person. The register owns the
-#: voice; this owns the move -- what the row does with the pack, and where it
-#: starts.
+#: Where a register is tighter than its kind. §B.2 gives the desk a 160-word
+#: analysis against the committee's 220, because those are different documents
+#: and the whole point of splitting kind from register is that each can bind.
+#: One entry, because one is what the amendment states; the shape is here so
+#: the next one is a line rather than a refactor.
+_REGISTER_WORD_CAPS = {
+    ("analysis", "desk_chat"): 160,
+}
+
+#: Sentence ceilings that belong to the *kind* rather than to the register.
+#: ``grounded`` is a citation, ``abstention`` is a refusal, and both are short
+#: by construction in a way an ic_memo analysis is not. The desk_chat ceiling
+#: (:func:`verification.register.desk_chat_ceiling`) is separate and both
+#: apply: the tighter one wins, as it should.
+KIND_SENTENCE_CAPS = {
+    "grounded": 8,
+    "abstention": 5,
+}
+
+
+def word_budget(kind: str, register: str = "") -> tuple[int, int]:
+    """``(min, max)`` words for this kind in this register.
+
+    One accessor, because the gate, the brief and the fixture harness must all
+    read the same band -- a row marked against a band it was never shown is the
+    failure ``_REGISTER_SHAPE`` was written to end, and a second copy of the
+    table here would reintroduce it on the length axis.
+    """
+    low, high = WORD_BUDGETS[kind]
+    return low, min(high, _REGISTER_WORD_CAPS.get((kind, register), high))
+
+
+#: What each record type *is*, in the second person: the job, its order, and
+#: what it may not do. §B.2 verbatim in substance.
 #:
-#: It exists because there was nothing. Diffing an ``analysis`` brief against a
-#: ``grounded`` brief for one pack produced exactly two changes: the literal
-#: ``"task"`` string, and a word budget whose bands overlap (120-400 against
-#: 110-340). The docstring on :func:`render_brief` claimed "``kind`` selects
-#: the budget and the emphasis"; there was no emphasis. Five record types were
-#: one instruction wearing five names, and in a live nine-row sample four of
-#: nine sibling pairs opened on the same four words -- the pack's headline
-#: figure -- while two non-``memo`` rows gave themselves a memo title.
+#: These are no longer one clause apiece. The previous table said "argue, do
+#: not summarise" and left the shape of an argument to a system turn that
+#: demanded five beats of it, so every kind produced the same five-beat essay
+#: at a different length. A kind is a *job*: the answer's first sentence, what
+#: carries it, what would overturn it, and whether it ends in a decision at
+#: all. Those differ between an analysis, a citation and a memo, and nothing
+#: else in the brief can say so.
 #:
-#: Every clause here has to compose with *any* register, because one pack
-#: serves all of them and the register is the family's property. So these say
-#: what to do and never how to format: headings, labelled calls and length are
-#: :data:`verification.register._REGISTER_SHAPE`'s to rule on, and a kind rule
-#: that reached into them would recreate the contradiction this session spent
-#: three rounds removing -- a teacher told to write a call by one line of its
-#: brief and not to by the next has been given no brief at all.
+#: They still may not legislate what the register owns -- headings, a labelled
+#: call, sentence ceilings -- *except* where the amendment moved that rule onto
+#: the kind on purpose (``grounded`` carries no headings in any register, and a
+#: ``memo``'s headings are the register's list). The pairing is checked:
+#: ``memo`` x ``desk_chat`` is no longer a legal row (inventory §C), which is
+#: what makes "use the headings your register allows" a sentence with an
+#: answer.
 _KIND_SHAPE = {
     "analysis": (
-        "argue, do not summarise. Open on the mechanism or the binding "
-        "constraint, not on the headline figure -- the reader can see the "
-        "number. Name the assumption it hides and what would change your "
-        "conclusion"
+        "answer the question and stop. In this order: (1) the first sentence "
+        "gives your reading of the situation and the number that forces it, in "
+        "one breath -- a judgement with a figure in it, never the quantity's "
+        "name restated; (2) one sentence on the "
+        "mechanism that produces that number, using a figure from the pack; "
+        "(3) one constraint or assumption that would change it; (4) a call "
+        "consistent with (1)-(3) -- if they conflict, say so and prefer the "
+        "number. Do not restate the inputs, do not tour the pack, and do not "
+        "write the words 'binding constraint' unless your register is "
+        "risk_committee and you mean a limit"
     ),
     "memo": (
-        "write it up for a decision: the finding first, the evidence that "
-        "carries it, then what you would do"
+        "write a scannable document, not a longer analysis. Use the headings "
+        "your register allows: ic_memo takes Finding / Evidence / Call, "
+        "risk_committee takes Exposure / Assumption / Limits / Breach case. "
+        "The finding is one sentence; the evidence is the decomposition; the "
+        "call is one sentence and may not contradict the finding. Paste no "
+        "formulas. Where the pack states a reconciling residual, that figure "
+        "is the reconciliation -- quote it rather than adding the pieces up "
+        "yourself. Only when the pack's own residual is material does the "
+        "finding become that the figures do not reconcile, with abstention as "
+        "the call; never invent a reason they do"
     ),
     "grounded": (
-        "answer the question and stay on it. Every claim you make should be "
-        "traceable to a figure in the fact pack; do not open with a "
-        "write-up's framing and do not range beyond what was asked"
+        "cite, do not argue twice. Open by naming the quantity the question "
+        "asks for exactly as the question names it, with its figure and unit, "
+        "and judge nothing in that sentence -- an analysis of this pack opens "
+        "on a reading, and this row must not. Then at most three more "
+        "figures, each tied to one phrase of the question, and one caveat. The "
+        "points the pack asks you to engage are still yours to engage: fold "
+        "each into the sentence that carries its figure -- name the mechanism "
+        "beside the number it produces -- rather than arguing it separately or "
+        "leaving it out. No call unless the question asked for one, and no "
+        "section labels of any kind"
     ),
     "critique": (
-        "judge the claim you are given: say what is wrong with it, why it is "
-        "wrong, and what would have to be true for it to hold"
+        "name one defect in the draft you are given: what is wrong, why it is "
+        "wrong, and what would have to be true for it to hold. Do not rewrite "
+        "the passage and do not list every flaw you can see -- one, judged"
     ),
     "abstention": (
-        "say precisely what the fact pack does not contain and stop. Do not "
-        "estimate around the gap or answer a nearby question instead"
+        "say precisely what the fact pack does not contain, and stop. Name the "
+        "missing quantity, not a nearby one; offer no substitute figure, no "
+        "estimate and no answer to a question that was not asked"
     ),
 }
 
 
-def kind_shape(kind: str) -> str:
-    """The move :data:`_KIND_SHAPE` asks of *kind*, or ``""`` if none."""
-    return _KIND_SHAPE.get(kind, "")
+def kind_shape(kind: str, register: str = "") -> str:
+    """The job :data:`_KIND_SHAPE` asks of *kind*, with its caps stated.
+
+    The caps ride here rather than in a field of their own because they are
+    part of the job: "answer the question and stop" and "at most 160 words" are
+    the same instruction said twice, and a teacher that reads them in two
+    places obeys the one it read last.
+    """
+    shape = _KIND_SHAPE.get(kind, "")
+    if not shape:
+        return ""
+    low, high = word_budget(kind, register)
+    clauses = [shape, f"keep it between {low} and {high} words"]
+    cap = KIND_SENTENCE_CAPS.get(kind)
+    if cap:
+        clauses.append(f"and to at most {cap} sentences")
+    return ", ".join(clauses[:2]) + ("" if not cap else " " + clauses[2])
 
 
-#: Packs carry the register label; prose rows also name the persona so the
-#: teacher commits to one instead of auditioning "business English".
-_REGISTER_HINTS = {
-    "desk_chat": "terse desk chat: short sentences, no preamble, no sign-off",
-    "ic_memo": "investment-committee memo: a headline finding, then the evidence",
-    "risk_committee": "risk committee: exposure, limits, the breach case",
-    "auditor": "auditor: measured, complete, cites what is recomputable",
-    "code_review": "code review: exact, constructive, example-driven",
+#: What each work type's own arithmetic makes wrong, appended to the user turn
+#: and never added to the system one (§B.4). Every line here is a mistake a
+#: live row actually made: the desk note that called a 4.86% clip a pacing
+#: problem, the attribution memo that explained a sign flip with a story about
+#: k, the risk paper that read a negative daily mean as ten million dollars of
+#: expected gain, and the valuation note that recommended owning "near this EV".
+_WORK_TYPE_RULES = {
+    "execution.tca.arrival": (
+        "Participation is shares over ADV; compare it with the cap in the "
+        "pack. Below the cap the impact is the cost and the schedule is not "
+        "the risk -- this is an impact bill, not a pacing problem. The "
+        "half-spread is not the whole cost. Arrival is this pack's benchmark; "
+        "do not introduce a decision price it does not contain."
+    ),
+    "portfolio.attribution.brinson_carino": (
+        "Report allocation, selection and interaction against the active "
+        "return. The pack carries reconciling_residual_bps: at or near zero it "
+        "says the pieces do add to the active number, and you may say so "
+        "without adding them yourself. If that residual is material, abstain "
+        "on which effect to act on rather than explaining the gap. Do not "
+        "account for a sign with a "
+        "story about the Carino factor unless k is in the pack and the signed "
+        "effect matches the sign of the raw (wp - wb)(rb - Rb). The effect "
+        "worth acting on is the largest absolute total that is also a decision "
+        "-- weights against names -- and if they are all small, say so."
+    ),
+    "risk.market.var_es": (
+        "A negative daily mean is a negative drift: it adds to the expected "
+        "loss. It is never a gain. VaR is a quantile; expected shortfall is "
+        "the mean of the tail beyond it. Do not recommend a trade."
+    ),
+    "valuation.equity.dcf": (
+        "Enterprise value is not a share price. If the price or the share "
+        "count is missing, the call is that there is no ownership call -- not "
+        "that the name is worth owning near this EV."
+    ),
+    "valuation.equity.multiples": (
+        "Enterprise value is not a share price. If the price or the share "
+        "count is missing, the call is that there is no ownership call -- not "
+        "that the name is worth owning near this EV."
+    ),
 }
+
+
+def work_type_rules(work_type: str) -> str:
+    """The addendum for *work_type*, or ``""`` where none is written.
+
+    Empty rather than generic: a work type with nothing specific to say gets
+    nothing, because a filler sentence in this slot is a sentence the teacher
+    reasons about for no gain.
+    """
+    return _WORK_TYPE_RULES.get(str(work_type or ""), "")
+
+
+def number_policy(pack: dict) -> str:
+    """How figures are spelled, with this pack's own display forms quoted.
+
+    §A.3. ``display`` and ``desk_figures`` both existed before the amendment
+    and neither reached the teacher as an instruction, so live rows wrote
+    ``359667.31`` for a dollar cost and ``0.048555`` for a participation the
+    pack spells ``4.86%``. The gate already refuses those (``overprecise_numbers``,
+    ``integer_format_offenders``); stating the rule in the brief is what makes
+    the refusal a standard rather than a trap.
+    """
+    display = pack.get("display") or {}
+    spellings = "; ".join(
+        f"{key} is written {value}" for key, value in sorted(display.items())
+    )
+    lines = [
+        "every numeric token in your answer must be one the fact pack "
+        "contains, possibly scaled by 100 (a fraction written as a percent) "
+        "or divided by 100; no other number in any form. The conversion "
+        "constants 100 and 10000 may be written plainly",
+        "do no arithmetic: no totals, no differences, no ratios, no sum "
+        "checks. Where a decomposition is given, quote the pieces and say "
+        "what they mean -- adding them produces a number the pack does not "
+        "contain",
+        "write each figure at the precision the pack gives it, never deeper, "
+        "and never re-round it to a whole number the question happens to print",
+        "a count is written as a count (430,567 or 430567, never 430567.0); "
+        "money to whole units unless the pack says otherwise; a rate already "
+        "in percent or basis points stays in them (4.86%, 28.16 bp -- never "
+        "0.048555)",
+    ]
+    if spellings:
+        lines.append(f"use this pack's own spellings where it gives them: {spellings}")
+    return "; ".join(lines)
 
 
 def desk_figures(node):
@@ -189,52 +325,58 @@ def desk_figures(node):
 def render_brief(pack: dict, *, kind: str) -> list[dict]:
     """The messages list for one prose render, facts locked (spec §5.6).
 
-    ``kind`` selects the budget and the emphasis; the pack's own
-    ``must_mention`` / ``forbidden_claims`` / ``allowed_numbers`` are the
-    contract, and they ride in the user turn as data, not as prose the model
-    could paraphrase away.
+    Four instructions compose the user turn, and they are four because they
+    answer four different questions (§B.2):
+
+    * **kind** -- the job. What this row is for, in what order, and where it
+      stops. :data:`_KIND_SHAPE`.
+    * **register** -- the shape, in the gate's own words
+      (:func:`verification.register.register_shape`), so the brief and the
+      refusal cannot disagree.
+    * **work type** -- what this arithmetic makes wrong. :data:`_WORK_TYPE_RULES`.
+    * **number policy** -- how a figure is spelled, quoting this pack's own
+      display forms.
+
+    Before the amendment there was one: the kind selected a word budget whose
+    bands overlapped, and everything else came from a system turn that asked
+    every row for the same five beats. Two record types differing by a literal
+    string and thirty words of budget are one record type with two names, and
+    the live sample read like it.
+
+    The pack's own ``must_mention`` / ``forbidden_claims`` / ``allowed_numbers``
+    ride in the user turn as data, not as prose the model could paraphrase away.
     """
     if kind not in BRIEF_KINDS:
         raise ValueError(
             f"no prose brief kind {kind!r} (known: {', '.join(BRIEF_KINDS)})"
         )
-    # Imported here, not at module scope: ``verification.register`` reads
-    # ``WORD_BUDGETS`` from this module to size the desk_chat ceiling, so
-    # the two are mutually dependent by construction -- the budget is the
-    # prompt's to state and the ceiling is the gate's to enforce.
+    # Imported here, not at module scope: ``verification.register`` reads this
+    # module's budgets to size the desk_chat ceiling, so the two are mutually
+    # dependent by construction -- the budget is the prompt's to state and the
+    # ceiling is the gate's to enforce.
     from ..verification.register import register_shape
 
-    register = pack.get("register")
-    hint = _REGISTER_HINTS.get(register or "", f"register: {register}")
-    low, high = WORD_BUDGETS[kind]
+    register = pack.get("register") or ""
+    low, high = word_budget(kind, register)
     contract = {
         "fact_pack": desk_figures(pack),
         "task": kind,
         "register": register,
-        "register_hint": hint,
-        # The register *gate*, in its own words, beside the hint that describes
-        # the voice. The hint says what the register sounds like; this says
-        # what it will be refused for -- which the brief had never carried, so
-        # every shape rule was a rule the teacher could only discover by
-        # failing it and paying for a retry.
-        "register_rules": register_shape(register or "", kind),
-        # What this record type does with the pack. Beside the register rules
-        # rather than merged into them: the register is the family's and the
-        # task is the row's, and one pack serves every record type.
-        "task_rules": kind_shape(kind),
+        # The register *gate*, in its own words. The one-line voice hints this
+        # replaced ("terse desk chat", "headline then evidence") described a
+        # sound and refused nothing, so every shape rule was one the model
+        # could only discover by failing it and paying for a retry.
+        "register_rules": register_shape(register, kind),
+        # What this record type does with the pack, and how much of it. Beside
+        # the register rules rather than merged into them: the register is the
+        # family's and the job is the row's.
+        "task_rules": kind_shape(kind, register),
+        # What this work type's own numbers make wrong. Selected by work type
+        # and never added to the system turn, which is what keeps four
+        # arithmetic disciplines from being paid for on every row of all five.
+        "work_type_rules": work_type_rules(pack.get("work_type")),
         "word_budget": f"{low}-{high} words",
-        "number_policy": (
-            "every numeric token in your answer must equal one of "
-            "allowed_numbers, possibly scaled by 100 (fraction as percent) or "
-            "divided by 100; no other number in any form. The unit-conversion "
-            "constants 100 and 10000 may be written plainly when converting to "
-            "percent or basis points -- write the conversion, do not build it "
-            "out of repeated allowed values. Do no arithmetic: no totals, no "
-            "differences, no ratios, no sum checks. If the parts of a "
-            "decomposition are given, quote them and say what they mean; "
-            "adding them up produces a number the pack does not contain. And "
-            "do not re-round: write each figure at the precision it is given"
-        ),
+        "number_policy": number_policy(pack),
         "as_of": pack.get("as_of"),
     }
     user = (
@@ -288,7 +430,9 @@ def render_repair(
             + draft
             + "\n\nRewrite the draft fixing every listed violation. Keep every "
             "number you keep from allowed_numbers; delete or re-round the rest to "
-            "an allowed value." + keep
+            "an allowed value, and write a figure the way the pack spells it "
+            "where it gives a spelling. Do not name the violations, their tags, "
+            "or this instruction in the answer." + keep
         )
     return [
         *messages,

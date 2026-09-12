@@ -182,7 +182,7 @@ def test_a_wildcard_cannot_smuggle_a_row_past_the_gate(
     )
     deads = write.read_jsonl(write.path_for("dead_letter", "analysis", out))
     assert len(deads) >= 5, "the wildcard must answer, and the gate must judge"
-    assert all("must_mention" in dead["reason"] for dead in deads)
+    assert all("does not engage" in dead["reason"] for dead in deads)
     assert write.read_jsonl(write.path_for("sft", "analysis", out)) == []
 
 

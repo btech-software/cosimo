@@ -45,9 +45,9 @@ valuation.equity.dcf:
     cyclical_industrial: {holdout: false}
     fade_required: {holdout: true}
   registers:
-    mature_consumer: [desk_chat, ic_memo]
-    cyclical_industrial: [desk_chat, ic_memo]
-    fade_required: [desk_chat, ic_memo]
+    mature_consumer: [ic_memo]
+    cyclical_industrial: [ic_memo]
+    fade_required: [ic_memo]
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
     exam: 36
@@ -68,9 +68,9 @@ valuation.equity.multiples:
     enterprise_software: {holdout: false}
     consumer_platforms: {holdout: true}
   registers:
-    specialty_retail: [desk_chat, ic_memo]
-    enterprise_software: [desk_chat, ic_memo]
-    consumer_platforms: [desk_chat, ic_memo]
+    specialty_retail: [ic_memo]
+    enterprise_software: [ic_memo]
+    consumer_platforms: [ic_memo]
   record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
     exam: 36
@@ -140,11 +140,13 @@ execution.tca.arrival:
     large_cap_intraday: [desk_chat]
     mid_cap_swing: [desk_chat]
     etf_rebalance: [desk_chat]
-  record_types: [exam, analysis, memo, critique, grounded, abstention, agentic, implementation]
+  # No `memo`: every family here speaks desk chat, and a memo in desk chat is
+  # a row that can satisfy its record type or its register and not both
+  # (amendment §C). `inventory.illegal_triple` refuses the pair at load.
+  record_types: [exam, analysis, critique, grounded, abstention, agentic, implementation]
   variants_per_family:
     exam: 36
     analysis: 20
-    memo: 40
     critique: 30
     grounded: 30
     abstention: 24

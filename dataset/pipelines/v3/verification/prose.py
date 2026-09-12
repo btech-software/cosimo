@@ -5,11 +5,15 @@ teacher wrote something" and "the corpus may carry it": invented numbers
 (against the pack's ``canonical`` map, with the tiny structural whitelist),
 rounding drift, integer spelling, ``must_mention`` coverage,
 ``forbidden_claims``, the exam-only ``FINAL ANSWER:`` tag, the word budget, and
--- since the amendment -- the shape the row's register promises. The renderer's repair loop calls it per attempt;
-``verify_v3`` calls the same helpers over the written shards; the publish-time
-audit slice calls it again. One policy, three call sites -- the v1/v2 failure
-of having the generator and the auditor disagree about "clean" is exactly the
-bug class v3 was written to kill.
+-- since the amendment -- the shape the row's register promises, the length its
+kind and register allow, and the claims its own pack refutes. The renderer's
+repair loop calls it per attempt; ``verify_v3`` calls the same helpers over the
+written shards; the publish-time audit slice calls the pack-aware ones again.
+One policy, three call sites -- the v1/v2 failure of having the generator and
+the auditor disagree about "clean" is exactly the bug class v3 was written to
+kill, and it came back once already: the board graded the register's sentence
+ceiling and not the kind's, and no word band at all, so a row repaired here for
+running long was certified green there.
 
 Coverage is *all* points, not "at least k": the pack's contract says cover
 every ``must_mention``, and a k-threshold is a dial nobody would defend at a
@@ -42,11 +46,13 @@ from verification.gates import FINAL_ANSWER_TAG  # noqa: E402
 
 from .. import config  # noqa: E402
 from ..config import NUMBER_WHITELIST  # noqa: E402
-from ..teacher.prompts import WORD_BUDGETS  # noqa: E402
+from ..teacher.prompts import KIND_SENTENCE_CAPS  # noqa: E402
+from ..teacher.prompts import word_budget  # noqa: E402
+from .contradictions import contradiction_violations  # noqa: E402
 from .invented_numbers import decimal_places  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
 from .invented_numbers import read_tokens  # noqa: E402
-from .register import register_violations  # noqa: E402
+from .register import register_violations, sentence_count  # noqa: E402
 
 
 def whitelist_for(pack: dict) -> frozenset[str]:
@@ -284,6 +290,7 @@ def rounding_drift(pack: dict, text: str) -> list[str]:
     if not canonical or not aliases:
         return []
     haystack = str(text or "")
+    official_values = canonical_numbers(pack)
     hits: list[str] = []
     for quantity in sorted(aliases):
         if quantity not in canonical:
@@ -301,6 +308,15 @@ def rounding_drift(pack: dict, text: str) -> list[str]:
                 # A spelling, not a rounding -- see the helper. `abs(round(x))`
                 # on a negative figure and `x * 100` on a fraction both land
                 # here, and neither is a claim about a different number.
+                continue
+            if any(_round_trips_exactly(token, value) for value in official_values):
+                # The token is exactly *some* official figure of this pack, so
+                # whatever it is, it is not a rounding of this one. Attribution
+                # makes the case concrete: the question rounds a 24.6 bp linked
+                # active to "25 bp", and the same pack's selection total is
+                # 25.0 -- reporting that selection total as the question's
+                # rounding would refuse a correct answer for quoting a number
+                # the pack computed.
                 continue
             if decimal_places(token) > 0:
                 # A *finer* rounding than a whole number is desk practice, not
@@ -349,9 +365,11 @@ def integer_format_offenders(pack: dict, text: str) -> list[str]:
     the stripped whole is a known *alias* of a fractional canonical, the
     spelling offered is the canonical figure -- the only one both axes accept.
     """
-    display = {
-        str(v).replace(",", ""): str(v) for v in (pack.get("display") or {}).values()
-    }
+    # Compared without the sign: the token regex never captures a leading
+    # minus, so a pack that spells its active return "-271.0" would otherwise
+    # fail to excuse the "271.0" an answer writes beside the word "behind".
+    spellings = {str(v).lstrip("-") for v in (pack.get("display") or {}).values()}
+    display = {s.replace(",", ""): s for s in spellings}
     out: list[str] = []
     seen: set[str] = set()
     for match in _INTEGER_WITH_ZERO_TAIL.finditer(str(text or "")):
@@ -359,6 +377,14 @@ def integer_format_offenders(pack: dict, text: str) -> list[str]:
         if token in seen:
             continue
         seen.add(token)
+        if token.lstrip("-") in spellings:
+            # The pack's own spelling is never an offence. An attribution pack
+            # prints its active return to a tenth -- `display: {active_bps:
+            # "91.0"}` -- and "a count is not known to a tenth" is an argument
+            # about `430567.0`, not about a basis-point figure whose precision
+            # *is* a tenth. Refusing it here while §A.3 tells the brief to use
+            # it is two rules for one token.
+            continue
         whole = match.group(1)
         if _is_zero(whole):
             # Zero is not a count wearing false precision; it is zero. A
@@ -411,6 +437,42 @@ def _canonical_for_alias(pack: dict, whole: str) -> str | None:
             return None
         return str(official)
     return None
+
+
+def _plain(value: float) -> str:
+    """*value* as a desk would type it: fixed point, no exponent, no tail."""
+    text = f"{float(value):.12f}".rstrip("0")
+    return text[:-1] if text.endswith(".") else text
+
+
+def display_form_offenders(pack: dict, text: str) -> list[str]:
+    """Figures written raw where the pack publishes a percent spelling (§A.3).
+
+    ``display`` and ``desk_figures`` both existed before the amendment and
+    neither was ever *enforced*, so a live TCA row wrote participation as
+    ``0.048555`` beside a pack that spells it ``4.86%`` -- a number no desk
+    publishes, impeccably sourced, and passed by every numeric axis. This is
+    the axis that refuses it.
+
+    Percent spellings only, and the narrowness is the point. A display like
+    ``430,567`` or ``296.61`` names the same number the answer would write
+    anyway -- §A.3 permits the bare integer, and the ``.0`` tail is already
+    :func:`integer_format_offenders`' business -- so a rule that demanded the
+    separators would be failing correct prose to enforce a house style. A
+    percent display is different in kind: it says the quantity is *measured*
+    in percent, and the fraction is the raw storage form leaking through.
+    """
+    canonical = pack.get("canonical") or {}
+    haystack = str(text or "")
+    out: list[str] = []
+    for quantity, spelled in sorted((pack.get("display") or {}).items()):
+        spelling = str(spelled).strip()
+        if not spelling.endswith("%") or quantity not in canonical:
+            continue
+        raw = _plain(canonical[quantity])
+        if re.search(rf"(?<![\d.\-]){re.escape(raw)}(?![\d])", haystack):
+            out.append(f"{raw!r} -- write {spelling}")
+    return out
 
 
 def missing_mentions(pack: dict, text: str) -> list[str]:
@@ -582,6 +644,12 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
             + "; ".join(badly_spelled)
             + " -- a count is not known to a tenth"
         )
+    raw_figures = display_form_offenders(pack, text)
+    if raw_figures:
+        violations.append(
+            "figures written in their raw form where the desk has a spelling: "
+            + "; ".join(raw_figures)
+        )
     violations.extend(rounding_drift(pack, text))
     overprecise = overprecise_numbers(text)
     if overprecise:
@@ -593,8 +661,18 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
     missing = missing_mentions(pack, text)
     if missing:
         violations.append(
-            "must_mention points not covered: " + "; ".join(repr(p) for p in missing)
+            "points the answer does not engage: "
+            + "; ".join(repr(p) for p in missing)
+            + " -- make each of these points in your own words, using every "
+            "content word of it at least once (the check is mechanical: "
+            "'participation against ADV' needs both 'participation' and "
+            "'ADV' to appear)"
         )
+    # The claims this pack's own arithmetic refutes (§D). Beside the forbidden
+    # claims rather than inside them: a forbidden claim is a sentence the pack
+    # declares wrong for every variant, and these are wrong *because of the
+    # numbers in this one*.
+    violations.extend(contradiction_violations(pack, text))
     hits = forbidden_hits(pack, text)
     if hits:
         violations.append(
@@ -605,12 +683,27 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
             f"{FINAL_ANSWER_TAG!r} is an exam contract, not prose style "
             "(spec §6 axis 5); drop it"
         )
-    low, high = WORD_BUDGETS[kind]
+    # The band is the kind's *in this register*: a desk note answers in 160
+    # words where a committee memo may take 220, and grading both against the
+    # wider number is how the register stopped being a constraint (§B.2).
+    low, high = word_budget(kind, str(pack.get("register") or ""))
     words = len(str(text).split())
     if not low <= words <= high:
         violations.append(
             f"length {words} words is outside the {kind} budget {low}-{high}"
         )
+    # The kind's own sentence ceiling, where it has one. `grounded` is a
+    # citation and `abstention` is a refusal; both are short by construction in
+    # a way no register makes them, and both briefs state the number.
+    cap = KIND_SENTENCE_CAPS.get(kind)
+    if cap:
+        sentences = sentence_count(text)
+        if sentences > cap:
+            violations.append(
+                f"a {kind} answer runs {sentences} sentences, over its "
+                f"{cap}-sentence ceiling -- merge or cut "
+                f"{sentences - cap} of them"
+            )
     # The §C axis. Last, because it is the only one that judges *shape* rather
     # than content, and a row that is still inventing numbers has a worse
     # problem than its section headings.
