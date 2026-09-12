@@ -73,6 +73,51 @@ scored as making no call, because the check read a phrase list while
 `_MEMO_HEADINGS` was already matching the same heading to permit memo
 scaffolding. Fixed; the legacy rows that tripped it now pass.
 
+## `live_v3_2.jsonl` — the amendment's acceptance rows
+
+Eight rows from `deepseek-v4-flash-0731` (2026-09-12, think off) over the v3.2
+packs, briefs and gates: `analysis` / `grounded` / `memo` across
+`execution.tca.arrival`, `portfolio.attribution.brinson_carino` and
+`risk.market.var_es`. Eight and not nine because `memo` x `desk_chat` is no
+longer a legal pair (§C) -- the ninth row of the older capture existed only
+because the inventory asked for a document the register cannot hold.
+
+Read it beside `live_three_registers.jsonl` below. Same coordinates, same
+teacher, same three registers; everything else is the amendment.
+
+| | v3.1 capture | v3.2 capture |
+| --- | ---: | ---: |
+| rows | 9 | 8 |
+| words, min / median / max | 225 / 288 / 516 | **80 / 117 / 158** |
+| median completion tokens | 476 | **~200** |
+| rows carrying a §D contradiction | 7 of 9 | **0 of 8** |
+| analysis/grounded pairs sharing a first sentence | 3 of 3 | **0 of 3** |
+| rows shipped on the first attempt | — | **6 of 8** |
+
+What the contradictions were, and are not any more: a 4.86% clip written up as
+a pacing problem on all three TCA rows; an effect named worth acting on out of
+sector pieces that missed the active return by 371 bp, on all three attribution
+rows (the old Carino factor made that unavoidable -- the teacher had to invent
+a mechanism to save the pack); and a -0.10% daily mean reported as $10M of
+expected gain on the VaR memo. None of them invented a number, which is why
+sixteen axes passed every one.
+
+`test_live_v3_2_capture.py` holds this file to §F's acceptance list -- the word
+band its kind and register allow, no contradiction against the recomputed pack,
+no shared first sentence, completion under 900 tokens, think off -- reading the
+current tables rather than pinned literals, so the assertions move when the
+contract moves. It is deliberately *not* held to the full sixteen-axis board,
+for the reason the next section gives.
+
+**What it does not cover.** Three of five work types and three of eight record
+types. `critique`, `abstention`, the two valuation lanes and every
+reasoning-lane kind (`exam`, `agentic`, `implementation`) still have no live
+sample -- and until 2026-09-12 the reasoning lanes ran at a 2,048-token cap
+against a measured 3,081-3,736-token chain of thought, so their first-pass
+quality has never been observed at all. "The corpus reads well" is not a claim
+this directory supports yet; "a prose row under the v3.2 briefs is short,
+fact-locked and does not contradict its pack" is.
+
 ## `live_three_registers.jsonl` — captured, not regenerable
 
 Nine rows from a real teacher (`deepseek-v4-flash-0731`, 2026-09-11): three
