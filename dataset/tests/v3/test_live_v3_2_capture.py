@@ -42,13 +42,25 @@ def _rows() -> list[dict]:
 
 def test_the_capture_covers_three_registers_and_three_work_types():
     rows = _rows()
-    assert len(rows) == 8, "eight, not nine: memo x desk_chat is no longer legal"
+    # Seven: eight were rendered (memo x desk_chat is no longer legal, so not
+    # nine), and the human read rejected one -- a VaR grounded row whose first
+    # sentence carried `$39.248Mchers`. It lives in `_rejected_v3_2.jsonl` as
+    # the regression fixture §F asks for.
+    assert len(rows) == 7
     assert set(r["register"] for r in rows) == {
         "desk_chat",
         "ic_memo",
         "risk_committee",
     }
     assert set(r["record_type"] for r in rows) == {"analysis", "grounded", "memo"}
+    rejected = os.path.join(_DATASET, "examples", "v3", "_rejected_v3_2.jsonl")
+    with open(rejected, encoding="utf8") as handle:
+        rejects = [json.loads(line) for line in handle if line.strip()]
+    assert len(rejects) == 1
+    assert rejects[0]["rejected"]["gate_violations_today"], (
+        "the row was rejected by a human read and the gates now catch it too; "
+        "if this list is empty the regression it fixtures has come back"
+    )
     # The pair §C forbids does not appear, which is why there are eight.
     assert not [
         r for r in rows if r["record_type"] == "memo" and r["register"] == "desk_chat"
@@ -110,6 +122,10 @@ def test_analysis_and_grounded_do_not_open_on_the_same_sentence():
         head = " ".join(row["answer"].split()[:8]).casefold()
         openings[(row["work_type"], row["variant"])][row["record_type"]] = head
     assert openings, "the capture carries no analysis/grounded pair to compare"
+    compared = 0
     for coord, pair in openings.items():
-        assert len(pair) == 2, coord
+        if len(pair) < 2:
+            continue  # the VaR pair lost its grounded row to the human read
+        compared += 1
         assert pair["analysis"] != pair["grounded"], coord
+    assert compared >= 2, "too few pairs left to make the comparison worth making"

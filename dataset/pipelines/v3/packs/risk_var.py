@@ -178,7 +178,15 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
                 "mu_daily": [f"{mu * 100:.2f}"],
                 "sigma_daily": [f"{sigma * 100:.2f}"],
             },
-            display={"book_value_m": f"{value_m:,.1f}"},
+            display={
+                "book_value_m": f"{value_m:,.1f}",
+                # The question prints both moments as percents and the answers
+                # follow it -- except where they reach past the brief for the
+                # stored fraction, which a live risk analysis did: "-0.00097"
+                # sitting beside its own "-0.10%" two sentences later.
+                "mu_daily": f"{mu * 100:.2f}%",
+                "sigma_daily": f"{sigma * 100:.2f}%",
+            },
             # The question's own quantities: which two VaRs it asks for, and
             # the one-day horizon it always prints beside the h-day one. Named
             # rather than dropped into the allow-list, because an answer that

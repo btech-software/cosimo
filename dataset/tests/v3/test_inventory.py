@@ -331,4 +331,3 @@ def test_a_memo_family_that_may_also_speak_desk_chat_is_refused(tmp_path):
     }
     with pytest.raises(inventory.PlanError, match="desk_chat"):
         inventory.load_plan(_plan_path(tmp_path, plan))
-

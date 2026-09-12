@@ -64,7 +64,7 @@ def _clean_text() -> str:
         "sensitivity is 0.03. As of 2026-03-31, split 100 to 2 over 252 "
         "sessions. The bridge opens at 2500 and closes at 2500, the "
         "coverage ratio reads 1.7 twice over, and the drift stays near 0.03 "
-        "for every desk that checks the file against the pack it was drawn from."
+        "for every desk that checks the file against the figures it was drawn from."
     )
 
 
@@ -239,8 +239,14 @@ def _wide_pack() -> dict:
         # pack that omits it is a pack the harness cannot write against.
         "work_type": "synthetic.wide",
         "question": "How do the 39 engineered figures hold together?",
+        # Four, not eight. A `grounded` row is 90 words now, and eight anchors
+        # are ~60 words before a single figure is quoted -- a pack whose points
+        # alone overflow the tightest band is an authoring error, and the
+        # fixture should not model one. The real plan's packs carry one to
+        # three; four keeps the stress above reality without inventing a pack
+        # nobody could answer.
         "must_mention": [
-            f"The figure numbered {i} anchors the bridge." for i in range(1, 9)
+            f"The figure numbered {i} anchors the bridge." for i in range(1, 5)
         ],
         "forbidden_claims": ["Nothing is guaranteed."],
         "computed": {f"metric_{i}": float(i) for i in range(1, 40)},
@@ -945,3 +951,89 @@ def test_the_malformed_check_runs_before_the_judgements_below_it():
         pack, "a broken aside)Skip the headline and 9.8 too", "analysis"
     )
     assert "runs straight into the next word" in found[0], found
+
+
+# --------------------------------------------------------------------------
+# the v3.2 capture's review: four rules the first live sample asked for
+# --------------------------------------------------------------------------
+
+
+def test_a_row_may_not_name_the_machinery_that_produced_it():
+    """Three of eight rows in the first v3.2 capture did.
+
+    The system turn already said "never mention the fact pack, the contract,
+    the gate"; nothing enforced it, and a student row that says "the pack holds
+    no decision price" is teaching the labelling protocol, which is the failure
+    the two-surface split exists to end.
+    """
+    from pipelines.v3.verification.prose import contract_leaks
+
+    for leaked in (
+        "This pack holds no decision price.",
+        "The pack's reconciling residual is 0.1 bp.",
+        "Every must_mention point is covered.",
+        "The figures come from allowed_numbers.",
+    ):
+        assert contract_leaks(leaked), leaked
+        assert any(
+            "names the machinery" in v
+            for v in gate_violations(PACK, _clean_text() + " " + leaked, "abstention")
+        ), leaked
+    # The same facts, said the way a desk says them.
+    for clean in (
+        "There is no decision price here.",
+        "The residual is 0.1 bp.",
+        "A packed order book is not the point.",
+    ):
+        assert contract_leaks(clean) == [], clean
+
+
+def test_a_word_fused_to_a_figure_is_refused():
+    """`$39.248Mchers` shipped board-green; a gate that misses it is a gate."""
+    from pipelines.v3.verification.prose import malformed_prose
+
+    assert malformed_prose("the 95% VaR is $39.248Mchers today")
+    assert malformed_prose("interaction totals 30.8 bpches")
+    # A live valuation abstention shipped "83.0M shareshare count".
+    assert malformed_prose("implied equity over 83.0M shareshare count")
+    # Prose that merely puts a word after a number is prose.
+    for fine in (
+        "fill at 295.77 against 296.61 arrival",
+        "28.16bp of arrival on a 10-day horizon",
+        "participation of 4.86% of ADV",
+        # The first draft of this rule read "es" + "timate" and dead-lettered a
+        # correct valuation memo three attempts running. Every unit that opens
+        # an English word is out of the pattern, and these are the words that
+        # bought that lesson.
+        "the central estimate is 21.98 against the peer set",
+        "an advance on the variance of various names",
+        "the ADV is the anchor and the VAR is a quantile",
+    ):
+        assert malformed_prose(fine) == [], fine
+
+
+def test_the_desk_spelling_wins_on_a_rounded_display_too():
+    """§A.3 beyond the percent case: a price is quoted to the cent."""
+    from pipelines.v3.packs import compute_pack
+    from pipelines.v3.verification.prose import display_form_offenders
+
+    pack = compute_pack("execution.tca.arrival", "large_cap_intraday", 0).to_dict()
+    assert display_form_offenders(pack, "the fill is 295.7747") == [
+        "'295.7747' -- write 295.77"
+    ]
+    assert display_form_offenders(pack, "the fill is 295.77 on 296.61 arrival") == []
+    # An integer keeps its bare form: the separators are a house style, not a
+    # precision claim, and §A.3 permits either.
+    assert display_form_offenders(pack, "430567 shares against 8867535 ADV") == []
+
+
+def test_grounded_is_materially_shorter_than_the_analysis_beside_it():
+    """A citation that can only be told from an argument by reading it is not
+    yet a second record type: the first v3.2 capture put an 80-word grounded
+    row beside an 81-word analysis of the same pack."""
+    from pipelines.v3.teacher.prompts import word_budget
+
+    for register in ("desk_chat", "ic_memo", "risk_committee"):
+        _, grounded = word_budget("grounded", register)
+        _, analysis = word_budget("analysis", register)
+        assert grounded * 1.5 <= analysis, register

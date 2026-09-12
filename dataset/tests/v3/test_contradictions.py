@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 from pipelines.v3 import row as rowlib, write
 from pipelines.v3.packs import compute_pack
 from pipelines.v3.render.prose import row_id_from_coords
@@ -205,6 +207,52 @@ def test_print_rounding_is_not_a_reconciliation_failure():
         - canonical["active_bps"]
     )
     assert abs(drift) < RECONCILE_TOLERANCE_BPS
+
+
+# --------------------------------------------------------------------------
+# 4. an enterprise value is not a share price
+# --------------------------------------------------------------------------
+
+
+DCF = ("valuation.equity.dcf", "mature_consumer", 0)
+MULTIPLES = ("valuation.equity.multiples", "specialty_retail", 0)
+
+
+@pytest.mark.parametrize("coords", [DCF, MULTIPLES])
+def test_no_ownership_call_without_a_price_to_compare(coords):
+    """The first live valuation slice closed an analysis with "Call: Own it".
+
+    §B.4 told the teacher ("EV is not a share price; if price or share count is
+    missing the call is that there is no ownership call") and nothing checked
+    it, so the row shipped board-green over a pack whose canonical map carries
+    no price at all. The memo on the same pack got it right, which is what the
+    axis asks for.
+    """
+    pack = _pack(coords)
+    assert not [k for k in pack["canonical"] if "market_price" in k]
+    for claim in (
+        "Call: Own it, because the implied EV is reasonable.",
+        "The name looks cheap against this valuation.",
+        "We would buy the name here.",
+    ):
+        assert _tags(pack, claim) == ["ev_as_price"], claim
+
+
+@pytest.mark.parametrize("coords", [DCF, MULTIPLES])
+def test_saying_there_is_no_ownership_call_is_the_answer_not_the_crime(coords):
+    pack = _pack(coords)
+    for honest in (
+        "There is no ownership call here: with no share price given, nothing "
+        "says whether it is worth owning near this EV.",
+        "Enterprise value is $245.46M. That is not a share price, so no "
+        "ownership call follows from it.",
+    ):
+        assert contradiction_violations(pack, honest) == [], honest
+
+
+def test_the_axis_is_a_valuation_rule_and_stays_out_of_the_other_lanes():
+    """A TCA row may say what it would do; it is not pricing ownership."""
+    assert contradiction_violations(_pack(TCA), "We would buy it here.") == []
 
 
 # --------------------------------------------------------------------------

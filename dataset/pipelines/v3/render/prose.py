@@ -348,10 +348,17 @@ def run_render_stage(
             return None, False
         return cached.get((job.work_type, job.family, job.variant)), True
 
+    # A coordinate the human set already holds is not one the corpus renders:
+    # the same teacher, seed and brief writes very nearly the same row, and
+    # axis 13 calls that a leak of the held-out set into training. Read once
+    # per stage rather than per job -- it is one small file.
+    gold_barred = write.gold_bar_ids()
+
     report = {
         "jobs_seen": len(selected),
         "rendered": 0,
         "existing": 0,
+        "gold_barred": 0,
         "dead_lettered": 0,
         "skipped_by_pack_gate": [],
         "missing_packs": [],
@@ -374,6 +381,12 @@ def run_render_stage(
                 known[kind] = write.existing_ids(
                     write.path_for(shard, kind, out_dir)
                 ) | write.existing_ids(write.path_for("dead_letter", kind, out_dir))
+            if rid in gold_barred:
+                # Counted apart from `existing`, because the two are different
+                # events: one says "already generated", the other says "never
+                # generate this one".
+                report["gold_barred"] += 1
+                continue
             if rid in known[kind]:
                 report["existing"] += 1
                 report["by_kind"].setdefault(kind, {"rendered": 0, "existing": 0})[

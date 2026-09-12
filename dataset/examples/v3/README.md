@@ -73,6 +73,40 @@ scored as making no call, because the check read a phrase list while
 `_MEMO_HEADINGS` was already matching the same heading to permit memo
 scaffolding. Fixed; the legacy rows that tripped it now pass.
 
+## `live_v3_2_valuation.jsonl` — the two work types the acceptance file does not test
+
+Ten rows, `deepseek-v4-flash-0731`, 2026-09-12: `analysis` / `grounded` /
+`memo` / `critique` / `abstention` over `valuation.equity.dcf` and
+`valuation.equity.multiples`. It exists because `live_v3_2.jsonl` covers three
+work types and three record types, and "v3.2 works" was being read off it.
+
+Two of the five record types here had **no live sample at any point in the
+project**. `critique` is also the first reasoning-lane row ever rendered under
+a budget that could finish a thought: the two rows spent 1,151 and 2,941
+completion tokens against the old 2,048 cap, so the second would have
+truncated before writing a word.
+
+What the slice found, both of them now gated:
+
+- a DCF `analysis` closed **"Call: Own it, because the implied EV is
+  reasonable"** over a pack whose canonical map holds no price and no share
+  count. That is EV-as-price, the exact failure §B.4's addendum was written to
+  prevent -- the addendum told the teacher and nothing checked it. The `memo`
+  on the same pack got it right ("there is no ownership call here"), which is
+  the sentence the new `ev_as_price` axis asks for;
+- a multiples `abstention` wrote **"83.0M shareshare count"** -- the same
+  decoder artefact as `$39.248Mchers` in the rejected acceptance row, in a new
+  shape (word doubled rather than fused to a figure), now refused by
+  `malformed_prose`.
+
+**What it shows that is not a defect and not a fix:** the `abstention` rows
+are not abstentions. Both answer the question in full and close on the one
+thing the pack cannot support. That is honest prose and the wrong record type:
+an abstention is a *refusal*, and these packs answer their own questions, so
+there is nothing to refuse. The lane needs a pack with a withheld quantity --
+a question the facts genuinely cannot reach -- or it will teach a student to
+hedge rather than to decline. 360 rows are planned on it.
+
 ## `live_v3_2.jsonl` — the amendment's acceptance rows
 
 Eight rows from `deepseek-v4-flash-0731` (2026-09-12, think off) over the v3.2
