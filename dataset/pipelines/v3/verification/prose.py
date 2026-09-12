@@ -45,6 +45,7 @@ from ..config import NUMBER_WHITELIST  # noqa: E402
 from ..teacher.prompts import WORD_BUDGETS  # noqa: E402
 from .invented_numbers import decimal_places  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
+from .invented_numbers import read_tokens  # noqa: E402
 from .register import register_violations  # noqa: E402
 
 
@@ -57,7 +58,11 @@ def whitelist_for(pack: dict) -> frozenset[str]:
     date is the pack's own, drawn from the seeded pool, so leaking it through
     the whitelist re-authorises nothing the pack did not already state.
     """
-    as_of_tokens = nums.TOKEN.findall(str(pack.get("as_of") or ""))
+    # Read with the same reader the answer is read with. `2026-06-30` is three
+    # tokens, and which three depends on whether a hyphen counts as a sign --
+    # so a whitelist built by one reader and checked by another authorises
+    # spellings that never appear, and refuses the ones that do.
+    as_of_tokens = read_tokens(str(pack.get("as_of") or ""))
     return frozenset(NUMBER_WHITELIST) | frozenset(as_of_tokens)
 
 
@@ -88,6 +93,17 @@ _SUFFIXES = (
     "es",
     "s",
     "y",
+    # Last, and the one that makes a verb match itself. "scaling" loses "ing"
+    # and reaches "scal"; "scale" matched nothing and stayed whole, so an
+    # anchor on "square-root horizon scaling" was refused three times over by
+    # a live row that wrote "the 10-day figures scale by the square-root of
+    # the horizon" -- every term present, one of them merely conjugated.
+    # "assume"/"assumption" was the same story, which is the pairing this
+    # module's own docstring already claims to handle.
+    #
+    # Safe because the loop keeps a three-character floor: "the", "are" and
+    # "one" are shorter than that and come through untouched.
+    "e",
 )
 
 
@@ -483,6 +499,56 @@ def forbidden_hits(pack: dict, text: str) -> list[str]:
     return hits
 
 
+#: A closing bracket welded to the next word. Always a defect: no desk writes
+#: "(see below)The cost is", and every instance found in live prose has been
+#: the same one.
+_WELDED_BRACKET = re.compile(r"[)\]]\w")
+
+
+def malformed_prose(text: str) -> list[str]:
+    """Text that is broken rather than merely wrong, as sentences.
+
+    Every other rule here judges an argument. This one judges whether the
+    bytes are prose at all, and it exists because a row can be flawless on all
+    sixteen axes and still read:
+
+        ... a tail thinner than this book carries)Skip the headline: the
+        mechanism is square-root scaling ...
+
+    Four of twenty-four live rows carried that, and three of nine in an
+    earlier sample -- a sentence closing on an unopened bracket and running
+    into the next without a break. It predates the record-type rules, so it is
+    not an instruction being narrated back; with ``think_present`` false on
+    every one of those rows it looks like a reasoning fragment reaching the
+    content stream. Whatever its cause, it ships today, and at corpus scale it
+    teaches the student to write it.
+
+    This is the one rule the brief does not state, and the exception is
+    principled rather than convenient: "a gate the writer cannot see is a
+    trap" is an argument about *arbitrary* contracts -- a ceiling, a band, a
+    format -- that a correct writer could breach in good faith. No correct
+    writer emits an unmatched bracket. The repair turn names it, which is the
+    only notice this kind of fault needs.
+    """
+    out: list[str] = []
+    text = str(text or "")
+    welded = _WELDED_BRACKET.search(text)
+    if welded:
+        start = max(0, welded.start() - 40)
+        out.append(
+            "a bracket runs straight into the next word "
+            f"({text[start : welded.end() + 20].strip()!r}) -- close the aside "
+            "and start the sentence"
+        )
+    for opener, closer in (("(", ")"), ("[", "]")):
+        if text.count(opener) != text.count(closer):
+            out.append(
+                f"unbalanced {opener}{closer}: {text.count(opener)} {opener!r} "
+                f"against {text.count(closer)} {closer!r}"
+            )
+    return out
+
+
 def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
     """Every way *text* breaks the prose contract for ``kind``, as sentences.
 
@@ -497,6 +563,9 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
     paragraph that happened to contain it.
     """
     violations: list[str] = []
+    # First: is this prose at all? A malformed row wastes every judgement
+    # below it, and the repair turn reads in order.
+    violations.extend(malformed_prose(text))
     # Answers are graded against `canonical`, not against the union: the union
     # necessarily holds the question's own roundings, and a gate that admits
     # both spellings of one quantity is not measuring the thing it names.

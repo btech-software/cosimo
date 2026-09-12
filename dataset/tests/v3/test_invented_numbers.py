@@ -178,3 +178,63 @@ def test_a_whole_number_gets_no_desk_rounding_mercy():
 
     assert not _matches(42.0, frozenset({42.4}), 0)
     assert _matches(42.4, frozenset({42.44}), 1)
+
+
+def test_a_hyphen_inside_a_word_is_not_a_minus_sign():
+    """ "a 1-in-100 day" is risk prose, not an invented -100.
+
+    The shared tokenizer takes any hyphen before a digit as that number's
+    sign. A live VaR row wrote "the book can lose more than $55.095M on a
+    1-in-100 day" and was dead-lettered three times for an invented '-100' it
+    never wrote -- identical 283 words each attempt, because there was nothing
+    to fix.
+    """
+    from pipelines.v3.verification.invented_numbers import invented_numbers, read_tokens
+
+    assert read_tokens("a 1-in-100 day") == ["1", "100"]
+    assert read_tokens("a 1-in-20 event") == ["1", "20"]
+    assert read_tokens("range 3.5-4.5") == ["3.5", "4.5"]
+    assert invented_numbers("lose more on a 1-in-100 day", [1.0], ("1", "100")) == []
+
+
+def test_a_real_negative_is_still_a_negative():
+    """The mercy is about hyphens *inside words*; a signed figure is signed."""
+    from pipelines.v3.verification.invented_numbers import invented_numbers, read_tokens
+
+    assert read_tokens("down -100 bp") == ["-100"]
+    assert read_tokens("a -0.42% return") == ["-0.42"]
+    assert invented_numbers("the move was -100 bp", [39.248], ()) == ["-100"]
+    # And the sign still matters to the verdict: -0.42 is not 0.42.
+    assert invented_numbers("a -0.42% return", [0.42], ()) == ["-0.42"]
+
+
+def test_a_typographic_minus_is_a_minus():
+    """A teacher writing properly uses a real minus; the tokenizer knew ASCII.
+
+    One live attribution memo used U+2013 seventeen times, so every negative
+    figure in it read as positive and seven of the pack's own values came back
+    as inventions -- identical 457 words on two attempts, because the row was
+    right and the reader was not.
+    """
+    from pipelines.v3.verification.invented_numbers import invented_numbers, read_tokens
+
+    assert read_tokens("the factor (–0.004106) applied") == ["-0.004106"]
+    assert read_tokens("allocation −0.8 bp") == ["-0.8"]
+    assert invented_numbers("carino k is –0.004106", [-0.004106], ()) == []
+
+
+def test_an_em_dash_stays_punctuation():
+    """The same row used five em dashes as punctuation. "the cost -- 28 bp --
+    was high" is not a claim about minus twenty-eight."""
+    from pipelines.v3.verification.invented_numbers import read_tokens
+
+    assert read_tokens("the cost — 28 bp — was high") == ["28"]
+    assert read_tokens("cost—28 bp") == ["28"]
+
+
+def test_a_typographic_range_is_still_two_numbers():
+    """The hyphen rule and the dash rule compose: an en dash between digits is
+    a range, not a sign, for the same reason `1-in-100` is."""
+    from pipelines.v3.verification.invented_numbers import read_tokens
+
+    assert read_tokens("a 1–100 range") == ["1", "100"]

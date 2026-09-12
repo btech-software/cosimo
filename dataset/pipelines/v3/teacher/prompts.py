@@ -84,6 +84,58 @@ WORD_BUDGETS = {
     "abstention": (40, 160),
 }
 
+#: What each record type is *for*, in the second person. The register owns the
+#: voice; this owns the move -- what the row does with the pack, and where it
+#: starts.
+#:
+#: It exists because there was nothing. Diffing an ``analysis`` brief against a
+#: ``grounded`` brief for one pack produced exactly two changes: the literal
+#: ``"task"`` string, and a word budget whose bands overlap (120-400 against
+#: 110-340). The docstring on :func:`render_brief` claimed "``kind`` selects
+#: the budget and the emphasis"; there was no emphasis. Five record types were
+#: one instruction wearing five names, and in a live nine-row sample four of
+#: nine sibling pairs opened on the same four words -- the pack's headline
+#: figure -- while two non-``memo`` rows gave themselves a memo title.
+#:
+#: Every clause here has to compose with *any* register, because one pack
+#: serves all of them and the register is the family's property. So these say
+#: what to do and never how to format: headings, labelled calls and length are
+#: :data:`verification.register._REGISTER_SHAPE`'s to rule on, and a kind rule
+#: that reached into them would recreate the contradiction this session spent
+#: three rounds removing -- a teacher told to write a call by one line of its
+#: brief and not to by the next has been given no brief at all.
+_KIND_SHAPE = {
+    "analysis": (
+        "argue, do not summarise. Open on the mechanism or the binding "
+        "constraint, not on the headline figure -- the reader can see the "
+        "number. Name the assumption it hides and what would change your "
+        "conclusion"
+    ),
+    "memo": (
+        "write it up for a decision: the finding first, the evidence that "
+        "carries it, then what you would do"
+    ),
+    "grounded": (
+        "answer the question and stay on it. Every claim you make should be "
+        "traceable to a figure in the fact pack; do not open with a "
+        "write-up's framing and do not range beyond what was asked"
+    ),
+    "critique": (
+        "judge the claim you are given: say what is wrong with it, why it is "
+        "wrong, and what would have to be true for it to hold"
+    ),
+    "abstention": (
+        "say precisely what the fact pack does not contain and stop. Do not "
+        "estimate around the gap or answer a nearby question instead"
+    ),
+}
+
+
+def kind_shape(kind: str) -> str:
+    """The move :data:`_KIND_SHAPE` asks of *kind*, or ``""`` if none."""
+    return _KIND_SHAPE.get(kind, "")
+
+
 #: Packs carry the register label; prose rows also name the persona so the
 #: teacher commits to one instead of auditioning "business English".
 _REGISTER_HINTS = {
@@ -166,6 +218,10 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
         # every shape rule was a rule the teacher could only discover by
         # failing it and paying for a retry.
         "register_rules": register_shape(register or "", kind),
+        # What this record type does with the pack. Beside the register rules
+        # rather than merged into them: the register is the family's and the
+        # task is the row's, and one pack serves every record type.
+        "task_rules": kind_shape(kind),
         "word_budget": f"{low}-{high} words",
         "number_policy": (
             "every numeric token in your answer must equal one of "
