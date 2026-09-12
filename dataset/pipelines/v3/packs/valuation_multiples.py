@@ -202,6 +202,14 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
             "equity net debt",
             "median versus mean",
         ],
+        # The peer set implies a value per share. What the market is paying
+        # for it today is not in the pack, so "cheap or expensive" cannot be
+        # answered here however precisely the implied figure is computed.
+        abstention_question=(
+            f"Is {name} trading cheap or expensive against this peer set today, "
+            f"and what does the market price imply about the multiple?"
+        ),
+        abstention_missing="market price",
         register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,

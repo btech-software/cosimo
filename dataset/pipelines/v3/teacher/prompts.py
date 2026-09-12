@@ -172,9 +172,12 @@ _KIND_SHAPE = {
         "the passage and do not list every flaw you can see -- one, judged"
     ),
     "abstention": (
-        "say precisely what the fact pack does not contain, and stop. Name the "
-        "missing quantity, not a nearby one; offer no substitute figure, no "
-        "estimate and no answer to a question that was not asked"
+        "the question above asks for something the figures do not contain. Say "
+        "so in the first sentence, name the missing quantity exactly, and say "
+        "briefly what it would take to answer. Do not work the parts you *can* "
+        "compute: an answer that prices everything else and closes on what is "
+        "missing has answered a question nobody asked. No substitute figure, "
+        "no estimate, no nearby quantity offered in its place"
     ),
 }
 
@@ -273,6 +276,39 @@ POINTS_POLICY = (
     "a point to say you cannot make. Assert nothing in forbidden_claims; "
     "warning against one is not asserting it"
 )
+
+
+def question_for(pack: dict, kind: str) -> str:
+    """The question this row is actually asked.
+
+    Every kind but one is asked the pack's own question. ``abstention`` is
+    asked the one the pack cannot answer (``abstention_question``), because a
+    refusal over an answerable question is not a refusal -- it is an analysis
+    with a caveat, which is what the lane produced until the packs carried a
+    gap of their own.
+
+    Falls back to the pack's question for a pack that declares none, so a
+    fixture pack renders exactly as it did before.
+    """
+    if kind == "abstention" and pack.get("abstention_question"):
+        return str(pack["abstention_question"])
+    return str(pack["question"])
+
+
+def points_for(pack: dict, kind: str) -> list[str]:
+    """The points this row must engage.
+
+    ``must_mention`` describes a good answer to the pack's *own* question, so
+    it is the wrong contract for a row that is refusing a different one: an
+    abstention cannot engage "square-root impact scaling" while declining to
+    price a decision-price shortfall, and requiring it would push the answer
+    into answering. What an abstention must name is the thing that is missing,
+    which is the pack's ``abstention_missing``.
+    """
+    if kind == "abstention":
+        missing = str(pack.get("abstention_missing") or "")
+        return [missing] if missing else []
+    return list(pack.get("must_mention") or [])
 
 
 def number_policy(pack: dict) -> str:
@@ -408,7 +444,7 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
         "as_of": pack.get("as_of"),
     }
     user = (
-        f"Question to answer:\n{pack['question']}\n\n"
+        f"Question to answer:\n{question_for(pack, kind)}\n\n"
         "Answer strictly from the fact pack below and the contract after it.\n"
         + json.dumps(contract, sort_keys=True, separators=(",", ":"))
     )

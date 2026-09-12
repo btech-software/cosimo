@@ -99,18 +99,26 @@ What the slice found, both of them now gated:
   shape (word doubled rather than fused to a figure), now refused by
   `malformed_prose`.
 
-**What it shows that is not a defect and not a fix:** the `abstention` rows
-are not abstentions. Both answer the question in full and close on the one
-thing the pack cannot support. That is honest prose and the wrong record type:
-an abstention is a *refusal*, and these packs answer their own questions, so
-there is nothing to refuse. The lane needs a pack with a withheld quantity --
-a question the facts genuinely cannot reach -- or it will teach a student to
-hedge rather than to decline. 360 rows are planned on it.
+**What it found that was a design fault, since fixed:** the first cut of these
+`abstention` rows were not abstentions. Both answered the question in full and
+closed on the one thing the pack could not support -- honest prose, wrong
+record type. The cause was structural: an abstention was rendered over the
+pack's *own* question, which the pack answers, so there was nothing to refuse
+and 360 planned rows would have taught a student to hedge rather than decline.
+
+Packs now carry `abstention_question` and `abstention_missing`: a question
+about a quantity the fact computer genuinely does not produce (a DCF has no
+share count, so per-share worth is unreachable; the VaR pack computes the 95%
+expected shortfall and not the 99%), and the name of what is absent, which is
+the only point the gate asks an abstention to engage. The rows here are the
+result -- they decline in the first sentence, name the gap, and offer no
+substitute figure.
 
 ## `live_v3_2.jsonl` — the amendment's acceptance rows
 
-Eight rows from `deepseek-v4-flash-0731` (2026-09-12, think off) over the v3.2
-packs, briefs and gates: `analysis` / `grounded` / `memo` across
+Seven rows from `deepseek-v4-flash-0731` (2026-09-12, think off) over the v3.2
+packs, briefs and gates -- eight were rendered and one was rejected by the
+human read (`_rejected_v3_2.jsonl`): `analysis` / `grounded` / `memo` across
 `execution.tca.arrival`, `portfolio.attribution.brinson_carino` and
 `risk.market.var_es`. Eight and not nine because `memo` x `desk_chat` is no
 longer a legal pair (§C) -- the ninth row of the older capture existed only
@@ -121,7 +129,7 @@ teacher, same three registers; everything else is the amendment.
 
 | | v3.1 capture | v3.2 capture |
 | --- | ---: | ---: |
-| rows | 9 | 8 |
+| rows | 9 | 7 (8 rendered, 1 rejected on the human read) |
 | words, min / median / max | 225 / 288 / 516 | **80 / 117 / 158** |
 | median completion tokens | 476 | **~200** |
 | rows carrying a §D contradiction | 7 of 9 | **0 of 8** |
@@ -135,6 +143,16 @@ rows (the old Carino factor made that unavoidable -- the teacher had to invent
 a mechanism to save the pack); and a -0.10% daily mean reported as $10M of
 expected gain on the VaR memo. None of them invented a number, which is why
 sixteen axes passed every one.
+
+**The capture is raw and the gold bar is curated, and they are different
+files on purpose.** `live_v3_2.jsonl` is what the teacher wrote, `295.7747`
+and "this pack holds no decision price" included -- reading it is how you see
+what the briefs still let through. `dataset/goldbar/gold_bar_v3.jsonl` holds
+the same seven rows after a human read: the desk spelling of published
+figures, no sentence naming the machinery, and one tautological constraint
+replaced. Every row there carries a `curation` block saying what was changed,
+and no figure's value or argument was touched. The gates added after the read
+now refuse all three defects, so a re-render would not reproduce them.
 
 `test_live_v3_2_capture.py` holds this file to §F's acceptance list -- the word
 band its kind and register allow, no contradiction against the recomputed pack,

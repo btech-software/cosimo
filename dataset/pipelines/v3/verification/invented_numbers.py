@@ -10,20 +10,25 @@ its definitions of "same number":
 
 * a token is taken with :func:`verification.nums.val` -- thousands separators
   and decimals handled the way the v2 verifier already handles them;
-* it passes when, after scaling by ``1``, ``100`` or ``1/100``, it lands
-  within ``REL_TOLERANCE`` (0.5%) of an allowed value. The two scalings are
-  the two honest ways prose renders a pack value: ``0.03`` as ``3.00%``,
-  ``12.5`` as a ``0.125`` ratio; nothing more permissive, or the gate would
-  stop being one -- a model cannot rescue a wrong figure by reformatting it;
-* comparison is relative, not a fixed epsilon, because packs mix ``1e4``
-  AUMs with ``1e-4`` spreads; one epsilon would let either class pass
-  everything or reject its own outputs;
-* and beside the relative test, a token also passes when it is an allowed
-  value *correctly rounded to the precision the token itself carries* -- the
-  desk writing ``-0.42%`` of a ``-0.416``. That path is exact, not a widened
-  band, and needs at least one decimal: a relative test alone makes the
-  standard a function of magnitude, so the same two-decimal rounding passed at
-  3.309 and failed at 0.416 until this was added.
+* the scalings allowed are ``1``, ``100`` and ``1/100`` -- the two honest ways
+  prose renders a pack value (``0.03`` as ``3.00%``, ``12.5`` as a ``0.125``
+  ratio) and nothing more permissive, or a model could rescue a wrong figure
+  by reformatting it;
+* **a token that carries decimals passes only when it is an allowed value
+  correctly rounded to the precision the token itself writes** -- the desk
+  writing ``-0.42%`` of a ``-0.416``. Exact at the written precision, so it
+  admits no figure a reader could tell apart from the pack's;
+* a token with **no** decimals is compared within ``REL_TOLERANCE`` (0.5%),
+  which is where a money figure written ``$359,667`` for a ``359667.31``
+  lives. Relative rather than a fixed epsilon because packs mix ``1e4`` AUMs
+  with ``1e-4`` spreads.
+
+The decimal rule used to be a second chance *after* the relative band rather
+than a replacement for it, and the band was the hole: a live valuation memo
+wrote a peer **mean** of ``22.17`` that no pack field contains, and it passed
+by sitting 0.31% from a peer multiple of ``22.24``. A derived figure that
+lands near an unrelated one is exactly what a relative band cannot see, and
+arithmetic is the thing the number policy forbids in the first place.
 
 Fail-closed: an unparsable or non-finite allowed set is an error, never a
 silent "nothing invented" -- the gate missing its data must look like the gate
@@ -157,12 +162,14 @@ def _matches(value: float, allowed: frozenset[float], decimals: int = -1) -> boo
                 if scaled == 0.0:
                     return True
                 continue
-            if abs(scaled - a) <= REL_TOLERANCE * abs(a):
-                return True
             # Compared in the *token's* space, not the pack's: the written
             # decimals describe `value`, so the allowed figure has to be
             # brought back through the same scale before it is rounded.
-            if decimals >= 1 and abs(round(a / scale, decimals) - value) <= _EXACT:
+            if decimals >= 1:
+                if abs(round(a / scale, decimals) - value) <= _EXACT:
+                    return True
+                continue
+            if abs(scaled - a) <= REL_TOLERANCE * abs(a):
                 return True
     return False
 

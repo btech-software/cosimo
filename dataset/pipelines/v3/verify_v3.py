@@ -87,6 +87,7 @@ from .oracle.runtime import SCHEMA_NAMES as ADVERTISED_NAMES
 from .seed import pack_seed
 from .teacher.prompts import (
     BRIEF_KINDS,
+    question_for,
     KIND_SENTENCE_CAPS,
     WORD_BUDGETS,
     word_budget,
@@ -430,7 +431,11 @@ def _check_row(
             f"seed stamp {stamp!r} does not match the seed its coordinates "
             f"hash to ({expected_stamp!r})"
         )
-    if row["question"] != pack.question:
+    # An abstention row is asked the question the pack *cannot* answer, so it
+    # is checked against that one: the lane's whole point is a gap, and a row
+    # carrying the pack's own question there would be the old behaviour --
+    # an analysis with a caveat -- wearing the new label.
+    if row["question"] != question_for(pack.to_dict(), kind):
         failures["pack recompute"].append("question drifted from the recomputed pack")
     if row["register"] != pack.register:
         failures["pack recompute"].append("register drifted from the recomputed pack")
@@ -603,7 +608,7 @@ def _check_row(
             failures["schema"].append(broken)
     for contradiction in contradiction_violations(pack_dict, answer):
         failures["must_mention / forbidden_claims"].append(contradiction)
-    for point in missing_mentions(pack_dict, answer):
+    for point in missing_mentions(pack_dict, answer, kind):
         failures["must_mention / forbidden_claims"].append(
             f"must_mention not covered: {point!r}"
         )

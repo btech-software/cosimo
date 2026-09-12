@@ -70,7 +70,15 @@ def test_a_prose_example_has_no_transcript_at_all(kind):
     """A prose row's prompt is its question. There is nothing else to show."""
     row = _example(kind)
     assert "messages" not in row
-    assert row["question"] == row["fact_pack"]["question"]
+    # The question the row was *asked*: the pack's own, except on the
+    # abstention lane, which is asked the one the pack cannot answer so that a
+    # refusal is a refusal rather than an analysis with a caveat.
+    from pipelines.v3.teacher.prompts import question_for
+
+    assert row["question"] == question_for(row["fact_pack"], kind)
+    if kind == "abstention":
+        assert row["question"] == row["fact_pack"]["abstention_question"]
+        assert row["question"] != row["fact_pack"]["question"]
 
 
 @pytest.mark.parametrize("kind", sorted(EXPECTED_KINDS))

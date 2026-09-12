@@ -104,7 +104,10 @@ def test_invented_number_is_named_not_numbered():
 def test_missing_mention_is_reported_point_by_point():
     missing = missing_mentions(PACK, "Capex is rising.")
     assert missing == ["The dcf value sits below price."]
-    violations = gate_violations(PACK, "Capex is rising. " * 40, "abstention")
+    # `analysis`, not `abstention`: an abstention answers the question the pack
+    # *cannot*, so its points come from `abstention_missing` rather than from
+    # the list describing a good answer to the pack's own question.
+    violations = gate_violations(PACK, "Capex is rising. " * 40, "analysis")
     assert any("points the answer does not engage" in v for v in violations)
 
 
@@ -815,11 +818,11 @@ def test_no_task_rule_contradicts_the_register_it_will_be_written_in():
 
     # `grounded` and `abstention` are told not to decide; the register that
     # requires a decision exempts exactly those two.
-    for kind in ("grounded", "abstention"):
-        assert (
-            "no call" in kind_shape(kind).casefold()
-            or "stop" in kind_shape(kind).casefold()
-        ), kind
+    for kind, refusal in (
+        ("grounded", "no call"),
+        ("abstention", "missing quantity"),
+    ):
+        assert refusal in kind_shape(kind).casefold(), kind
     assert "call" in _REGISTER_SHAPE["ic_memo"].casefold()
     # ...and the brief for those two kinds must not ask for the call the gate
     # has already excused them from. A live grounded row spent three attempts

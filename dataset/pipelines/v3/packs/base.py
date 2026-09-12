@@ -78,6 +78,20 @@ class FactPack:
     #: depends on a number is a *test*, and the pack is where the number is.
     conditional_mentions: list[dict] = field(default_factory=list)
     conditional_forbids: list[dict] = field(default_factory=list)
+    #: The question this pack *cannot* answer, and the quantity it is missing.
+    #:
+    #: The abstention lane's reason for existing, and until this existed it had
+    #: none: abstention rows were rendered over the pack's own question, which
+    #: the pack answers in full, so every one of them came back as an analysis
+    #: with a caveat welded on ("...and there is no decision price here"). That
+    #: is the opposite of the behaviour the record type is for -- 360 rows of
+    #: it would teach a student to hedge rather than to decline.
+    #:
+    #: So the refusal is a *property of the pack*: a question about a quantity
+    #: the fact computer genuinely does not produce, and the name of that
+    #: quantity so the gate can ask whether the answer named it too.
+    abstention_question: str = ""
+    abstention_missing: str = ""
     stimulus: str | None = None
     program: str | None = None
     topic: str | None = None
