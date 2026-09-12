@@ -265,6 +265,15 @@ def _build(
             "reinvestment capex working-capital",
             "terminal-growth sensitivity",
         ],
+        # The model reaches an enterprise value. It carries no share count
+        # and no market price, so per-share worth and cheapness are questions
+        # about figures this pack does not have.
+        abstention_question=(
+            f"What is {params['name']}'s equity value per share on this model, "
+            f"and is the "
+            f"stock trading above or below it today?"
+        ),
+        abstention_missing="share price",
         register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,

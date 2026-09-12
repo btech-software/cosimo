@@ -238,3 +238,24 @@ def test_a_typographic_range_is_still_two_numbers():
     from pipelines.v3.verification.invented_numbers import read_tokens
 
     assert read_tokens("a 1–100 range") == ["1", "100"]
+
+
+def test_a_derived_figure_near_an_unrelated_one_is_still_invented():
+    """The relative band's hole, found in a live valuation memo.
+
+    The row printed a peer **mean** of 22.17. No pack field holds it -- it is
+    arithmetic, which the number policy forbids outright -- and it passed
+    because it sits 0.31% from a peer multiple of 22.24, inside the 0.5%
+    relative band. A band cannot tell a derived figure from a rounding; the
+    precision the token itself writes can.
+    """
+    peers = [22.24, 21.72, 21.98, 20.67, 24.05]
+    assert invented_numbers("the mean of the set is 22.17", peers, ()) == ["22.17"]
+    # The rounding the same rule must keep admitting: the desk writing a
+    # two-decimal percent of a stored fraction.
+    assert invented_numbers("participation is 4.86% of ADV", [0.048555], ()) == []
+    assert invented_numbers("the benchmark returned -0.42%", [-0.00416], ()) == []
+    assert invented_numbers("impact is 26.7 bp", [26.66], ()) == []
+    # A whole-number token keeps the relative band: money is written without
+    # its cents and that is not a claim about a different number.
+    assert invented_numbers("a dollar cost of 359,667", [359667.31], ()) == []

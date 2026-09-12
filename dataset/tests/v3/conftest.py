@@ -44,4 +44,3 @@ os.environ.pop("COSIMO_V3_MAX_TOKENS", None)
 # this, being per-test), and every other test renders the plan it declares.
 os.environ.setdefault("COSIMO_V3_GOLDBAR", os.path.join(_HERE, "_no_gold_bar.jsonl"))
 os.environ["COSIMO_V3_GOLDBAR"] = os.path.join(_HERE, "_no_gold_bar.jsonl")
-

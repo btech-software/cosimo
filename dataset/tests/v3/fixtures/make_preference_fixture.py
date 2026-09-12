@@ -180,9 +180,10 @@ def compose_chosen(pack: dict, kind: str) -> str:
         + "."
         for i in range(0, len(figures), 3)
     ]
+    from pipelines.v3.teacher.prompts import points_for  # late: one table
+
     tail_lines = [
-        point.strip().rstrip(".") + "."
-        for point in reversed(pack.get("must_mention") or [])
+        point.strip().rstrip(".") + "." for point in reversed(points_for(pack, kind))
     ] + [
         # Not the question verbatim, which is what this line used to carry.
         # A question prints the roundings the answer may not claim -- `1.89%`

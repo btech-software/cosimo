@@ -55,7 +55,7 @@ from pipelines.v3.packs import PackError, compute_pack  # noqa: E402
 from pipelines.v3.render.prose import select_prose_jobs  # noqa: E402
 from pipelines.v3.teacher import routing  # noqa: E402
 from pipelines.v3.teacher.client import build_body, canonical_request  # noqa: E402
-from pipelines.v3.teacher.prompts import KIND_SENTENCE_CAPS  # noqa: E402
+from pipelines.v3.teacher.prompts import KIND_SENTENCE_CAPS, points_for  # noqa: E402
 from pipelines.v3.teacher.prompts import render_brief, word_budget  # noqa: E402
 from pipelines.v3.verification.prose import gate_violations  # noqa: E402
 
@@ -166,13 +166,32 @@ def compliant_text(pack: dict, kind: str) -> str:
     that could not pass the live gate was never a fixture for the live gate.
     """
     low, high = word_budget(kind, pack.get("register") or "")
+    if kind == "abstention":
+        # The abstention lane is asked a question the figures cannot reach, so
+        # the dummy declines it. It used to answer the pack's own question and
+        # the gate had no way to tell, which is exactly the failure the live
+        # lane shipped until the packs grew a gap of their own.
+        missing = (points_for(pack, kind) or ["the figure this needs"])[0]
+        lines = [
+            f"This cannot be answered from what is given as of {pack['as_of']}.",
+            f"The {missing} is not among the figures, and nothing here stands "
+            "in for it.",
+            "Supply that figure and the question becomes answerable; without "
+            "it any number offered would be invented rather than measured.",
+        ]
+        text = "\n".join(lines)
+        count = len(text.split())
+        if not low <= count <= high:
+            raise AssertionError(
+                f"dummy abstention for {pack.get('scenario_id')} lands at "
+                f"{count} words, outside {low}-{high}"
+            )
+        return text
     lines = [
         f"Answering the {pack['work_type']} question as of {pack['as_of']}, "
         "on the figures given and no others."
     ]
-    lines.extend(
-        point.strip().rstrip(".") + "." for point in pack.get("must_mention") or []
-    )
+    lines.extend(point.strip().rstrip(".") + "." for point in points_for(pack, kind))
     facts = sorted(
         (
             key

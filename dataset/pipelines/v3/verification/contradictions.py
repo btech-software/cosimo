@@ -267,7 +267,25 @@ _OWNERSHIP_CALL = re.compile(
     r"\bown\s+it\b|\bworth\s+owning\b|\bwe\s+would\s+(?:own|buy|sell)\b"
     r"|\b(?:looks|is)\s+(?:cheap|expensive|undervalued|overvalued)\b"
     r"|\brecommend\s+(?:owning|buying|selling)\b|\bbuy\s+the\s+name\b"
-    r"|\btake\s+the\s+position\b",
+    # The position frame, which is the same call in the language a desk
+    # actually uses. A live DCF analysis closed "Call: hold off on a position
+    # until we can compare this EV to market capitalization" and the axis let
+    # it through, because it was written to catch a slogan rather than a move.
+    r"|\b(?:take|open|initiate|build|size|hold\s+off\s+on|wait\s+(?:on|for|before))"
+    r"\s+(?:a|the|any)?\s*position\b"
+    r"|\bposition\s+(?:until|once|when)\b",
+    re.IGNORECASE,
+)
+
+#: Comparing an enterprise value with a market capitalisation. Not a call, and
+#: worse than one: EV carries net debt and market cap does not, so the
+#: comparison is wrong even when the price it wants exists. The honest sentence
+#: names what is missing -- "no share price, so no ownership call" -- and does
+#: not propose an arithmetic nobody should do.
+_EV_AGAINST_PRICE = re.compile(
+    r"\b(?:ev|enterprise\s+value)\b[^.;]{0,70}?\b(?:compare[d]?|against|versus|vs\.?|"
+    r"relative\s+to)\b[^.;]{0,40}?\b(?:market\s+cap\w*|share\s+price|price)\b"
+    r"|\bcompare\s+(?:this|the)\s+ev\b[^.;]{0,50}?\b(?:market\s+cap\w*|price)\b",
     re.IGNORECASE,
 )
 
@@ -296,12 +314,19 @@ def ev_as_price(pack: dict, text: str) -> str:
     canonical = _canonical(pack)
     if any(any(key in name for key in _PRICE_KEYS) for name in canonical):
         return ""
+    if _asserted(text, _EV_AGAINST_PRICE):
+        return (
+            "ev_as_price: the answer proposes weighing the enterprise value "
+            "against a market price or market capitalisation -- EV carries net "
+            "debt and a market cap does not, so that comparison is wrong even "
+            "where the price exists, and this pack carries no price at all"
+        )
     if not _asserted(text, _OWNERSHIP_CALL):
         return ""
     return (
         "ev_as_price: this valuation carries no market price to compare, so "
-        "nothing here supports owning or not owning the name -- an enterprise "
-        "value is not a share price; say there is no ownership call"
+        "nothing here supports owning, waiting on, or sizing a position -- an "
+        "enterprise value is not a share price; say there is no ownership call"
     )
 
 

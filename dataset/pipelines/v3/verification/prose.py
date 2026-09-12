@@ -47,6 +47,7 @@ from verification.gates import FINAL_ANSWER_TAG  # noqa: E402
 from .. import config  # noqa: E402
 from ..config import NUMBER_WHITELIST  # noqa: E402
 from ..teacher.prompts import KIND_SENTENCE_CAPS  # noqa: E402
+from ..teacher.prompts import points_for  # noqa: E402
 from ..teacher.prompts import word_budget  # noqa: E402
 from .contradictions import contradiction_violations  # noqa: E402
 from .invented_numbers import decimal_places  # noqa: E402
@@ -518,7 +519,7 @@ def contract_leaks(text: str) -> list[str]:
     return seen
 
 
-def missing_mentions(pack: dict, text: str) -> list[str]:
+def missing_mentions(pack: dict, text: str, kind: str = "") -> list[str]:
     """``must_mention`` anchors the text failed to carry, in pack order.
 
     Every word of the anchor must appear in the answer, compared on stems and
@@ -540,11 +541,7 @@ def missing_mentions(pack: dict, text: str) -> list[str]:
     matching is on content: all terms present, any order, any inflection.
     """
     haystack = stems(text)
-    return [
-        point
-        for point in pack.get("must_mention") or []
-        if not stems(point) <= haystack
-    ]
+    return [point for point in points_for(pack, kind) if not stems(point) <= haystack]
 
 
 #: Negations that flip a forbidden claim into a warning against it. A desk
@@ -765,7 +762,7 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
             '"there is no decision price here", never "the pack has no '
             'decision price"'
         )
-    missing = missing_mentions(pack, text)
+    missing = missing_mentions(pack, text, kind)
     if missing:
         violations.append(
             "points the answer does not engage: "

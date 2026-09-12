@@ -221,6 +221,13 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
                 {"when": "mu_daily < 0", "claim": "expected gain"},
             ],
         ),
+        # The 95% expected shortfall is computed; the 99% is not, and it is
+        # not a rescaling of the 95% under any assumption this pack states.
+        abstention_question=(
+            f"What is the 99% expected shortfall for '{book}' over the "
+            f"{horizon}-day horizon, and how far does it sit above the 99% VaR?"
+        ),
+        abstention_missing="99% expected shortfall",
         register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,

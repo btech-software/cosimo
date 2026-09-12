@@ -230,6 +230,15 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
                 }
             ],
         ),
+        # The order was worked against arrival, and nobody recorded when the
+        # decision was taken or what the mid was then. A shortfall measured
+        # against a decision price is a number this computer cannot produce.
+        abstention_question=(
+            f"What implementation shortfall did this {ticker} order run against "
+            f"the *decision* price, and how much of it is timing delay rather "
+            f"than market impact?"
+        ),
+        abstention_missing="decision price",
         register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,

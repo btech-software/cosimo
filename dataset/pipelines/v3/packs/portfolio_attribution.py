@@ -313,6 +313,14 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
         # from -- and "no single effect is large enough to act on" is a valid
         # answer to it.
         must_mention=["allocation versus selection"],
+        # Attribution is a decomposition of a period that has happened. How
+        # much of it repeats is a claim about the next period, which this pack
+        # forbids and cannot support.
+        abstention_question=(
+            f"How much of {book}'s active return should we expect to repeat "
+            f"next period, and what does that imply for the manager's fee?"
+        ),
+        abstention_missing="next period",
         register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,

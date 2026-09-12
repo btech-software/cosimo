@@ -42,6 +42,7 @@ from __future__ import annotations
 import re
 
 from . import config
+from .teacher.prompts import question_for
 
 #: Everything a stored fact-pack line carries *around* the pack proper.
 #: Stripped before the pack is handed to a brief builder or written onto a
@@ -155,7 +156,11 @@ def student_row(
         "holdout": bool(holdout),
         "variant": pack["variant"],
         "register": pack["register"],
-        "question": pack["question"],
+        # The question the row was *asked*, which for an abstention is the one
+        # the pack cannot answer (see `prompts.question_for`). A student row
+        # whose question and answer disagree about what was asked teaches
+        # nothing; this is the one place that pairing is made.
+        "question": question_for(pack, kind),
         "answer": answer,
         "fact_pack": pack,
         "verified": True,
