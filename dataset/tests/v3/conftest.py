@@ -31,3 +31,17 @@ for _p in (DATASET, REPO):
 # variable for the same reason), so the suite drops it too. This must run before
 # anything imports the client, which is what a conftest is for.
 os.environ.pop("COSIMO_V3_MAX_TOKENS", None)
+
+# The gold bar is a *curated human artefact* that lives in the repo, and since
+# the renderer learned to skip the coordinates it holds (a gold-barred seed is
+# not a seed the corpus regenerates), a suite that read the committed file
+# would change behaviour every time somebody certified a row: eight tests began
+# failing the hour `gold_bar_v3.jsonl` was first written, all of them counting
+# rows that were suddenly, correctly, not rendered.
+#
+# So the suite points the path at a file that does not exist. Tests that are
+# *about* the bar set `COSIMO_V3_GOLDBAR` themselves (monkeypatch wins over
+# this, being per-test), and every other test renders the plan it declares.
+os.environ.setdefault("COSIMO_V3_GOLDBAR", os.path.join(_HERE, "_no_gold_bar.jsonl"))
+os.environ["COSIMO_V3_GOLDBAR"] = os.path.join(_HERE, "_no_gold_bar.jsonl")
+

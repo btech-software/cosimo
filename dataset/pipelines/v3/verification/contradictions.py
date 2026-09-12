@@ -43,6 +43,10 @@ TAGS = {
         "the answer picks an effect to act on while the pieces do not add to "
         "the active return"
     ),
+    "ev_as_price": (
+        "the answer makes an ownership call from a valuation that carries no "
+        "market price to compare it against"
+    ),
 }
 
 #: Schedule-as-risk language. Loose on the verb ("becomes", "is", "will be")
@@ -112,7 +116,27 @@ RECONCILE_TOLERANCE_BPS = 0.5
 #: of the reverse is a contradicted row shipping board-green, which is the
 #: whole reason this file exists.
 _NEGATORS = frozenset(
-    {"not", "never", "no", "nor", "neither", "cannot", "cant", "dont", "doesnt"}
+    {
+        "not",
+        "never",
+        "no",
+        "nor",
+        "neither",
+        "cannot",
+        "cant",
+        "dont",
+        "doesnt",
+        # The denial does not always carry a "not": "nothing says whether it is
+        # worth owning near this EV" is the sentence §B.4 asks a valuation row
+        # to write, and it says the claim is unsupported without once negating
+        # a verb. "whether" earns its place the same way -- it marks an open
+        # question, and an open question is not an assertion.
+        "nothing",
+        "none",
+        "without",
+        "whether",
+        "unclear",
+    }
 )
 
 #: Two-word denials, which a word set cannot hold.
@@ -236,6 +260,51 @@ def unreconciled_call(pack: dict, text: str) -> str:
     )
 
 
+#: Deciding to own, or not to own, a name. The move a valuation row is *asked*
+#: for -- the DCF question opens "Should we own X?" -- and the one its figures
+#: cannot support on their own.
+_OWNERSHIP_CALL = re.compile(
+    r"\bown\s+it\b|\bworth\s+owning\b|\bwe\s+would\s+(?:own|buy|sell)\b"
+    r"|\b(?:looks|is)\s+(?:cheap|expensive|undervalued|overvalued)\b"
+    r"|\brecommend\s+(?:owning|buying|selling)\b|\bbuy\s+the\s+name\b"
+    r"|\btake\s+the\s+position\b",
+    re.IGNORECASE,
+)
+
+#: What a pack needs before an ownership call is possible: a market price to
+#: compare the valuation against. An *implied* value per share is the answer's
+#: own output, not a market quote, so it does not license the call -- that
+#: confusion is the whole of "EV as price".
+_PRICE_KEYS = ("market_price", "share_price", "price_per_share", "last_price", "px")
+
+
+def ev_as_price(pack: dict, text: str) -> str:
+    """§B.4's valuation rule: no market price, no ownership call.
+
+    A live DCF analysis closed "**Call:** Own it, because the implied EV is
+    reasonable" over a pack with no price and no share count -- board-green,
+    and the exact error the work-type addendum was written to prevent. The
+    addendum told the teacher; nothing checked it.
+
+    The memo on the same pack got it right ("there is no ownership call here --
+    with no share price or share count given, we cannot say whether it is worth
+    owning near this EV"), which is the sentence this axis asks for.
+    """
+    work_type = str(pack.get("work_type") or "")
+    if not work_type.startswith("valuation."):
+        return ""
+    canonical = _canonical(pack)
+    if any(any(key in name for key in _PRICE_KEYS) for name in canonical):
+        return ""
+    if not _asserted(text, _OWNERSHIP_CALL):
+        return ""
+    return (
+        "ev_as_price: this valuation carries no market price to compare, so "
+        "nothing here supports owning or not owning the name -- an enterprise "
+        "value is not a share price; say there is no ownership call"
+    )
+
+
 def contradiction_violations(pack: dict, text: str) -> list[str]:
     """Every claim this pack's own numbers refute, as tagged sentences.
 
@@ -250,6 +319,7 @@ def contradiction_violations(pack: dict, text: str) -> list[str]:
         schedule_risk_below_cap(pack, text),
         drift_sign(pack, text),
         unreconciled_call(pack, text),
+        ev_as_price(pack, text),
     ]
     return [line for line in found if line]
 
@@ -265,6 +335,7 @@ __all__ = [
     "RECONCILE_TOLERANCE_BPS",
     "contradiction_violations",
     "drift_sign",
+    "ev_as_price",
     "schedule_risk_below_cap",
     "tag_of",
     "unreconciled_call",

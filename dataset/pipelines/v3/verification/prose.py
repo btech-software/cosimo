@@ -467,12 +467,55 @@ def display_form_offenders(pack: dict, text: str) -> list[str]:
     out: list[str] = []
     for quantity, spelled in sorted((pack.get("display") or {}).items()):
         spelling = str(spelled).strip()
-        if not spelling.endswith("%") or quantity not in canonical:
+        if quantity not in canonical:
             continue
         raw = _plain(canonical[quantity])
+        if spelling.endswith("%"):
+            pass  # a percent display says the quantity is measured in percent
+        elif decimal_places(spelling.replace(",", "")) >= decimal_places(raw):
+            # The display names the same number at the same depth (430,567 for
+            # 430567, 296.61 for 296.61). §A.3 permits the bare form, and
+            # demanding the separators would be failing correct prose to
+            # enforce a house style.
+            continue
         if re.search(rf"(?<![\d.\-]){re.escape(raw)}(?![\d])", haystack):
             out.append(f"{raw!r} -- write {spelling}")
     return out
+
+
+#: The machinery a student row must never name. The system turn says "never
+#: mention the fact pack, the contract, the gate, or these instructions" and
+#: nothing enforced it, so three of eight rows in the first v3.2 capture wrote
+#: "this pack holds no decision price" or "the pack's reconciling residual" --
+#: sentences that teach a student the labelling protocol exists, which is the
+#: whole failure the two-surface split was built to end.
+#:
+#: ``\bpacks?\b`` is the fingerprint the reviewer asked for. It has one real
+#: false positive in this domain -- a Eurodollar *pack* is a strip of futures
+#: -- and no work type in the plan trades one; if one is ever added, this is
+#: the line to revisit rather than the row to excuse.
+_CONTRACT_WORDS = re.compile(
+    r"\bpacks?\b|\bfact[- ]pack\b|\bmust[_ ]mention\b|\ballowed[_ ]numbers\b"
+    r"|\bforbidden[_ ]claims?\b|\bcanonical (?:figures?|values?)\b"
+    r"|\bthe gate\b|\bthis contract\b|\bthe brief\b|\bword budget\b",
+    re.IGNORECASE,
+)
+
+
+def contract_leaks(text: str) -> list[str]:
+    """Phrases that name the factory, in order, deduplicated.
+
+    A leak axis rather than a style one: the row is the student's whole view of
+    the world, and a desk note that says "the pack does not contain a decision
+    price" is telling the student there is a pack. The desk sentence is "there
+    is no decision price here", and it carries the same fact.
+    """
+    seen: list[str] = []
+    for match in _CONTRACT_WORDS.finditer(str(text or "")):
+        token = match.group(0)
+        if token.casefold() not in {s.casefold() for s in seen}:
+            seen.append(token)
+    return seen
 
 
 def missing_mentions(pack: dict, text: str) -> list[str]:
@@ -566,6 +609,40 @@ def forbidden_hits(pack: dict, text: str) -> list[str]:
 #: the same one.
 _WELDED_BRACKET = re.compile(r"[)\]]\w")
 
+#: A figure with a word fused to its tail: ``$39.248Mchers``, which shipped
+#: board-green in the first v3.2 capture and is why this rule exists. The same
+#: decoder artefact also produced ``30.8 bpches`` and ``expected losshol``.
+_FUSED_FIGURE = re.compile(r"\d(?:[.,]\d+)?([A-Za-z]{1,12})\b")
+
+#: No space in the pattern above, deliberately: "295.77 against" is prose and
+#: "39.248Mchers" is wreckage, and the space is the whole difference. A unit
+#: may follow a figure. Everything else fused to one is an artefact.
+#: Kept small and explicit: the cost of a missing entry is one repair turn on a
+#: correct row, the cost of a permissive rule is a corpus that teaches the
+#: student to weld words onto numbers.
+_UNITS = frozenset(
+    """bp bps b bn m mm mn k x pct ppt pp e usd eur gbp jpy d dd day days wk
+    wks mo mos y yr yrs h hr hrs min mins sec secs st nd rd th s tn t q""".split()
+)
+
+#: A word printed twice with no space: "shareshare", from a live valuation
+#: abstention's "83.0M shareshare count". The figure rule above cannot see it
+#: (the fusion is word-to-word, not word-to-number) and it is unmistakable:
+#: English has a handful of self-doubled words and none of them is desk
+#: vocabulary.
+_DOUBLED_WORD = re.compile(r"\b(\w{4,})\1\b", re.IGNORECASE)
+
+#: A unit with a word fused to *it*: "bpches". The figure-fusion rule cannot
+#: see this one, because the space falls between the number and the wreckage.
+#: Only units that are not the opening of an English word may appear here, and
+#: the list is short for that reason: ``adv``, ``var`` and ``es`` were in the
+#: first draft and between them they refuse "advance", "variance", "various"
+#: and -- caught on a live valuation memo, three attempts and a dead letter --
+#: "estimate". A gate that fails correct prose to catch a decoder artefact has
+#: made the corpus worse, so the artefact goes uncaught in those spellings and
+#: the figure-fusion rule above stays the general instrument.
+_FUSED_UNIT = re.compile(r"\b(bps?|vwap|twap)([a-z]{2,})\b", re.IGNORECASE)
+
 
 def malformed_prose(text: str) -> list[str]:
     """Text that is broken rather than merely wrong, as sentences.
@@ -594,6 +671,27 @@ def malformed_prose(text: str) -> list[str]:
     """
     out: list[str] = []
     text = str(text or "")
+    for match in _FUSED_FIGURE.finditer(text):
+        tail = match.group(1)
+        if tail.casefold() in _UNITS or len(tail) < 3:
+            continue
+        out.append(
+            f"a word is fused to a figure ({match.group(0).strip()!r}) -- write "
+            "the number, a space, and the word"
+        )
+        break
+    doubled = _DOUBLED_WORD.search(text)
+    if doubled:
+        out.append(
+            f"a word is printed twice with no space ({doubled.group(0)!r}) -- "
+            "write it once"
+        )
+    fused_unit = _FUSED_UNIT.search(text)
+    if fused_unit:
+        out.append(
+            f"a word is fused to a unit ({fused_unit.group(0)!r}) -- the unit "
+            "ends where the number's meaning ends"
+        )
     welded = _WELDED_BRACKET.search(text)
     if welded:
         start = max(0, welded.start() - 40)
@@ -657,6 +755,15 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
             f"figures written past {config.PROSE_MAX_DECIMALS} decimals: "
             + ", ".join(repr(t) for t in overprecise)
             + " -- round them the way a desk would print them"
+        )
+    leaks = contract_leaks(text)
+    if leaks:
+        violations.append(
+            "the answer names the machinery behind it ("
+            + ", ".join(repr(t) for t in leaks)
+            + ") -- write the fact, not where the fact came from: "
+            '"there is no decision price here", never "the pack has no '
+            'decision price"'
         )
     missing = missing_mentions(pack, text)
     if missing:

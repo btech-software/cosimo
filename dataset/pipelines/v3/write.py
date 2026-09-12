@@ -121,6 +121,30 @@ def existing_ids(path: str) -> frozenset[str]:
     return frozenset(str(record["id"]) for record in read_jsonl(path))
 
 
+def gold_bar_ids(path: str | None = None) -> frozenset[str]:
+    """Coordinates the held-out human set already holds, by id.
+
+    A coordinate in the gold bar is a coordinate the training corpus does not
+    render, and that is the gold bar's own rule read forwards rather than
+    backwards: ``verify_v3`` axis 13 fails a train row that near-duplicates a
+    gold-bar item, and the same teacher on the same seed under the same brief
+    writes very nearly the same row -- measured at 0.66 to 1.00 Jaccard the
+    first time a v3.2 slice was gold-barred. The fence is right; what was
+    missing was anyone telling the renderer, which then paid for eight calls
+    to produce eight axis-13 failures.
+
+    Empty for a missing file, because a CI box has never held the human
+    artefact and must still be able to render (``publish`` is where its
+    absence is fatal).
+    """
+    from . import config
+
+    resolved = path or config.gold_bar_v3_path()
+    if not os.path.isfile(resolved):
+        return frozenset()
+    return existing_ids(resolved)
+
+
 def write_jsonl(path: str, records: list[dict]) -> int:
     """(Re)write *path* with exactly *records*. Whole-file, atomic. Idempotent."""
     _check_records(records, path)

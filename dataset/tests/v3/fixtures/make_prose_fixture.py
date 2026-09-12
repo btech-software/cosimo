@@ -112,16 +112,16 @@ FACTS_PER_SENTENCE = 3
 _CLOSINGS = {
     "ic_memo": (
         "Our call is to hold the position at its current weight and revisit on "
-        "the next print; every figure above is the pack's own."
+        "the next print; every figure above is stated as given."
     ),
     "risk_committee": (
         "The limit stands over this horizon on the assumption stated, and the "
-        "exposure is reported rather than directed; the figures are the pack's."
+        "exposure is reported rather than directed, on the figures as given."
     ),
     "desk_chat": (
-        "Every figure above is the pack's own; nothing here is drawn from outside it."
+        "Every figure above is as given; nothing here is drawn from anywhere else."
     ),
-    "": "Every figure above is the pack's own; nothing here is drawn from outside it.",
+    "": "Every figure above is as given; nothing here is drawn from anywhere else.",
 }
 
 
@@ -167,8 +167,8 @@ def compliant_text(pack: dict, kind: str) -> str:
     """
     low, high = word_budget(kind, pack.get("register") or "")
     lines = [
-        f"Answering from the {pack['work_type']} pack as of {pack['as_of']}, "
-        "on the figures it authorises and no others."
+        f"Answering the {pack['work_type']} question as of {pack['as_of']}, "
+        "on the figures given and no others."
     ]
     lines.extend(
         point.strip().rstrip(".") + "." for point in pack.get("must_mention") or []
@@ -214,7 +214,7 @@ def compliant_text(pack: dict, kind: str) -> str:
         if not clause:
             break
         lines.append(
-            "Reading the pack directly, " + ", ".join(clause) + ", each as computed."
+            "Reading the figures directly, " + ", ".join(clause) + ", each as computed."
         )
     # The closing move, chosen by register. Not decoration: `ic_memo` now has a
     # positive requirement -- a committee memo that surveys and stops is a
@@ -228,11 +228,14 @@ def compliant_text(pack: dict, kind: str) -> str:
     text = "\n".join(lines)
     count = len(text.split())
     if not low <= count <= high:
+        where = pack.get("scenario_id") or pack.get("work_type") or "<pack>"
         raise AssertionError(
-            f"dummy prose for {pack['scenario_id']} variant {pack['variant']} "
-            f"lands at {count} words, outside the {kind} budget {low}-{high}; "
-            "the pack offers too few quotable facts for this budget -- widen "
-            "the plan or the budget deliberately, never silently"
+            f"dummy prose for {where} variant {pack.get('variant')} lands at "
+            f"{count} words, outside the {kind} budget {low}-{high} with "
+            f"{len(pack.get('must_mention') or [])} points to cover: either the "
+            "pack offers too few quotable facts to reach the floor, or it "
+            "carries more points than the ceiling can hold. Both are authoring "
+            "errors -- widen the plan or the budget deliberately, never silently"
         )
     return text
 

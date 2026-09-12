@@ -70,7 +70,12 @@ BRIEF_KINDS = ("analysis", "memo", "grounded", "critique", "abstention")
 WORD_BUDGETS = {
     "analysis": (60, 220),
     "memo": (100, 300),
-    "grounded": (40, 140),
+    # 90, not 140: on the first v3.2 capture a TCA grounded row came in at 80
+    # words against an 81-word analysis of the same pack -- not shorter, only
+    # reordered, which is the collapse §B.2 split the kinds to prevent. A
+    # citation that cannot be told from an argument by its length is not yet a
+    # second record type.
+    "grounded": (40, 90),
     "critique": (50, 180),
     "abstention": (25, 120),
 }

@@ -186,6 +186,11 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
                 # answers that use it -- which is exactly what happened the
                 # last time this was tried.
                 "participation": f"{participation * 100:.2f}%",
+                # A fill is a price and a price is quoted to the cent. The
+                # computer keeps four decimals because the exam lane compares
+                # against it; the desk writes 295.77, and the first v3.2
+                # capture wrote 295.7747 in three rows for want of this line.
+                "avg_fill_price": f"{avg_fill:,.2f}",
             },
             # The schedule cap the question asks the answer to measure against.
             canonical_extra={"participation_cap_pct": _MAX_PARTICIPATION * 100},

@@ -430,3 +430,39 @@ def test_types_filter_outranks_limit():
     assert [job.record_type for job in selected] == ["memo"] * 3, (
         "the limit counts jobs of the requested types, not of the whole plan"
     )
+
+
+def test_a_gold_barred_coordinate_is_never_rendered(tmp_path, monkeypatch):
+    """The fence, read forwards.
+
+    ``verify_v3`` axis 13 fails a train row that near-duplicates a gold-bar
+    item, and the same teacher on the same seed under the same brief writes
+    very nearly the same row -- 0.66 to 1.00 Jaccard, measured the first time a
+    v3.2 slice was gold-barred. So the renderer has to know: a coordinate the
+    human set holds is one the corpus does not generate, and the eight calls
+    that produced eight axis-13 failures were eight calls nobody had to pay
+    for.
+    """
+    _pin_lane(monkeypatch)
+    out = str(tmp_path)
+    payload, selected = _fixture_slice(2)
+    stage.run_pack_stage(out, selected)
+    transport = FixtureTransport(entries=payload["entries"])
+
+    first = run_render_stage(out, selected, Teacher(transport))
+    assert first["rendered"] == 2 and first["gold_barred"] == 0
+    rows = write.read_jsonl(write.path_for("sft", "analysis", out))
+    assert len(rows) == 2
+
+    # Promote one row to the gold bar, clear the tree, and ask again.
+    bar = os.path.join(out, "gold_bar_v3.jsonl")
+    write.write_jsonl(bar, rows[:1])
+    monkeypatch.setenv(config.GOLDBAR_ENV, bar)
+    os.remove(write.path_for("sft", "analysis", out))
+
+    again = run_render_stage(out, selected, Teacher(transport))
+    assert again["gold_barred"] == 1, "the gold-barred coordinate was re-asked"
+    assert again["rendered"] == 1
+    shipped = write.existing_ids(write.path_for("sft", "analysis", out))
+    assert rows[0]["id"] not in shipped
+    assert rows[1]["id"] in shipped

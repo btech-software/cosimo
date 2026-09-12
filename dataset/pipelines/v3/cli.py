@@ -327,7 +327,13 @@ def cmd_render(args) -> int:
             f"render: {report['rendered']} rows rendered, "
             f"{report['existing']} already on disk, {report['dead_lettered']} dead-lettered "
             f"(of {report['jobs_seen']} planned {label} jobs; "
-            f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate) "
+            f"{len(report['skipped_by_pack_gate'])} skipped by the pack gate"
+            + (
+                f", {report['gold_barred']} held by the gold bar"
+                if report.get("gold_barred")
+                else ""
+            )
+            + ") "
             f"-> {out_dir}/{bucket}" + (f"  [+{logs} teacher logs]" if logs else "")
         )
         for kind in sorted(report["by_kind"]):

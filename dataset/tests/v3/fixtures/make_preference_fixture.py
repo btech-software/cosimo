@@ -196,7 +196,7 @@ def compose_chosen(pack: dict, kind: str) -> str:
         # flunk the gate its target passed. A second telling changes the
         # telling, not the register.
         prose_harness._CLOSINGS.get(pack.get("register") or "", ""),
-        "Figures as the pack prints them; the arranging is mine.",
+        "Figures exactly as given; the arranging is mine.",
     ]
 
     def words(lines: list[str]) -> int:
@@ -220,10 +220,10 @@ def compose_chosen(pack: dict, kind: str) -> str:
     #: which three-line padding cannot reach. Roughly twenty words apiece
     #: clears both.
     fillers = (
-        "Restated for the pair: these are the pack's own numbers arranged in "
-        "the desk's own words, with nothing added and nothing quietly dropped.",
-        "Nothing in this telling reaches beyond the fact pack, and nothing the "
-        "pack asks to be covered has been left out of it on the way through.",
+        "Restated for the pair: the same numbers arranged in the desk's own "
+        "words, with nothing added and nothing quietly dropped.",
+        "Nothing in this telling reaches beyond what was given, and nothing "
+        "that had to be covered has been left out of it on the way through.",
         "The figures stand exactly as they were computed; only the ordering of "
         "the argument around them has moved, which is the whole of the change.",
     )
