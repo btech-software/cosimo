@@ -45,6 +45,22 @@
         "total_tokens": 147
       }
     },
+    "01c39fcef672ecd6a85cb524bcb20e9ef5abcbaa440fe6912b65fe1c95636ec1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at -59.4, allocation total bps at -90.4, arithmetic active bps at -59.8.\nThis telling reads benchmark return at 0.00975, carino k at 0.993285, interaction total bps at 14.9.\nThis telling reads portfolio return at 0.00377, reconciling residual bps at 0.1, selection total bps at 16.2.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
+      }
+    },
     "025e57a4f5a830286070fbeb32916a9c038009cea680b4813cf016bea07a9c78": {
       "choices": [
         {
@@ -90,22 +106,6 @@
         "total_tokens": 96
       }
     },
-    "042dfc3eddff7377c39e7eb060a7bd4af3b9e6876e188f3697317f0787569855": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at 71.7, allocation total bps at 43.5, arithmetic active bps at 71.5.\nThis telling reads benchmark return at -0.00632, carino k at 1.002755, interaction total bps at 85.4.\nThis telling reads portfolio return at 0.00083, selection total bps at -57.2, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
-      }
-    },
     "056614fffa023293eed22f22ff30902bdfdc5451e24324866a74c4d7685ac1f3": {
       "choices": [
         {
@@ -127,22 +127,6 @@
           "finish_reason": "stop",
           "message": {
             "content": "This telling reads avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48.\nThis telling reads impact bps at 34.67, participation at 1.74%, spread cost bps at 3.4.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-03-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
-    "05cc270654c92acc3304d40cfea8d83226a4eefdc9091504306802b924f929cc": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 270.6163, cost bps vs arrival at 21.71, dollar cost at 105661.56.\nThis telling reads impact bps at 21.21, participation at 1.37%, spread cost bps at 0.5.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
         }
@@ -180,38 +164,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 119
-      }
-    },
-    "06a5f794cbbee900902985aa1e68a7e4a3e3d5bfc0b7f1368ceb9105031f20d7": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads es95 1d m at 24.314, horizon scale sqrt at 3.1623, var95 1d m at 19.166.\nThis telling reads var95 h m at 60.609, var99 1d m at 27.569, var99 h m at 87.181.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 86
-      }
-    },
-    "06e77b44631d97c3317825aacb5bd16b3d6304868283d8e95f314103331ba072": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads es95 1d m at 13.731, horizon scale sqrt at 1, var95 1d m at 10.977.\nThis telling reads var95 h m at 10.977, var99 1d m at 15.472, var99 h m at 15.472.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-03-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 86
       }
     },
     "06f376e9c35d03c238f8245f9cf7ce835511a497e1bd7310b26a61d919c75195": {
@@ -302,6 +254,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 75
+      }
+    },
+    "0a7d4d3356cf45a1536385431bc98f2407de1c4a6a667b3890cf39e09971050a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at 367.3, allocation total bps at 191.7, arithmetic active bps at 372.6.\nThis telling reads benchmark return at -0.00416, carino k at 0.985853, interaction total bps at 30.8.\nThis telling reads portfolio return at 0.03309, reconciling residual bps at 0.1, selection total bps at 144.9.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
       }
     },
     "0b2e27135f7285a29234b9bbd93310cd01c3e52ab9e8a2cf818846eb6072b814": {
@@ -452,6 +420,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 90
+      }
+    },
+    "1108b8eecaf87f3258424875505513799a9fa3362464b87e8c4a15ae9f0fb576": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 55.854, horizon scale sqrt at 2.2361, var95 1d m at 44.528.\nThis telling reads var95 h m at 99.568, var99 1d m at 63.014, var99 h m at 140.904.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
       }
     },
     "11ec5d7921de759b44928a19e647c653c416ed97cdaf3b0cc06b0bbdc9c3080f": {
@@ -724,22 +708,6 @@
         "total_tokens": 76
       }
     },
-    "198c4690da2f66fa392b10b5a05c78bac7e721ec5929f7e289502279575c7a6a": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 253.46, ev terminal minus 20pct growth m at 249.59, ev terminal plus 20pct growth m at 257.92.\nThis telling reads fcff year1 m at 24.13, pv explicit m at 128.19, pv terminal m at 125.27.\nThis telling reads terminal value m at 330.67.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
-      }
-    },
     "19e121584b48fc59fee12ebe5b4a8c3c8b51f89ea9ba23d62bb50e3d96d367d6": {
       "choices": [
         {
@@ -903,6 +871,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 96
+      }
+    },
+    "20c22b8eeba3a3145f00d4f4ed072718fcfb08b011341893dd56645f6b444fb1": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads enterprise value m at 8283.94, ev terminal minus 20pct growth m at 7682.72, ev terminal plus 20pct growth m at 8983.92.\nThis telling reads fcff year1 m at 622.12, pv explicit m at 2034.99, pv terminal m at 6248.95.\nThis telling reads terminal value m at 9269.45.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 102
       }
     },
     "213faf3d3483c59e18ffa5dfd3b4e92930ee68fdc3018048c60a2cb85e64dc39": {
@@ -1115,12 +1099,12 @@
         "total_tokens": 76
       }
     },
-    "2aab87824af79afc840fee6149dd1c30fcd19d996d856cfe7fa1de993bb76975": {
+    "2aeb21376786a5c8e30f5b49b031ce4b9d9cbafd6c063175ea9549076ceff1a8": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads active bps at -141.7, allocation total bps at -17.2, arithmetic active bps at -139.2.\nThis telling reads benchmark return at -0.01027, carino k at 1.017549, interaction total bps at 46.6.\nThis telling reads portfolio return at -0.02419, selection total bps at -171.1, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads avg fill price at 250.693, cost bps vs arrival at 16.1, dollar cost at 33097.65.\nThis telling reads impact bps at 14.1, participation at 1.08%, spread cost bps at 2.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -1128,7 +1112,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 96
+        "total_tokens": 76
       }
     },
     "2b34201b7f31477b342c225ef744acc29fc2ee59951c3704ac32f54aaf38211d": {
@@ -1159,6 +1143,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 109
+      }
+    },
+    "2d108dfba710173d7a7d50480ecaa8a2002055404dd7c638e35a337b91c1c594": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 33.309, horizon scale sqrt at 3.1623, var95 1d m at 26.691.\nThis telling reads var95 h m at 84.405, var99 1d m at 37.493, var99 h m at 118.564.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
       }
     },
     "2dead2251251e0fcffabe885c66403b4db8bbf07d5a7e9e94fac7c151c4051d7": {
@@ -1206,6 +1206,22 @@
         "total_tokens": 94
       }
     },
+    "313c24766a498b8c37d84f9ba22a2f6b2f9e644892008f2163074a2ccd2c0410": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 46.07, horizon scale sqrt at 2.2361, var95 1d m at 36.674.\nThis telling reads var95 h m at 82.006, var99 1d m at 52.011, var99 h m at 116.301.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
+      }
+    },
     "318070c629fb89ad720023b08ea6b98c47ac238d2b48fc10c4160b32a2a26934": {
       "choices": [
         {
@@ -1251,12 +1267,12 @@
         "total_tokens": 76
       }
     },
-    "31f5923c1cfea1ed8040c3de70e275ee8bdaf660376e5a3c98395b9734fc0669": {
+    "3283695d0a1d9d9d3b48da1fb1fe6dd88c1f6dfe2809dc9e09ece45284b74244": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads active bps at 184.9, allocation total bps at 59.8, arithmetic active bps at 188.2.\nThis telling reads benchmark return at 0.00841, carino k at 0.982519, interaction total bps at -28.6.\nThis telling reads portfolio return at 0.02723, reconciling residual bps at -0.1, selection total bps at 153.6.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads enterprise value m at 6958.29, ev terminal minus 20pct growth m at 6263.7, ev terminal plus 20pct growth m at 7820.96.\nThis telling reads fcff year1 m at 350.7, pv explicit m at 1213.26, pv terminal m at 5745.03.\nThis telling reads terminal value m at 7746.8.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -1264,7 +1280,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 96
+        "total_tokens": 102
       }
     },
     "345d0ba3c9be5a4db5d1e4476387310104f78cdd3777ffea064ff3040e3bef0a": {
@@ -1402,22 +1418,6 @@
         "total_tokens": 102
       }
     },
-    "3831a7ee5895a0921e6f171bdcb202324df3179f1dbd1be07197b4083c53ae8e": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 116.8388, cost bps vs arrival at 43.57, dollar cost at 149263.24.\nThis telling reads impact bps at 38.17, participation at 5.22%, spread cost bps at 5.4.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "383f5e74e870c78649491973106aa7d7759e65c68eadd0ff558d3e5bb18dd7e5": {
       "choices": [
         {
@@ -1493,6 +1493,38 @@
         "total_tokens": 76
       }
     },
+    "3b7ddf83a80369fccb51e44e38a733c215344f2e6f4b433b8804be4ab5e3629e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 106.3817, cost bps vs arrival at 27.96, dollar cost at 12071.67.\nThis telling reads impact bps at 25.06, participation at 0.94%, spread cost bps at 2.9.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
+    "3b8a7956e904bd14c30d4367ed00b64b9d87e3b782a21109c6bea9d1aa057675": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at 71.7, allocation total bps at 43.5, arithmetic active bps at 71.5.\nThis telling reads benchmark return at -0.00632, carino k at 1.002755, interaction total bps at 85.4.\nThis telling reads portfolio return at 0.00083, selection total bps at -57.2, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
+      }
+    },
     "3ba39703b9a86dd3af7c7f8d001c6225cd245ed9413c40c9afbbdd19cd4fe4e7": {
       "choices": [
         {
@@ -1521,6 +1553,38 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 96
+      }
+    },
+    "3cf0f348a07987179d48268a3c9df160fef092b43b73cc83458f86caf9967ab4": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58.\nThis telling reads impact bps at 16.05, participation at 1.01%, spread cost bps at 0.55.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
+    "3cfd6cb8787159d85de8e371bf1737ef93a9f7979ec719887ac4cad13d12acf3": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads enterprise value m at 3157.38, ev terminal minus 20pct growth m at 2971.47, ev terminal plus 20pct growth m at 3373.03.\nThis telling reads fcff year1 m at 239.65, pv explicit m at 782.77, pv terminal m at 2374.61.\nThis telling reads terminal value m at 3527.51.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 102
       }
     },
     "3d5e27e959137f98a94ff42b7f01cd2b39bb60ebe293612c76588b3fd506db33": {
@@ -1583,12 +1647,12 @@
         "total_tokens": 82
       }
     },
-    "4224611067563ec4dfbef5b95bed8ccd9aa400a2e0aa7d503764b2596fe903e3": {
+    "4038990d42e2fb37e004e2beedb1fbfd1d022e4d10184598235117bed5ace501": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads es95 1d m at 10.99, horizon scale sqrt at 1, var95 1d m at 8.687.\nThis telling reads var95 h m at 8.687, var99 1d m at 12.446, var99 h m at 12.446.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-03-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48.\nThis telling reads impact bps at 34.67, participation at 1.74%, spread cost bps at 3.4.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-03-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -1596,7 +1660,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 86
+        "total_tokens": 76
       }
     },
     "428706494d58a93e17f599ff70cca12395eec1c74541392a14ca68c7cb8fd54a": {
@@ -1612,22 +1676,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 76
-      }
-    },
-    "44276fc2c4b9288034004680a3d84fd97107814604d8c5769a3e25d8e636957c": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at 38.6, allocation total bps at -27.2, arithmetic active bps at 38.8.\nThis telling reads benchmark return at 0.00276, carino k at 0.995326, interaction total bps at 35.1.\nThis telling reads portfolio return at 0.00664, reconciling residual bps at 0.1, selection total bps at 30.8.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
       }
     },
     "452b62d00d0ddc8fe4355ebe49af17c81168f186201fa99b45ada7e7b28f6b93": {
@@ -1765,22 +1813,6 @@
         "total_tokens": 104
       }
     },
-    "49ceb8aa277cd6959a2f48fdf17a991571a1dfa53eab80efd9a95e1caeb3e4a0": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads es95 1d m at 50.668, horizon scale sqrt at 2.2361, var95 1d m at 40.603.\nThis telling reads var95 h m at 90.79, var99 1d m at 57.032, var99 h m at 127.528.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 86
-      }
-    },
     "4addbf351e362be9bc0a480f15a5c788d0b63ce621156c99edf1310b4cd9b0f9": {
       "choices": [
         {
@@ -1841,22 +1873,6 @@
         "total_tokens": 137
       }
     },
-    "4bf36b95edc36ca3ecb9bc388f41547664719118a496ac2e0ef5e8e0b0a9c660": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27.\nThis telling reads impact bps at 27.09, participation at 2.26%, spread cost bps at 7.1.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "4c0a24a4ac3327dc831b74f90db02a0457e8b43941bd87c86414947bfcc67bbf": {
       "choices": [
         {
@@ -1887,12 +1903,12 @@
         "total_tokens": 75
       }
     },
-    "4d4293532eed31e1512126a70a0a1da3980f821616f4a8fb62e81d4df7848a69": {
+    "4c58654cb11493a03647ea06dbba68e84d1a3767f727dc985130490ddca70935": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads es95 1d m at 2.198, horizon scale sqrt at 3.1623, var95 1d m at 1.753.\nThis telling reads var95 h m at 5.544, var99 1d m at 2.479, var99 h m at 7.839.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads enterprise value m at 2392.31, ev terminal minus 20pct growth m at 2261.86, ev terminal plus 20pct growth m at 2538.73.\nThis telling reads fcff year1 m at 168.42, pv explicit m at 678.63, pv terminal m at 1713.68.\nThis telling reads terminal value m at 2645.19.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -1900,7 +1916,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 86
+        "total_tokens": 102
       }
     },
     "4dcd9a20061b70dd84cea0d28ce2f7745d212caa554678ff335aad146cd1e8ef": {
@@ -1993,6 +2009,22 @@
         "total_tokens": 91
       }
     },
+    "51195ed151e4858fdd320f08d2524ec96e8636bebc232c584adf26e74596e446": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 116.8388, cost bps vs arrival at 43.57, dollar cost at 149263.24.\nThis telling reads impact bps at 38.17, participation at 5.22%, spread cost bps at 5.4.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
     "522f78296ad1f18692118f412ed281431559965581507647a745803cab9e5937": {
       "choices": [
         {
@@ -2006,22 +2038,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 82
-      }
-    },
-    "52b81fffcfcf9cadae41988c979e90dac5291677cf4e9e09dd615af94555e30a": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads es95 1d m at 22.758, horizon scale sqrt at 2.2361, var95 1d m at 18.22.\nThis telling reads var95 h m at 40.741, var99 1d m at 25.626, var99 h m at 57.303.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-03-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 86
       }
     },
     "52d82b97559a30d161613d1bb7f5471abb8dc878dcc65cfb3171c4e3eeac1026": {
@@ -2099,22 +2115,6 @@
         "total_tokens": 102
       }
     },
-    "53e043bfa1644eafb103041020cebf2d394e6c9da9aebe84b58915a2cfe284ab": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 6958.29, ev terminal minus 20pct growth m at 6263.7, ev terminal plus 20pct growth m at 7820.96.\nThis telling reads fcff year1 m at 350.7, pv explicit m at 1213.26, pv terminal m at 5745.03.\nThis telling reads terminal value m at 7746.8.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
-      }
-    },
     "55270cf022805e70fe2ac0f33a9326ae7cf8bbc23e414d7dce09c5c3ae7af121": {
       "choices": [
         {
@@ -2143,6 +2143,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 82
+      }
+    },
+    "575a9f2eeebcb217d1b2f5b5844d09e79ccd00f44d4cc1ff8d46a6c48c1b16d0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 2.198, horizon scale sqrt at 3.1623, var95 1d m at 1.753.\nThis telling reads var95 h m at 5.544, var99 1d m at 2.479, var99 h m at 7.839.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
       }
     },
     "57bb6141a0cbcd00159f747606d9b11ed0f54036ccab4f8378931e04d8a4437a": {
@@ -2220,22 +2236,6 @@
         "total_tokens": 102
       }
     },
-    "59b6828fdb50aafc9e898145236944ccf029c268572aa70be144a50d1c6da965": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 106.3817, cost bps vs arrival at 27.96, dollar cost at 12071.67.\nThis telling reads impact bps at 25.06, participation at 0.94%, spread cost bps at 2.9.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "5bfb1c75263d01270a243723f7e1c697ab4837c7a1beffd98b1bb9c9c8faa7d1": {
       "choices": [
         {
@@ -2251,6 +2251,38 @@
         "total_tokens": 86
       }
     },
+    "5ca10552dfffe0ca16596596a9c33ed43a943a08daa35f3dd833b70c20c4e79a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2.\nThis telling reads impact bps at 14.64, participation at 1.29%, spread cost bps at 0.5.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
+    "5d02ba1b23dba03a85f50ae8654704efbf6b276c1cdb11078a1e74a884f2e77a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at 38.6, allocation total bps at -27.2, arithmetic active bps at 38.8.\nThis telling reads benchmark return at 0.00276, carino k at 0.995326, interaction total bps at 35.1.\nThis telling reads portfolio return at 0.00664, reconciling residual bps at 0.1, selection total bps at 30.8.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
+      }
+    },
     "5d049870750cd8fe12a1312d4af5e1d11377042bac68c605616215d70822f3db": {
       "choices": [
         {
@@ -2264,6 +2296,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 109
+      }
+    },
+    "5d9953c030188227828db5f8019101b4a6f19a3986b82dd927ac8636296efa1c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at 101.9, allocation total bps at 39.7, arithmetic active bps at 104.3.\nThis telling reads benchmark return at 0.01908, carino k at 0.976286, interaction total bps at 60.\nThis telling reads portfolio return at 0.02952, selection total bps at 2.2, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
       }
     },
     "5e583d99581c6487b95727f8d50b09d2b87d76b7f06b7f8b0f75a036907a3238": {
@@ -2521,22 +2569,6 @@
         "total_tokens": 82
       }
     },
-    "67164e39f598438e010d3b6954acb4f4b6455820c6b2f89335e0fbd52a493229": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 473.3729, cost bps vs arrival at 16.6, dollar cost at 112208.58.\nThis telling reads impact bps at 16.05, participation at 1.01%, spread cost bps at 0.55.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "676dbbdcd95730c9f6fc14ceac9278024673ce96128a02e2df2edd2f496b6430": {
       "choices": [
         {
@@ -2550,6 +2582,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 81
+      }
+    },
+    "6881a64cf848d631a5dcb6c28edf62602d6cce6eb2b057223c582a36e819a440": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at 91.0, allocation total bps at 126.6, arithmetic active bps at 92.9.\nThis telling reads benchmark return at 0.01598, carino k at 0.979797, interaction total bps at -13.7.\nThis telling reads portfolio return at 0.02527, reconciling residual bps at -0.1, selection total bps at -22.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
       }
     },
     "68a48df2335694d5377c8726219aeb0b2f32b2110fb468ba7d3387a26a5c1ffa": {
@@ -2610,22 +2658,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 96
-      }
-    },
-    "6938e7e3b07e1e5619383090d0385b4ab3f4c2c4c94c4cf895712e72af3ead8b": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 4115.01, ev terminal minus 20pct growth m at 3798.7, ev terminal plus 20pct growth m at 4496.23.\nThis telling reads fcff year1 m at 242.37, pv explicit m at 1329.54, pv terminal m at 2785.48.\nThis telling reads terminal value m at 4972.2.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
       }
     },
     "69eb1eeb9f58b8dd6504a2383329ce556ad2e23c31e2630a7e6fed8a5d53fef2": {
@@ -2718,22 +2750,6 @@
         "total_tokens": 88
       }
     },
-    "6bda173ab6784fa25f3ce4a86714f2468ffa81b2bedd52197598d781b859d267": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 24.884, cost bps vs arrival at 37.91, dollar cost at 16062.36.\nThis telling reads impact bps at 32.66, participation at 3.15%, spread cost bps at 5.25.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "6c4b99e54e814eabdd5edaec5b170a5deb66a144cfe8debb0ab281656ae18f88": {
       "choices": [
         {
@@ -2762,6 +2778,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 71
+      }
+    },
+    "6c84abb05ae59721dfb84f6d10ea519f0ffb4698c48ba482c72336475ad16139": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at -91.1, allocation total bps at 3.1, arithmetic active bps at -89.8.\nThis telling reads benchmark return at -0.00926, carino k at 1.013955, interaction total bps at 28.7.\nThis telling reads portfolio return at -0.01825, reconciling residual bps at 0.1, selection total bps at -122.8.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
       }
     },
     "6c94e9325c891c0a0cde9a0e033a170d842fc70fd24eea485ed10e44b3e0c904": {
@@ -2822,6 +2854,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 53
+      }
+    },
+    "6ea18e002add59c3f84c8930b919ec455e1ca33f7478163d5b7430be8091fb9b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7.\nThis telling reads impact bps at 56.98, participation at 8.81%, spread cost bps at 4.35.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
       }
     },
     "6ea9a31e2f567c1565e29509877d852447ace973a0e7bcbfd3948287b074560d": {
@@ -2959,22 +3007,6 @@
         "total_tokens": 75
       }
     },
-    "7107f986e60c641e566cf658cf49285650659ce99827e65ccc6040bfd9335dff": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads implied equity m at 1824.6, implied ev m at 1872.7, implied value per share at 21.98.\nThis telling reads median ev ebitda at 21.98, median p e at 32.3.\nmedian versus mean.\nequity net debt.\npeer dispersion.\nThe scenario is a valuation.equity.multiples read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 83
-      }
-    },
     "71325d63d2eac374377883273cadea10bd0ba51dea412d8ec344192f95739895": {
       "choices": [
         {
@@ -3095,12 +3127,12 @@
         "total_tokens": 76
       }
     },
-    "76a9a3036d21174a70f208cebb58dd81042422b107e05ed632d8744c0437cf35": {
+    "76507f0d5114725186e9735ea29eb99728d4df551fc5a5a64114a882c5fc6e06": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads avg fill price at 86.0445, cost bps vs arrival at 61.33, dollar cost at 158434.7.\nThis telling reads impact bps at 56.98, participation at 8.81%, spread cost bps at 4.35.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads active bps at -19.4, allocation total bps at 5.5, arithmetic active bps at -19.4.\nThis telling reads benchmark return at 0.00229, carino k at 0.99868, interaction total bps at 13.8.\nThis telling reads portfolio return at 0.00035, selection total bps at -38.7, reconciling residual bps at -0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -3108,7 +3140,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 76
+        "total_tokens": 96
       }
     },
     "76c96501fd5152e22a9e544fb5899b6bfd5a30abccf147ee3eaa64f4f4ae5ece": {
@@ -3154,22 +3186,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 75
-      }
-    },
-    "77c2a41fb2eed64bab688848352d959579b32c4ca5a469e553219e0da14f9385": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at -16.2, allocation total bps at -11.9, arithmetic active bps at -16.4.\nThis telling reads benchmark return at 0.01232, carino k at 0.988629, interaction total bps at -17.2.\nThis telling reads portfolio return at 0.01068, selection total bps at 12.9, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
       }
     },
     "787f93458061d7fd8b7b137cf5733eac844fc2a56e83ee190d4f63ffcc191d4b": {
@@ -3337,22 +3353,6 @@
         "total_tokens": 119
       }
     },
-    "7e6f6af5894634be056e81b6c524eaa0b9302dd443dc39ac65512f756e7abd78": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 250.693, cost bps vs arrival at 16.1, dollar cost at 33097.65.\nThis telling reads impact bps at 14.1, participation at 1.08%, spread cost bps at 2.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "7e7c3a35fdc7cab559659460b4cf170e679d78bebf6f461ba8bea66fefd39dd9": {
       "choices": [
         {
@@ -3366,22 +3366,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 106
-      }
-    },
-    "7ed2fd088e00d442c66d346ef5c26d8412c4afab2f75cb1f98d34abe99475ba6": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 419.8349, cost bps vs arrival at 15.14, dollar cost at 153654.2.\nThis telling reads impact bps at 14.64, participation at 1.29%, spread cost bps at 0.5.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
       }
     },
     "7fb55017ba9b30bdc3e9efb294ceac496d5048b78ed5e35788a101101467210e": {
@@ -3444,12 +3428,44 @@
         "total_tokens": 95
       }
     },
-    "8140cbd48d71e0320c25a1d35fd3f9605fabc05c2dd08effce386b8698a579ef": {
+    "80db4932e2d486284669ee46829270189abe9235d6ccefa902d59203aa238040": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads active bps at 61.6, allocation total bps at 101.5, arithmetic active bps at 63.\nThis telling reads benchmark return at 0.01803, carino k at 0.979262, interaction total bps at -82.8.\nThis telling reads portfolio return at 0.02433, selection total bps at 42.9, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45.\nThis telling reads impact bps at 30.04, participation at 1.86%, spread cost bps at 4.4.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
+    "80dd02376492b2a0ef386f7c37589774add4ca6068c1f06ae5171c1f2c11a946": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 57.756, horizon scale sqrt at 3.1623, var95 1d m at 46.219.\nThis telling reads var95 h m at 146.156, var99 1d m at 65.051, var99 h m at 205.708.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
+      }
+    },
+    "80ef76c160ecd6829106329bafcf2df1f394ab42056aaa5171e4e72aa104d637": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at -141.7, allocation total bps at -17.2, arithmetic active bps at -139.2.\nThis telling reads benchmark return at -0.01027, carino k at 1.017549, interaction total bps at 46.6.\nThis telling reads portfolio return at -0.02419, selection total bps at -171.1, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -3473,22 +3489,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 96
-      }
-    },
-    "833299839161d57cc5030d5eb2241fd5c16e511d3194012a26b7b277e80911cd": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads implied equity m at 10170.3, implied ev m at 10043.3, implied value per share at 88.44.\nThis telling reads median ev ebitda at 17.31, median p e at 28.3.\nmedian versus mean.\nequity net debt.\npeer dispersion.\nThe scenario is a valuation.equity.multiples read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 83
       }
     },
     "83c0d2c00af4a50a7cc4bae17c39e074181ae10b7d5e84cf3003f42d898aa29a": {
@@ -3656,38 +3656,6 @@
         "total_tokens": 75
       }
     },
-    "885cbe16963e0fea4e05f20cc39428f85d54a5607650b928f0fa93ccb12447b8": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at -91.1, allocation total bps at 3.1, arithmetic active bps at -89.8.\nThis telling reads benchmark return at -0.00926, carino k at 1.013955, interaction total bps at 28.7.\nThis telling reads portfolio return at -0.01825, reconciling residual bps at 0.1, selection total bps at -122.8.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
-      }
-    },
-    "8a18818f67ebc5aa2ac338ec929180d6b8bcfcc6ea5f71b20d447af5289792f2": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 66.7294, cost bps vs arrival at 34.44, dollar cost at 24609.45.\nThis telling reads impact bps at 30.04, participation at 1.86%, spread cost bps at 4.4.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "8a200f98fe5b182f98cde228a9620aaa10552a61f27231c3b62774e9c1e62400": {
       "choices": [
         {
@@ -3763,12 +3731,12 @@
         "total_tokens": 102
       }
     },
-    "8c5dcda66a54b6a5620fe6c1ef059c447b5b80b53f0692d3a5624ca568b80018": {
+    "8d113b11db59da138fc9157f8af9176bc7eafb9ae472a4bf8db61c909c71a0a2": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads enterprise value m at 1745.66, ev terminal minus 20pct growth m at 1641.93, ev terminal plus 20pct growth m at 1864.98.\nThis telling reads fcff year1 m at 93.92, pv explicit m at 589.1, pv terminal m at 1156.56.\nThis telling reads terminal value m at 2026.15.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads implied equity m at 10170.3, implied ev m at 10043.3, implied value per share at 88.44.\nThis telling reads median ev ebitda at 17.31, median p e at 28.3.\nmedian versus mean.\nequity net debt.\npeer dispersion.\nThe scenario is a valuation.equity.multiples read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -3776,7 +3744,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 102
+        "total_tokens": 83
       }
     },
     "8d1c5afc9380a082f0ef12175f955bfe7954bf315146ad7a5e9b53a08aa358ea": {
@@ -3884,22 +3852,6 @@
         "total_tokens": 76
       }
     },
-    "90ca1e84c6caf845ea94356078708d183b09e026d489770bf6500e0f8fd5d813": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 8283.94, ev terminal minus 20pct growth m at 7682.72, ev terminal plus 20pct growth m at 8983.92.\nThis telling reads fcff year1 m at 622.12, pv explicit m at 2034.99, pv terminal m at 6248.95.\nThis telling reads terminal value m at 9269.45.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
-      }
-    },
     "90cb0b650ce38660f10f100fde0176c5b5c63c278b3ccc1d5870884beb384e40": {
       "choices": [
         {
@@ -3913,6 +3865,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 109
+      }
+    },
+    "9156e3bc3416f83b63481b5bcaf8548ebfead5020d639d6a8b9a471b8b237b30": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 24.884, cost bps vs arrival at 37.91, dollar cost at 16062.36.\nThis telling reads impact bps at 32.66, participation at 3.15%, spread cost bps at 5.25.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
       }
     },
     "92457c2ceb94ff15ecf1f1dbeb9669b804364ec9964d190aa7088b8b7ec7de22": {
@@ -3943,6 +3911,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 96
+      }
+    },
+    "93ad31268a01ae3f377d34ff81e0cbe148d4e1a0cf17332ca111afe08e55d14a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads enterprise value m at 1745.66, ev terminal minus 20pct growth m at 1641.93, ev terminal plus 20pct growth m at 1864.98.\nThis telling reads fcff year1 m at 93.92, pv explicit m at 589.1, pv terminal m at 1156.56.\nThis telling reads terminal value m at 2026.15.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 102
       }
     },
     "93f520bc4acf6a0d1e8057f71cce84a6f1b17d6300b5706b160f2e09ce42cc69": {
@@ -4050,6 +4034,22 @@
         "total_tokens": 133
       }
     },
+    "96279b2f7b605f8e68b073f0b626e23ffbbf56812ad408c633f7af4e1af5b569": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25.\nThis telling reads impact bps at 34, participation at 3.24%, spread cost bps at 0.75.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-03-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
     "965c18614205f66c78c799462e7d40bf453c314ffa0ee85df35a0e374d70edcd": {
       "choices": [
         {
@@ -4125,12 +4125,12 @@
         "total_tokens": 76
       }
     },
-    "97848b05902bcf0565aaab96adaa954b04764a3c2184e2b9bf182b124b21ed2d": {
+    "976668d3ffcb850a401e54389820b841ac5ef879341a60f399d7083014de37a6": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads avg fill price at 341.0307, cost bps vs arrival at 34.75, dollar cost at 451128.25.\nThis telling reads impact bps at 34, participation at 3.24%, spread cost bps at 0.75.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-03-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads es95 1d m at 24.314, horizon scale sqrt at 3.1623, var95 1d m at 19.166.\nThis telling reads var95 h m at 60.609, var99 1d m at 27.569, var99 h m at 87.181.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -4138,7 +4138,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 76
+        "total_tokens": 86
       }
     },
     "988484d613322a82ee5b00293ad3294b612fbee6285059b034cb123685d5cc5a": {
@@ -4169,38 +4169,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 82
-      }
-    },
-    "991db4b304509fb0179ee007231061a61040f576860ceada5e0f118c100dc6f4": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 4598.53, ev terminal minus 20pct growth m at 4315.91, ev terminal plus 20pct growth m at 4921.48.\nThis telling reads fcff year1 m at 372.94, pv explicit m at 1205.52, pv terminal m at 3393.01.\nThis telling reads terminal value m at 5115.65.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
-      }
-    },
-    "9955204477e0272a57ecba49ae634c1791e3b3483baf3d1e0738f3cd107a4e7d": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 71.91, ev terminal minus 20pct growth m at 87.25, ev terminal plus 20pct growth m at 53.44.\nThis telling reads fcff year1 m at 4.59, pv explicit m at 18.67, pv terminal m at 53.23.\nThis telling reads terminal value m at 83.12.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
       }
     },
     "9be2a425546b2c78279f23f5cde4452190ff5c1a020660914fd2dc35d5f058ab": {
@@ -4261,6 +4229,38 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 81
+      }
+    },
+    "9d25852248053792e90a163240f0725b694d1b1299fdae1d470498745307ac43": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05.\nThis telling reads impact bps at 33.71, participation at 4.17%, spread cost bps at 1.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
+    "9d42b470ff80594f95cd466cff4dc07419a368156bca59f30a732a35699fe46e": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 22.758, horizon scale sqrt at 2.2361, var95 1d m at 18.22.\nThis telling reads var95 h m at 40.741, var99 1d m at 25.626, var99 h m at 57.303.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-03-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
       }
     },
     "9efcf3f69c3a437d9959e846288b9180d9fc19ac09be18363d2aa03db8c2ef06": {
@@ -4338,38 +4338,6 @@
         "total_tokens": 148
       }
     },
-    "a399694642b4099692acd7092fc2b1789c12484c3b0b0b0558e7da4cd30dd914": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at -19.4, allocation total bps at 5.5, arithmetic active bps at -19.4.\nThis telling reads benchmark return at 0.00229, carino k at 0.99868, interaction total bps at 13.8.\nThis telling reads portfolio return at 0.00035, selection total bps at -38.7, reconciling residual bps at -0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
-      }
-    },
-    "a4985e97c6fb80bcce37b334ac0a33f15a1b81551905fc3e52e045caca614524": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at -59.4, allocation total bps at -90.4, arithmetic active bps at -59.8.\nThis telling reads benchmark return at 0.00975, carino k at 0.993285, interaction total bps at 14.9.\nThis telling reads portfolio return at 0.00377, reconciling residual bps at 0.1, selection total bps at 16.2.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
-      }
-    },
     "a4a2a534f775de16cffa5598149904888067784c4f51061637cc5c99439ec576": {
       "choices": [
         {
@@ -4413,6 +4381,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 86
+      }
+    },
+    "a69d2721c60be08b636f082ba75afc0705b80cd4a8c99518f17158ee63de5d8a": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads enterprise value m at 4115.01, ev terminal minus 20pct growth m at 3798.7, ev terminal plus 20pct growth m at 4496.23.\nThis telling reads fcff year1 m at 242.37, pv explicit m at 1329.54, pv terminal m at 2785.48.\nThis telling reads terminal value m at 4972.2.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 102
       }
     },
     "a6ccf0825cef9e8dca9390081fd2ade2ea4b8fc144d58e50310121da1f91cdf4": {
@@ -4460,6 +4444,22 @@
         "total_tokens": 100
       }
     },
+    "a898c1cb3f773f96102dccbdb9b670414c5dccc64b7439eb64a81bee60099cbb": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62.\nThis telling reads impact bps at 42.46, participation at 9.33%, spread cost bps at 0.9.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
+      }
+    },
     "a8c76012d995c4493b0247e069e56f4794a8aa918596fc64f7b01f3f2409c650": {
       "choices": [
         {
@@ -4473,22 +4473,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 53
-      }
-    },
-    "a8cefb6b0a7196ae95e98fb19d4537a6311a4277dfd5aa2843226ffe5a41eb61": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads es95 1d m at 57.756, horizon scale sqrt at 3.1623, var95 1d m at 46.219.\nThis telling reads var95 h m at 146.156, var99 1d m at 65.051, var99 h m at 205.708.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 86
       }
     },
     "a94d75ee51a60f969cb92496b94a8db89dae42d39e9f1c736bdec777224553ec": {
@@ -4536,12 +4520,12 @@
         "total_tokens": 103
       }
     },
-    "aa8a45904bb970b19527bd31ec2b55ed558494a85bd22b456bc0b73f53a37830": {
+    "aa8c32a12ded5f69b0d59b25d55df1284d66cdebad350191e4e6452bf4847e02": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads es95 1d m at 33.309, horizon scale sqrt at 3.1623, var95 1d m at 26.691.\nThis telling reads var95 h m at 84.405, var99 1d m at 37.493, var99 h m at 118.564.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads es95 1d m at 50.668, horizon scale sqrt at 2.2361, var95 1d m at 40.603.\nThis telling reads var95 h m at 90.79, var99 1d m at 57.032, var99 h m at 127.528.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -4610,22 +4594,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 121
-      }
-    },
-    "ad4867904b3d1a9b7de6f36fddd9da239c1664973940d0c62623f4153e005c63": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at 91.0, allocation total bps at 126.6, arithmetic active bps at 92.9.\nThis telling reads benchmark return at 0.01598, carino k at 0.979797, interaction total bps at -13.7.\nThis telling reads portfolio return at 0.02527, reconciling residual bps at -0.1, selection total bps at -22.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
       }
     },
     "ad7a7a191ae3dd233f7896d1f2498b5eb5155fafe1bb5c6413c5de3843dc8e38": {
@@ -4778,6 +4746,22 @@
         "total_tokens": 75
       }
     },
+    "b27ca1155c945ac1cb668bdad9de0eab7d8dc55b2021ff4eba97c91a2b2a1bdd": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads active bps at -16.2, allocation total bps at -11.9, arithmetic active bps at -16.4.\nThis telling reads benchmark return at 0.01232, carino k at 0.988629, interaction total bps at -17.2.\nThis telling reads portfolio return at 0.01068, selection total bps at 12.9, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 96
+      }
+    },
     "b3c7787468b21a44632d0dd719ce817af697249b857c16ccbc601c71a661b67d": {
       "choices": [
         {
@@ -4821,38 +4805,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 76
-      }
-    },
-    "b51668eb58908b59cbe43f17eb462c74820f5ffd6d01410198cac1ffc7646467": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads es95 1d m at 55.854, horizon scale sqrt at 2.2361, var95 1d m at 44.528.\nThis telling reads var95 h m at 99.568, var99 1d m at 63.014, var99 h m at 140.904.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 86
-      }
-    },
-    "b5aad0016ca889b8e81e4f15274a9055ed8230b0e4a3e5e0d7822fe8874e4e90": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 3157.38, ev terminal minus 20pct growth m at 2971.47, ev terminal plus 20pct growth m at 3373.03.\nThis telling reads fcff year1 m at 239.65, pv explicit m at 782.77, pv terminal m at 2374.61.\nThis telling reads terminal value m at 3527.51.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
       }
     },
     "b5f9bca847c9eeac3b1c2679b9f5679a9214f6f4d86d5ea66d3913e3962fe88d": {
@@ -4988,6 +4940,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 83
+      }
+    },
+    "be2bb14ae30c6a0144b0859a94efba7362d4590802aad7bbdb80399cb05bbcf8": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 10.99, horizon scale sqrt at 1, var95 1d m at 8.687.\nThis telling reads var95 h m at 8.687, var99 1d m at 12.446, var99 h m at 12.446.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-03-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
       }
     },
     "be45760686669e26088b75e1b9ec622d56ef611c04ff2e6d5e94f3949331475b": {
@@ -5350,6 +5318,22 @@
         "total_tokens": 95
       }
     },
+    "c9f2b7b162795bccfe91ddd24912e14afd6ba535d7146b8770a1425ddee669a0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 13.731, horizon scale sqrt at 1, var95 1d m at 10.977.\nThis telling reads var95 h m at 10.977, var99 1d m at 15.472, var99 h m at 15.472.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-03-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
+      }
+    },
     "ca7879afaa3790470acb690e1f8e1e5e0167137bfb70e979d7f21ab29459c848": {
       "choices": [
         {
@@ -5363,6 +5347,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 86
+      }
+    },
+    "ca87f8d88f5573c862538b76883bd1bf5a7b1cd98fe0b220b757a88e1ff1af1c": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 270.6163, cost bps vs arrival at 21.71, dollar cost at 105661.56.\nThis telling reads impact bps at 21.21, participation at 1.37%, spread cost bps at 0.5.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
       }
     },
     "cb20ed454a07b2ff73dddeb7faee9ef935fbf8c50a17ef204afa8b5cf1678a98": {
@@ -5423,6 +5423,22 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 108
+      }
+    },
+    "cc6ecb707e53f02452f1346a181d057828c0796d6f5c68006d6ed56ee14c24e0": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads avg fill price at 101.3453, cost bps vs arrival at 34.19, dollar cost at 39985.27.\nThis telling reads impact bps at 27.09, participation at 2.26%, spread cost bps at 7.1.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 76
       }
     },
     "cd54ae553cc325ffb200a5ce1c4dfe538737a83f14adab25b221d2cfdb25e4c7": {
@@ -5620,6 +5636,22 @@
         "total_tokens": 101
       }
     },
+    "d67aec6d0a56840890ac1ab4b55e4286b4c9ecc9b49a7b1ad7964938e025fc44": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads enterprise value m at 253.46, ev terminal minus 20pct growth m at 249.59, ev terminal plus 20pct growth m at 257.92.\nThis telling reads fcff year1 m at 24.13, pv explicit m at 128.19, pv terminal m at 125.27.\nThis telling reads terminal value m at 330.67.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 102
+      }
+    },
     "d683770073f9fcda588e009f80917a373803910468c8e5be135034ad1c6c1f8f": {
       "choices": [
         {
@@ -5693,22 +5725,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 75
-      }
-    },
-    "d97ad8925c2f9f7236713a85fcb41fef1a2d75d3a746e39926ba6ac2ff0e8513": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 182.5748, cost bps vs arrival at 43.36, dollar cost at 565920.62.\nThis telling reads impact bps at 42.46, participation at 9.33%, spread cost bps at 0.9.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-06-30.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
       }
     },
     "dbb6a48cd95e52dde665407218df8b8a4db118a508fc19fa46fec29889d96f9b": {
@@ -5801,28 +5817,28 @@
         "total_tokens": 76
       }
     },
-    "df4506b15381860d61f82cdf2c73db0678e46b759d81edcb5029c0cbffd06cbc": {
+    "df2358a56aa51884bb71cb8469afe33880141a87d9e40a7f5e3ef03e7fb89775": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads es95 1d m at 5.447, horizon scale sqrt at 1, var95 1d m at 4.395; This telling reads var95 h m at 4.395, var99 1d m at 6.111, var99 h m at 6.111.\nexpected shortfall tail; square-root horizon scaling.\nnormality assumption; The scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's; Figures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86.\nThis telling reads impact bps at 44.76, participation at 7.02%, spread cost bps at 1.1.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
         }
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 86
+        "total_tokens": 76
       }
     },
-    "df4c14d81bfcbcd4df5b895e795982ee7fbf1294c725fb2be8eea8e91e72fe49": {
+    "df4506b15381860d61f82cdf2c73db0678e46b759d81edcb5029c0cbffd06cbc": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads es95 1d m at 46.07, horizon scale sqrt at 2.2361, var95 1d m at 36.674.\nThis telling reads var95 h m at 82.006, var99 1d m at 52.011, var99 h m at 116.301.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
+            "content": "This telling reads es95 1d m at 5.447, horizon scale sqrt at 1, var95 1d m at 4.395; This telling reads var95 h m at 4.395, var99 1d m at 6.111, var99 h m at 6.111.\nexpected shortfall tail; square-root horizon scaling.\nnormality assumption; The scenario is a risk.market.var_es read, as of 2025-12-31.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's; Figures as the pack prints them; the arranging is mine.",
             "role": "assistant"
           }
         }
@@ -5937,6 +5953,22 @@
         "total_tokens": 96
       }
     },
+    "e2e0256db403cca5c611013f2e8d08f15c353954b6950ab2c83794679a69557b": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads es95 1d m at 28.029, horizon scale sqrt at 3.1623, var95 1d m at 22.184.\nThis telling reads var95 h m at 70.153, var99 1d m at 31.724, var99 h m at 100.319.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 86
+      }
+    },
     "e31cdb59f7b327f61cb92739daf029b7e7d9b41dab0b087e5b56d0d8da586d16": {
       "choices": [
         {
@@ -6042,6 +6074,22 @@
         "total_tokens": 109
       }
     },
+    "e6c0235aaacea44028e2ccb6233512297bc5a43d6d42a4d10fcf41c06355142d": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads enterprise value m at 71.91, ev terminal minus 20pct growth m at 87.25, ev terminal plus 20pct growth m at 53.44.\nThis telling reads fcff year1 m at 4.59, pv explicit m at 18.67, pv terminal m at 53.23.\nThis telling reads terminal value m at 83.12.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2026-03-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 102
+      }
+    },
     "e6d750e9fd09d2390661b71bc5e37d862c14cfb72dd8e2d469f0e641f5b0ae31": {
       "choices": [
         {
@@ -6087,12 +6135,12 @@
         "total_tokens": 86
       }
     },
-    "e95f16ffc9f0de90ff3919beba44f16d3cd79a54f02806c5dba21576b6ea1770": {
+    "e8be60416dfc6fb42afba6da513375111b91765b61f7d9389a100a2996b322d1": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads es95 1d m at 28.029, horizon scale sqrt at 3.1623, var95 1d m at 22.184.\nThis telling reads var95 h m at 70.153, var99 1d m at 31.724, var99 h m at 100.319.\nexpected shortfall tail.\nsquare-root horizon scaling.\nnormality assumption.\nThe scenario is a risk.market.var_es read, as of 2026-06-30.\nThe limit stands over this horizon on the assumption stated, and the exposure is reported rather than directed; the figures are the pack's.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads active bps at 184.9, allocation total bps at 59.8, arithmetic active bps at 188.2.\nThis telling reads benchmark return at 0.00841, carino k at 0.982519, interaction total bps at -28.6.\nThis telling reads portfolio return at 0.02723, reconciling residual bps at -0.1, selection total bps at 153.6.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -6100,7 +6148,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 86
+        "total_tokens": 96
       }
     },
     "e9ba0ad0f7aa931d0cad2c002dac5f5396131062c1be0b643637e13038ae25fa": {
@@ -6178,12 +6226,12 @@
         "total_tokens": 95
       }
     },
-    "ebfe93763c9b4c08d55e0cacaff4db2e44b8f423d67b24640e619b5ddb5e84ee": {
+    "ec03d97252b18116d6318148a686b01a1596377fcb999d13c12fb97959aca15e": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads avg fill price at 399.6188, cost bps vs arrival at 45.86, dollar cost at 1300125.86.\nThis telling reads impact bps at 44.76, participation at 7.02%, spread cost bps at 1.1.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads active bps at 61.6, allocation total bps at 101.5, arithmetic active bps at 63.\nThis telling reads benchmark return at 0.01803, carino k at 0.979262, interaction total bps at -82.8.\nThis telling reads portfolio return at 0.02433, selection total bps at 42.9, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -6191,7 +6239,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 76
+        "total_tokens": 96
       }
     },
     "ec3f097b01fa173771593cb90a0367a1e72a62c96453f39b2c8512d6ca8a5187": {
@@ -6299,22 +6347,6 @@
         "total_tokens": 75
       }
     },
-    "ee4449633e066b12055e6e21530b979c05fa61f12c0342c0b14159ee7c618c4a": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 74.5053, cost bps vs arrival at 38.07, dollar cost at 16601.48.\nThis telling reads impact bps at 34.67, participation at 1.74%, spread cost bps at 3.4.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2026-03-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
-      }
-    },
     "ee5de6f570f68427f80131d8b1478d058a38f3c519dd2414208654941c1010df": {
       "choices": [
         {
@@ -6420,12 +6452,12 @@
         "total_tokens": 82
       }
     },
-    "f43e4b2cfb3edd18db3936f919e7069762f5ad2a56ad755971547281345085a0": {
+    "f2faddc7397235ed4e90c1a7036eedb6dd61b442bdf51f653428749af2d7cf6e": {
       "choices": [
         {
           "finish_reason": "stop",
           "message": {
-            "content": "This telling reads active bps at 367.3, allocation total bps at 191.7, arithmetic active bps at 372.6.\nThis telling reads benchmark return at -0.00416, carino k at 0.985853, interaction total bps at 30.8.\nThis telling reads portfolio return at 0.03309, reconciling residual bps at 0.1, selection total bps at 144.9.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "content": "This telling reads implied equity m at 1824.6, implied ev m at 1872.7, implied value per share at 21.98.\nThis telling reads median ev ebitda at 21.98, median p e at 32.3.\nmedian versus mean.\nequity net debt.\npeer dispersion.\nThe scenario is a valuation.equity.multiples read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
             "reasoning_content": "Checked against the pack, line by line.",
             "role": "assistant"
           }
@@ -6433,7 +6465,7 @@
       ],
       "model": "fixture-pref",
       "usage": {
-        "total_tokens": 96
+        "total_tokens": 83
       }
     },
     "f573674338bbab4fcffe5ee3dc05f965dad6061f843b2eeb9e457b39945749b4": {
@@ -6541,6 +6573,22 @@
         "total_tokens": 109
       }
     },
+    "f888e12615671f400d046f97b76927a66f55f96694ae74b3be1befb3f39e0768": {
+      "choices": [
+        {
+          "finish_reason": "stop",
+          "message": {
+            "content": "This telling reads enterprise value m at 4598.53, ev terminal minus 20pct growth m at 4315.91, ev terminal plus 20pct growth m at 4921.48.\nThis telling reads fcff year1 m at 372.94, pv explicit m at 1205.52, pv terminal m at 3393.01.\nThis telling reads terminal value m at 5115.65.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
+            "reasoning_content": "Checked against the pack, line by line.",
+            "role": "assistant"
+          }
+        }
+      ],
+      "model": "fixture-pref",
+      "usage": {
+        "total_tokens": 102
+      }
+    },
     "f9f2f696e537ab3bdc87c36bf4aa98eea174c31ef480bae1f65f797b97bf208f": {
       "choices": [
         {
@@ -6554,22 +6602,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 103
-      }
-    },
-    "faa4834cf8a418e677637e97c21e5c9ca481a2448cb8694f7c917ec2f05b994f": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads enterprise value m at 2392.31, ev terminal minus 20pct growth m at 2261.86, ev terminal plus 20pct growth m at 2538.73.\nThis telling reads fcff year1 m at 168.42, pv explicit m at 678.63, pv terminal m at 1713.68.\nThis telling reads terminal value m at 2645.19.\nterminal-growth sensitivity.\nreinvestment capex working-capital.\nterminal growth versus WACC.\nThe scenario is a valuation.equity.dcf read, as of 2025-12-31.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 102
       }
     },
     "fb1524319f84c2fb48b86465df7ae0d0c32ad1faa0a3728802c18bc03192a201": {
@@ -6615,22 +6647,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 96
-      }
-    },
-    "fbc081ee5f4a48cef0ba95fd16b4c1e021cc426c577379d84633d9d07a05a254": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads avg fill price at 241.6157, cost bps vs arrival at 34.71, dollar cost at 564285.05.\nThis telling reads impact bps at 33.71, participation at 4.17%, spread cost bps at 1.\narrival versus decision benchmark.\nparticipation against ADV.\nsquare-root impact scaling.\nThe scenario is a execution.tca.arrival read, as of 2025-12-31.\nEvery figure above is the pack's own; nothing here is drawn from outside it.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 76
       }
     },
     "fc7a346d1f039264061668b8fb8c028b21cdc424355b77bf535ea9aa56b180e9": {
@@ -6691,22 +6707,6 @@
       "model": "fixture-pref",
       "usage": {
         "total_tokens": 91
-      }
-    },
-    "ff114f7bf3f96e0203388155c65e774fc8bc8e01ebf14645e7da11425cbfe80d": {
-      "choices": [
-        {
-          "finish_reason": "stop",
-          "message": {
-            "content": "This telling reads active bps at 101.9, allocation total bps at 39.7, arithmetic active bps at 104.3.\nThis telling reads benchmark return at 0.01908, carino k at 0.976286, interaction total bps at 60.\nThis telling reads portfolio return at 0.02952, selection total bps at 2.2, reconciling residual bps at 0.\nallocation versus selection.\nThe scenario is a portfolio.attribution.brinson_carino read, as of 2026-06-30.\nOur call is to hold the position at its current weight and revisit on the next print; every figure above is the pack's own.\nFigures as the pack prints them; the arranging is mine.",
-            "reasoning_content": "Checked against the pack, line by line.",
-            "role": "assistant"
-          }
-        }
-      ],
-      "model": "fixture-pref",
-      "usage": {
-        "total_tokens": 96
       }
     },
     "ffcf4e0287a675ab5071245d20867f4e4af9b1559d744b059fdb936560afce83": {

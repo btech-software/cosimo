@@ -272,6 +272,13 @@ def render_report(kind: str, off: dict, on: dict) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--rows", type=int, default=20)
+    parser.add_argument(
+        "--arm",
+        choices=("both", "off", "on"),
+        default="both",
+        help="run one arm only; a re-measurement of think-off after a brief "
+        "change costs 106s, where both arms cost half an hour",
+    )
     parser.add_argument("--kind", default="analysis")
     parser.add_argument("--out", default=REPORT_PATH)
     parser.add_argument("--json", help="also write the per-row detail here")
@@ -295,17 +302,36 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     teacher = teacher_from_env(live=True)
-    print(f"think-off arm: {len(packs)} {args.kind} rows ...")
-    off = _arm(teacher, packs, args.kind, think=False)
-    print(f"think-on  arm: {len(packs)} {args.kind} rows ...")
-    on = _arm(teacher, packs, args.kind, think=True)
+    off = on = None
+    if args.arm in ("both", "off"):
+        print(f"think-off arm: {len(packs)} {args.kind} rows ...")
+        off = _arm(teacher, packs, args.kind, think=False)
+    if args.arm in ("both", "on"):
+        print(f"think-on  arm: {len(packs)} {args.kind} rows ...")
+        on = _arm(teacher, packs, args.kind, think=True)
 
-    report = render_report(args.kind, off, on)
-    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    with open(args.out, "w", encoding="utf8") as handle:
-        handle.write(report)
-    print(report)
-    print(f"wrote {args.out}")
+    if args.arm == "both":
+        # Only a two-arm run is a bake-off, so only a two-arm run may write the
+        # verdict `dataset_build.sh full` reads. A one-arm run is a
+        # measurement of one lane -- useful for watching a brief change move
+        # the first-pass rate, and no basis at all for promoting think-on.
+        report = render_report(args.kind, off, on)
+        os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+        with open(args.out, "w", encoding="utf8") as handle:
+            handle.write(report)
+        print(report)
+        print(f"wrote {args.out}")
+    else:
+        arm = off or on
+        print(
+            f"\nthink-{args.arm} arm only -- no verdict written ({args.out} "
+            "untouched). "
+            f"answered {arm['n_answered']}/{arm['n_asked']}, "
+            f"gate-clean {arm['clean_rate']:.2f}, "
+            f"invented {arm['invented_number_rate']:.3f}, "
+            f"median words {arm['median_words']:.0f}, "
+            f"{arm['wall_seconds']:.0f}s"
+        )
     if args.json:
         with open(args.json, "w", encoding="utf8") as handle:
             json.dump({"off": off, "on": on}, handle, indent=1, sort_keys=True)

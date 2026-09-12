@@ -155,12 +155,11 @@ _KIND_SHAPE = {
         "asks for exactly as the question names it, with its figure and unit, "
         "and judge nothing in that sentence -- an analysis of this pack opens "
         "on a reading, and this row must not. Then at most three more "
-        "figures, each tied to one phrase of the question, and one caveat. The "
-        "points the pack asks you to engage are still yours to engage: fold "
-        "each into the sentence that carries its figure -- name the mechanism "
-        "beside the number it produces -- rather than arguing it separately or "
-        "leaving it out. No call unless the question asked for one, and no "
-        "section labels of any kind"
+        "figures, each tied to one phrase of the question, and one caveat. Fold "
+        "the points you must engage into the sentences that carry their "
+        "figures -- name the mechanism beside the number it produces -- rather "
+        "than arguing them separately. No call unless the question asked for "
+        "one, and no section labels of any kind"
     ),
     "critique": (
         "name one defect in the draft you are given: what is wrong, why it is "
@@ -205,8 +204,11 @@ _WORK_TYPE_RULES = {
         "Participation is shares over ADV; compare it with the cap in the "
         "pack. Below the cap the impact is the cost and the schedule is not "
         "the risk -- this is an impact bill, not a pacing problem. The "
-        "half-spread is not the whole cost. Arrival is this pack's benchmark; "
-        "do not introduce a decision price it does not contain."
+        "half-spread is not the whole cost. Say which benchmark the shortfall "
+        "is measured against: arrival is this pack's, and a decision price is "
+        "not in it -- name that absence rather than pricing against one, "
+        "because a shortfall quoted without its benchmark is a number without "
+        "a meaning."
     ),
     "portfolio.attribution.brinson_carino": (
         "Report allocation, selection and interaction against the active "
@@ -246,6 +248,26 @@ def work_type_rules(work_type: str) -> str:
     reasons about for no gain.
     """
     return _WORK_TYPE_RULES.get(str(work_type or ""), "")
+
+
+#: The coverage rule, stated once and in the user turn (§B.1 keeps it out of
+#: the system prompt). It has to be stated *somewhere*, and for four of the
+#: five kinds it briefly was not: the amendment deleted "cover every
+#: must_mention" from the system turn and only the `grounded` brief said it
+#: again, while the gate went on refusing every kind for it. Measured on the
+#: think-off arm of the §B bake-off: 20 of 20 first-pass drafts missed at least
+#: one anchor, which is the most-failed rule in the corpus and was the one rule
+#: the writer could not read.
+POINTS_POLICY = (
+    "the points listed in must_mention are the ones this answer has to engage "
+    "-- make each of them in your own words, at the place in the argument "
+    "where it belongs, using every content word of the point at least once "
+    "(the check is mechanical: 'participation against ADV' needs both "
+    "'participation' and 'ADV' to appear). They are concepts to engage, not "
+    "phrases to quote, and a point you cannot make from the pack's figures is "
+    "a point to say you cannot make. Assert nothing in forbidden_claims; "
+    "warning against one is not asserting it"
+)
 
 
 def number_policy(pack: dict) -> str:
@@ -376,6 +398,7 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
         # arithmetic disciplines from being paid for on every row of all five.
         "work_type_rules": work_type_rules(pack.get("work_type")),
         "word_budget": f"{low}-{high} words",
+        "points_policy": POINTS_POLICY,
         "number_policy": number_policy(pack),
         "as_of": pack.get("as_of"),
     }
