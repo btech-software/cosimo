@@ -21,7 +21,14 @@ from __future__ import annotations
 import random
 
 from ..seed import pack_seed, rng_for
-from .base import FactPack, PackError, assemble_contract, make_ticker, pick_as_of
+from .base import (
+    FactPack,
+    PackError,
+    assemble_contract,
+    fold_conditionals,
+    make_ticker,
+    pick_as_of,
+)
 from .registers import pick_register
 
 WORK_TYPE = "execution.tca.arrival"
@@ -110,8 +117,9 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
         f"ADV is {adv:,}, arrival price {arrival:,.2f}, quoted spread "
         f"{spread:.1f} bp, daily vol {sigma * 100:.2f}%. Under the square-root "
         f"model what implementation shortfall in bp of the arrival does this "
-        f"cost, what average fill price does it imply, and at what participation "
-        f"does the schedule itself become the risk?"
+        f"cost, what average fill price does it imply, and against the "
+        f"{_MAX_PARTICIPATION:.0%} single-schedule cap, is the impact or the "
+        f"schedule the cost being managed here?"
     )
     inputs = {
         "symbol": ticker,
@@ -170,21 +178,53 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
                 "shares": f"{shares:,}",
                 "adv_shares": f"{adv:,}",
                 "arrival_price": f"{arrival:,.2f}",
+                # The figure §A.3 names by hand, and the one a live row got
+                # wrong again on the first render after the amendment: the
+                # desk says "4.86% of ADV", never "0.048555". Declared as a
+                # *display* rather than an alias, because an alias would make
+                # the percent spelling a question rounding and fail the
+                # answers that use it -- which is exactly what happened the
+                # last time this was tried.
+                "participation": f"{participation * 100:.2f}%",
             },
             # The schedule cap the question asks the answer to measure against.
             canonical_extra={"participation_cap_pct": _MAX_PARTICIPATION * 100},
         ),
-        forbidden_claims=[
-            "the printable mid is achievable",
-            "cost is linear in participation",
-        ],
-        must_mention=[
-            # Anchors, not sentences: content words a correct answer must
-            # use, matched on stems in any order (verification/prose.py).
-            "square-root impact scaling",
-            "participation against ADV",
-            "arrival versus decision benchmark",
-        ],
+        # The question asks "at what participation does the schedule itself
+        # become the risk?", and for every pack this computer can build the
+        # honest answer is "not at this one" -- participation above the cap is
+        # a PackError. Until §A.2 that was a sentence the answer was free to
+        # assert anyway, and a live desk note asserted it twice, in both
+        # directions, on a 4.86% clip. The inequality is in the pack, so the
+        # point is a test of it: the slogan is *forbidden* below the cap and
+        # *required* at it.
+        **fold_conditionals(
+            inputs,
+            computed,
+            forbidden_claims=[
+                "the printable mid is achievable",
+                "cost is linear in participation",
+            ],
+            must_mention=[
+                # Anchors, not sentences: content words a correct answer must
+                # use, matched on stems in any order (verification/prose.py).
+                "square-root impact scaling",
+                "participation against ADV",
+                "arrival versus decision benchmark",
+            ],
+            conditional_mentions=[
+                {
+                    "when": f"participation >= {_MAX_PARTICIPATION}",
+                    "mention": "schedule risk at the cap",
+                }
+            ],
+            conditional_forbids=[
+                {
+                    "when": f"participation < {_MAX_PARTICIPATION}",
+                    "claim": "the schedule itself becomes the risk",
+                }
+            ],
+        ),
         register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,

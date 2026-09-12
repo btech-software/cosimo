@@ -102,7 +102,11 @@ def test_run_pack_stage_reports_computed_existing_and_skipped(tmp_path):
     jobs = inventory.expand_jobs(inventory.load_plan(), smoke=True)
     out = str(tmp_path)
     report = stage.run_pack_stage(out, jobs)
-    assert report["unique_packs"] == len(jobs) // 8
+    # One pack per (work_type, family, variant), *not* jobs // 8: a work type
+    # does not have to publish all eight record types, and since §C refused
+    # `memo` on desk-only families `execution.tca.arrival` publishes seven.
+    coords = {(job.work_type, job.family, job.variant) for job in jobs}
+    assert report["unique_packs"] == len(coords)
     assert report["computed"] == report["unique_packs"] - len(report["skipped"])
     assert report["existing"] == 0
     assert report["families_without_packs"] == []

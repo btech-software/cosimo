@@ -69,9 +69,18 @@ def _clean_text() -> str:
 
 
 def test_clean_text_itself_sits_in_the_abstention_band():
-    low, high = 50, 140  # the abstention budget; if this fails the helpers drift
+    """Read from the table rather than pinned beside it.
+
+    The bands moved when §B.2 split kind from register, and a helper pinned to
+    two literals would have gone on claiming a budget that no longer exists.
+    """
+    from pipelines.v3.teacher.prompts import KIND_SENTENCE_CAPS, word_budget
+    from pipelines.v3.verification.register import sentence_count
+
+    low, high = word_budget("abstention", PACK["register"])
     words = len(_clean_text().split())
     assert low <= words <= high, words
+    assert sentence_count(_clean_text()) <= KIND_SENTENCE_CAPS["abstention"]
 
 
 def test_clean_produce_no_violations():
@@ -79,8 +88,13 @@ def test_clean_produce_no_violations():
 
 
 def test_invented_number_is_named_not_numbered():
+    # Folded into the last sentence rather than added as a sixth: an
+    # abstention has a five-sentence ceiling now, and a test about naming a
+    # token should not be measuring that.
     violations = gate_violations(
-        PACK, _clean_text() + " The terminal multiple is 8153.7729.", "abstention"
+        PACK,
+        _clean_text().rstrip(". ") + ", on a terminal multiple of 8153.7729.",
+        "abstention",
     )
     assert len(violations) == 1
     assert "invented numbers" in violations[0]
@@ -91,7 +105,7 @@ def test_missing_mention_is_reported_point_by_point():
     missing = missing_mentions(PACK, "Capex is rising.")
     assert missing == ["The dcf value sits below price."]
     violations = gate_violations(PACK, "Capex is rising. " * 40, "abstention")
-    assert any("must_mention points not covered" in v for v in violations)
+    assert any("points the answer does not engage" in v for v in violations)
 
 
 def test_mention_matching_ignores_case_and_runs_of_spaces():
@@ -350,16 +364,39 @@ def test_an_ic_memo_may_wear_headings_but_must_make_a_call():
     call = " Our call is to hold the position."
     headed = "Finding: the book is long.\n" + _clean_text() + call
     assert not any(
-        "register ic_memo" in v for v in gate_violations(pack, headed, "abstention")
+        "register ic_memo" in v for v in gate_violations(pack, headed, "analysis")
     )
     # No call: a survey, not a memo.
     assert any(
-        "states no call" in v
-        for v in gate_violations(pack, _clean_text(), "abstention")
+        "states no call" in v for v in gate_violations(pack, _clean_text(), "analysis")
     )
     # The exam's closing is still not a memo's call.
     closed = _clean_text() + call + " FINAL ANSWER: sell."
-    assert any("FINAL ANSWER" in v for v in gate_violations(pack, closed, "abstention"))
+    assert any("FINAL ANSWER" in v for v in gate_violations(pack, closed, "analysis"))
+
+
+def test_the_two_kinds_whose_brief_forbids_a_call_are_not_asked_for_one():
+    """§B.2, where the kind and the register would otherwise contradict.
+
+    `grounded` is told "no call unless the question asked for one" and
+    `abstention` is told to name what is missing and stop. Every attribution
+    family is `ic_memo`, so without this exemption both kinds would be briefed
+    not to decide and gated for not deciding -- a teacher given two instructions
+    it cannot both obey, which is the failure this file's own history is made
+    of.
+    """
+    pack = {**PACK, "register": "ic_memo"}
+    survey = _clean_text()
+    assert not makes_a_call(survey)
+    for kind in ("grounded", "abstention"):
+        assert not any(
+            "states no call" in v for v in gate_violations(pack, survey, kind)
+        ), kind
+    # The kinds that *are* documents ending in a decision keep the requirement.
+    for kind in ("analysis", "memo", "critique"):
+        assert any(
+            "states no call" in v for v in gate_violations(pack, survey, kind)
+        ), kind
 
 
 def test_registers_that_read_alike_are_measurably_close():
@@ -396,9 +433,15 @@ def test_the_desk_chat_ceiling_is_reachable_inside_every_lanes_word_floor():
     """
     from pipelines.v3.teacher.prompts import WORD_BUDGETS
 
+    from pipelines.v3.teacher.prompts import KIND_SENTENCE_CAPS
+
     for kind, (low, _high) in WORD_BUDGETS.items():
         ceiling = desk_chat_ceiling(kind)
-        assert ceiling >= DESK_CHAT_MAX_SENTENCES
+        # Twelve unless the *kind* is tighter: a citation is eight sentences
+        # and a refusal is five in every register, and the register may not
+        # quietly offer four more than the kind's own brief asks for.
+        cap = KIND_SENTENCE_CAPS.get(kind)
+        assert ceiling == cap if cap else ceiling >= DESK_CHAT_MAX_SENTENCES
         assert low / ceiling <= DESK_CHAT_WORDS_PER_SENTENCE + 1e-9, kind
 
 
@@ -663,38 +706,131 @@ def test_every_record_type_asks_for_something_different():
 
 
 def test_the_task_rules_reach_the_brief():
+    """And they reach it *in this register*: the caps are part of the job."""
     from pipelines.v3.teacher.prompts import BRIEF_KINDS, kind_shape, render_brief
 
     pack = {
         "question": "q",
         "register": "desk_chat",
+        "work_type": "execution.tca.arrival",
         "allowed_numbers": [1.0],
         "must_mention": [],
         "forbidden_claims": [],
     }
     for kind in BRIEF_KINDS:
         user = render_brief(pack, kind=kind)[-1]["content"]
-        assert kind_shape(kind) in user, kind
+        assert kind_shape(kind, pack["register"]) in user, kind
+    # A desk analysis is 160 words where a committee analysis is 220, and the
+    # brief says which one this row is being written to.
+    desk = render_brief(pack, kind="analysis")[-1]["content"]
+    memo = render_brief({**pack, "register": "ic_memo"}, kind="analysis")[-1]["content"]
+    assert "60-160 words" in desk and "60-220 words" in memo
 
 
-def test_no_task_rule_legislates_what_the_register_owns():
-    """One pack serves every record type, and the register is the family's.
+def test_the_work_type_addendum_reaches_the_brief_and_only_its_own():
+    """§B.4: four arithmetic disciplines, each paid for on its own rows."""
+    from pipelines.v3.teacher.prompts import render_brief, work_type_rules
 
-    A kind rule that ruled on headings, labelled calls or length would
-    contradict `_REGISTER_SHAPE` for some family -- `brinson_carino` is
-    `ic_memo` for all of its, so a `grounded` row there is *required* to make a
-    call. Told to make one and not to, a teacher has no brief at all, which is
-    the failure three rounds of this session were spent removing.
+    base = {
+        "question": "q",
+        "register": "desk_chat",
+        "allowed_numbers": [1.0],
+        "must_mention": [],
+        "forbidden_claims": [],
+    }
+    tca = render_brief({**base, "work_type": "execution.tca.arrival"}, kind="analysis")
+    user = tca[-1]["content"]
+    assert "impact bill" in user and "not a pacing problem" in user
+    assert work_type_rules("risk.market.var_es") not in user
+    # A work type with no addendum gets no filler.
+    assert work_type_rules("no.such.work_type") == ""
+
+
+def test_the_number_policy_quotes_this_packs_own_spellings():
+    """§A.3: `display` was in the pack and never in the brief."""
+    from pipelines.v3.teacher.prompts import number_policy
+
+    policy = number_policy({"display": {"shares": "430,567"}})
+    assert "shares is written 430,567" in policy
+    assert "430567.0" in policy, "the rule names the spelling it refuses"
+
+
+def test_the_system_turn_still_carries_the_fingerprint_the_leak_gate_matches():
+    """Shortening the system turn must not delete what proves a row is clean.
+
+    `row.carries_teacher_brief` and the harness's prepare gate both search for
+    `config.TEACHER_FINGERPRINT`. A system turn that stopped containing it
+    would turn every leak check green by removing what they look for, which is
+    the worst way for a gate to pass.
     """
-    from pipelines.v3.teacher.prompts import BRIEF_KINDS, kind_shape
+    from pipelines.v3.teacher.prompts import AGENTIC_SYSTEM, TEACHER_SYSTEM
 
-    forbidden = ("heading", "final answer:", "sentence", "bullet")
+    assert config.TEACHER_FINGERPRINT in TEACHER_SYSTEM
+    assert config.TEACHER_FINGERPRINT in AGENTIC_SYSTEM
+    # §B.1 asks for eight lines at the outside; it was seventeen.
+    assert len(TEACHER_SYSTEM.splitlines()) <= 8
+
+
+def test_no_task_rule_contradicts_the_register_it_will_be_written_in():
+    """One pack serves every record type, so the two briefs must compose.
+
+    The older form of this test forbade a kind rule from mentioning headings,
+    sentences or length at all. §B.2 moved exactly those decisions onto the
+    kind on purpose -- a `grounded` row carries no headings in any register, an
+    `abstention` is five sentences wherever it is written -- so the rule that
+    survives is the one that mattered: a kind may not *demand* what a register
+    *refuses*, because a teacher told both has been given no brief.
+
+    The two pairings that could contradict are checked directly, and the third
+    is checked by being illegal: `memo` names the headings its register allows,
+    and `memo` x `desk_chat` is no longer a row the inventory will emit.
+    """
+    from pipelines.v3 import config as v3config
+    from pipelines.v3 import inventory
+    from pipelines.v3.teacher.prompts import BRIEF_KINDS, kind_shape
+    from pipelines.v3.verification.register import _REGISTER_SHAPE
+
     for kind in BRIEF_KINDS:
         rule = kind_shape(kind).casefold()
-        for term in forbidden:
-            assert term not in rule, (
-                f"{kind} legislates {term!r}, which the register owns"
+        assert rule, kind
+        assert "final answer:" not in rule, f"{kind} reaches for the exam contract"
+
+    # `memo` is the one kind that legislates headings, and it may only be
+    # written where headings are licensed.
+    plan = inventory.load_plan(v3config.taxonomy_path())
+    for work_type, spec in plan.items():
+        if "memo" not in spec["record_types"]:
+            continue
+        for family in spec["families"]:
+            assert not inventory.illegal_triple(spec, family, "memo"), (
+                f"{work_type}/{family} emits a memo in a register that refuses "
+                "the headings the memo brief asks for"
             )
+
+    # `grounded` and `abstention` are told not to decide; the register that
+    # requires a decision exempts exactly those two.
+    for kind in ("grounded", "abstention"):
+        assert (
+            "no call" in kind_shape(kind).casefold()
+            or "stop" in kind_shape(kind).casefold()
+        ), kind
+    assert "call" in _REGISTER_SHAPE["ic_memo"].casefold()
+    # ...and the brief for those two kinds must not ask for the call the gate
+    # has already excused them from. A live grounded row spent three attempts
+    # writing the "Call:" its register demanded and its kind refused.
+    from pipelines.v3.verification.register import register_shape
+
+    for kind in ("grounded", "abstention"):
+        shape = register_shape("ic_memo", kind).casefold()
+        assert "end on an explicit call" not in shape, kind
+        assert "do not close on a labelled call" in shape, kind
+    assert "explicit call" in register_shape("ic_memo", "memo").casefold()
+    assert not any(
+        "states no call" in v
+        for v in gate_violations(
+            {**PACK, "register": "ic_memo"}, _clean_text(), "grounded"
+        )
+    )
 
 
 def test_the_two_desk_chat_length_rules_are_jointly_satisfiable_for_every_kind():

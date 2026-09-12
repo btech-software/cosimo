@@ -159,9 +159,12 @@ def compose_chosen(pack: dict, kind: str) -> str:
     replaced, which is what keeps the shingle overlap far under the pair's
     ceiling instead of near it.
     """
-    from pipelines.v3.teacher.prompts import WORD_BUDGETS  # late: the table
+    from pipelines.v3.teacher.prompts import (  # late: the tables
+        KIND_SENTENCE_CAPS,
+        word_budget,
+    )
 
-    low, high = WORD_BUDGETS[kind]
+    low, high = word_budget(kind, pack.get("register") or "")
     figures = _quoteable_figures(pack)
     # Three figures to a sentence, matching the prose harness. One apiece put
     # a desk_chat paraphrase at fifteen sentences against the §C ceiling of
@@ -171,7 +174,7 @@ def compose_chosen(pack: dict, kind: str) -> str:
     figure_lines = [
         "This telling reads "
         + ", ".join(
-            f"{key.replace('_', ' ')} at {_dec(value)}"
+            f"{key.replace('_', ' ')} at {(pack.get('display') or {}).get(key) or _dec(value)}"
             for key, value in figures[i : i + 3]
         )
         + "."
@@ -231,6 +234,10 @@ def compose_chosen(pack: dict, kind: str) -> str:
             fillers[filler % len(fillers)],
         )
         filler += 1
+    # The kinds that are short by construction -- a citation and a refusal --
+    # cap sentences as well as words, and this dummy writes one sentence to a
+    # line. Merge rather than drop: every line is carrying a contract point.
+    lines = prose_harness.fit_sentences(lines, KIND_SENTENCE_CAPS.get(kind))
     text = "\n".join(lines)
     count = len(text.split())
     if not low <= count <= high:

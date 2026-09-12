@@ -171,7 +171,19 @@ def test_an_invented_number_in_the_answer_is_named_by_axis_three(corpus, tmp_pat
 def test_a_silent_must_mention_fails_axis_four_only(corpus, tmp_path):
     out = _fresh(corpus, tmp_path)
     rows = _rows(out)
-    replacement = "The desk has reviewed the file and feels comfortable."
+    # Long enough for the lane's word band and shaped for whatever register
+    # the row carries -- the board grades length and register as well as
+    # coverage now, and a nine-word filler would fail three axes at once,
+    # which is not what this test is asking about.
+    replacement = (
+        "The desk has reviewed the file and is comfortable with the exposure "
+        "as it stands. Our call is to hold the position at its current size "
+        "over the stated horizon, on the assumption that the inputs are the "
+        "ones the file carries. The limit is unchanged and no breach is in "
+        "prospect. Nothing here reaches beyond the material the desk was "
+        "given, and nothing in the file argues for a different reading of it "
+        "today than the reading it carried yesterday."
+    )
     assert not invented_numbers(replacement, [0.5]), "the filler must be number-free"
     rows[0]["answer"] = replacement
     _rewrite(out, rows)

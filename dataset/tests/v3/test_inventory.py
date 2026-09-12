@@ -258,3 +258,77 @@ def test_resume_consults_the_disk_before_the_teacher(tmp_path):
     assert report_b["computed"] == 0
     assert report_b["existing"] == report_a["computed"]
     assert write.existing_ids(path) == before
+
+
+# --------------------------------------------------------------------------
+# §C: pairs the plan may not ask for
+# --------------------------------------------------------------------------
+
+
+def _memo_registers(spec: dict, family: str) -> tuple:
+    return tuple((spec.get("registers") or {}).get(family) or ())
+
+
+def test_no_expansion_emits_a_memo_in_a_register_that_cannot_hold_one():
+    """The amendment's illegal-triple list, walked over the real plan.
+
+    A memo has headings and a labelled call; `desk_chat` refuses both, and the
+    gate says so. The pair was legal in the plan anyway, so every run asked
+    `execution.tca.arrival` -- desk chat in all three families -- for forty
+    memos it could not write. One pack serves every record type of a variant,
+    so the register is drawn before the record type is known: the ban has to
+    be a plan rule, and this is it.
+    """
+    plan = inventory.load_plan(PLAN_PATH)
+    for job in inventory.expand_jobs(plan):
+        problem = inventory.illegal_triple(
+            plan[job.work_type], job.family, job.record_type
+        )
+        assert not problem, f"{job.work_type}/{job.family}/{job.record_type}: {problem}"
+    # The specific pair the amendment names, asserted by coordinate rather than
+    # only by rule: TCA publishes seven record types, and memo is not one.
+    assert "memo" not in plan["execution.tca.arrival"]["record_types"]
+    for family in plan["execution.tca.arrival"]["families"]:
+        assert _memo_registers(plan["execution.tca.arrival"], family) == ("desk_chat",)
+
+
+def test_a_plan_that_asks_for_an_illegal_pair_dies_at_load(tmp_path):
+    plan = {
+        "execution.tca.arrival": {
+            "computer": "execution_tca",
+            "families": {"large_cap_intraday": {"holdout": False}},
+            "registers": {"large_cap_intraday": ["desk_chat"]},
+            "record_types": ["memo"],
+            "variants_per_family": {"memo": 2},
+            "max_share": 0.5,
+            "pitfalls": [],
+        }
+    }
+    with pytest.raises(inventory.PlanError, match="memo"):
+        inventory.load_plan(_plan_path(tmp_path, plan))
+    # The same plan with a register that can hold a memo loads.
+    plan["execution.tca.arrival"]["registers"] = {"large_cap_intraday": ["ic_memo"]}
+    assert inventory.load_plan(_plan_path(tmp_path, plan))
+
+
+def test_a_memo_family_that_may_also_speak_desk_chat_is_refused(tmp_path):
+    """The half-legal case: one pack, one register draw, two record types.
+
+    A family declaring both registers would write some of its memos in desk
+    chat and some in ic_memo, and nothing downstream gets to choose which --
+    the register is drawn when the pack is computed, and the pack is shared.
+    """
+    plan = {
+        "valuation.equity.dcf": {
+            "computer": "valuation_fcff",
+            "families": {"mature_consumer": {"holdout": False}},
+            "registers": {"mature_consumer": ["desk_chat", "ic_memo"]},
+            "record_types": ["memo"],
+            "variants_per_family": {"memo": 2},
+            "max_share": 0.5,
+            "pitfalls": [],
+        }
+    }
+    with pytest.raises(inventory.PlanError, match="desk_chat"):
+        inventory.load_plan(_plan_path(tmp_path, plan))
+

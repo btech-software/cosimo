@@ -232,12 +232,24 @@ MEMO_THINK_ENV = "COSIMO_V3_MEMO_THINK"
 #: sized for a reasoning teacher that spends its whole budget thinking before
 #: it writes; with think *off* there is no chain of thought to run out of, and
 #: a 16k ceiling only buys a teacher enough rope to ramble past its word band.
-#: Think-on lanes keep real headroom, but 2048 rather than 16384: no row type
-#: has yet demonstrated it needs more, and the 900s timeout that the old
-#: budget forced (see ``dataset_build.sh``) hid every slow brief instead of
-#: reporting it.
+#: Think-on lanes keep real headroom, and 2048 was not it. That number was an
+#: estimate made while no endpoint on the project could turn thinking *off*,
+#: so nobody had ever seen what a chain of thought actually costs here. Now
+#: one can, and it has been measured (``probe_teacher.py``, deepseek-v4-flash-
+#: 0731, 2026-09-12): with the flag off a prose answer costs 123-143 completion
+#: tokens against the 800 cap -- comfortable -- and with the flag *on* the same
+#: briefs cost 3,081-3,736, with a worst case of 4,453 across runs. At 2048
+#: every reasoning row truncated before it wrote a word: the think-on arm of
+#: the §B bake-off came back 60% empty at a 1,960-token mean, which is a
+#: measurement of the cap and not of the flag.
+#:
+#: 6144 is three times the old cap and 1.38x the worst case observed. The
+#: escalation ladder below covers the tail, so this has to be approximately
+#: right rather than exactly right -- but it has to be on the correct side of
+#: the truth, and 2048 was not. It binds exam, critique, implementation and
+#: agentic, all of which were paying a wasted first call per row.
 MAX_TOKENS_THINK_OFF = 800
-MAX_TOKENS_THINK_ON = 2048
+MAX_TOKENS_THINK_ON = 6144
 
 #: How far the budget may climb when a teacher is observed to truncate, as a
 #: multiple of the lane's cap. The caps above are the *opening* offer, not a

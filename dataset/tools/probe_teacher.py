@@ -135,13 +135,40 @@ def report(result: dict) -> str:
         + (f"  (spread {spent[-1] / max(spent[0], 1):.1f}x)" if spent[0] else ""),
     ]
 
-    honours = not thinking
-    lines += [
-        "",
-        f"think flag honoured: {honours}"
-        + ("" if honours else f"  ({len(thinking)}/{len(samples)} reasoned anyway)"),
-    ]
-    if honours:
+    # "Honoured" means the reply matched what was *asked*, which is not the
+    # same question in both directions. Probing the think-on lane and reporting
+    # "the flag is not reaching the model" because the teacher reasoned is the
+    # tool contradicting its own request -- and it did exactly that on the
+    # first think-on probe this project was ever able to run, which is how a
+    # correct 3,700-token measurement came wrapped in a warning about dialects.
+    if route.think:
+        honours = bool(thinking)
+        lines += [
+            "",
+            f"think flag honoured: {honours}"
+            + (
+                f"  ({len(thinking)}/{len(samples)} reasoned, as asked)"
+                if honours
+                else "  (nothing reasoned, though thinking was requested)"
+            ),
+        ]
+    else:
+        honours = not thinking
+        lines += [
+            "",
+            f"think flag honoured: {honours}"
+            + (
+                "" if honours else f"  ({len(thinking)}/{len(samples)} reasoned anyway)"
+            ),
+        ]
+    if route.think:
+        lines += [
+            "",
+            "Think-on lane. What this measures is what a chain of thought",
+            f"costs on this endpoint: size {config.MAX_TOKENS_THINK_ON} against the",
+            f"maximum above ({spent[-1]}), not against the median.",
+        ]
+    elif honours:
         lines += [
             "",
             "This teacher does what §B assumes: the flag decides whether a chain",

@@ -19,7 +19,13 @@ import math
 import random
 
 from ..seed import pack_seed, rng_for
-from .base import FactPack, PackError, assemble_contract, pick_as_of
+from .base import (
+    FactPack,
+    PackError,
+    assemble_contract,
+    fold_conditionals,
+    pick_as_of,
+)
 from .registers import pick_register
 
 WORK_TYPE = "risk.market.var_es"
@@ -183,16 +189,30 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
                 "horizon_1d": 1.0,
             },
         ),
-        forbidden_claims=[
-            "the book will not lose more than VaR",
-            "95% VaR captures the tail",
-            "VaR is a loss forecast",
-        ],
-        must_mention=[
-            "normality assumption",
-            "square-root horizon scaling",
-            "expected shortfall tail",
-        ],
+        # A negative daily mean is a negative drift: it *adds* to the expected
+        # loss, and the VaR formula subtracts it for exactly that reason. A
+        # live risk-committee memo read the same minus sign as a gain and
+        # reported ten million dollars of it. Which sign the book carries is
+        # the pack's own number, so the two readings that are wrong under it
+        # are forbidden under it.
+        **fold_conditionals(
+            inputs,
+            computed,
+            forbidden_claims=[
+                "the book will not lose more than VaR",
+                "95% VaR captures the tail",
+                "VaR is a loss forecast",
+            ],
+            must_mention=[
+                "normality assumption",
+                "square-root horizon scaling",
+                "expected shortfall tail",
+            ],
+            conditional_forbids=[
+                {"when": "mu_daily < 0", "claim": "positive drift"},
+                {"when": "mu_daily < 0", "claim": "expected gain"},
+            ],
+        ),
         register=pick_register(work_type, family, rng),
         as_of=pick_as_of(rng),
         question=question,

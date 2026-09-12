@@ -49,8 +49,52 @@ REQUIRED_KEYS = (
 )
 
 
+#: The registers a ``memo`` may be written in (amendment §C).
+#:
+#: A memo is a document with headings and a labelled call; desk chat is neither,
+#: and the gate refuses both moves for that register. The pair was legal in the
+#: plan anyway, so ``execution.tca.arrival`` -- desk-only in all three families
+#: -- was asked for forty memos a run, and each one was a row that could satisfy
+#: its kind or its register and not both. ``desk_chat_ceiling`` exists entirely
+#: to keep those rows alive, and a live sample shows what survived: a memo in
+#: desk voice with the headings filed off.
+#:
+#: One pack serves every record type of a variant, so the register is drawn
+#: before the record type is known. That is why the rule is a *plan* rule and
+#: not a render-time one: a family that may speak desk chat may not also be
+#: asked for a memo, because nothing downstream gets to choose.
+MEMO_REGISTERS = frozenset({"ic_memo", "risk_committee"})
+
+
 class PlanError(ValueError):
     """The yaml plan is malformed or contradicts the code. Fail at load."""
+
+
+def illegal_triple(spec: dict, family: str, record_type: str) -> str:
+    """Why this ``(family, record_type)`` may not be emitted, or ``""``.
+
+    Public and shared: :func:`_validate_work` refuses a plan with it and the
+    inventory test walks :func:`expand_jobs` through it, so "illegal pair" has
+    one definition rather than one in the loader and one in the assertion.
+    """
+    if record_type != "memo":
+        return ""
+    declared = tuple((spec.get("registers") or {}).get(family) or ())
+    if not declared:
+        return (
+            f"family {family!r} emits 'memo' but declares no registers; a memo "
+            f"needs a family whose register is one of {sorted(MEMO_REGISTERS)}"
+        )
+    wrong = [r for r in declared if r not in MEMO_REGISTERS]
+    if wrong:
+        return (
+            f"family {family!r} may be written in {', '.join(map(repr, wrong))} "
+            f"and also emits 'memo'; a memo needs a family whose registers are "
+            f"all in {sorted(MEMO_REGISTERS)} -- one pack serves every record "
+            "type of a variant, so the register is drawn before the record "
+            "type is known"
+        )
+    return ""
 
 
 @dataclass(frozen=True)
@@ -133,6 +177,14 @@ def _validate_work(work_type: str, spec: object, path: str) -> None:
             raise PlanError(
                 f"{where}: variants_per_family[{record_type!r}] must be an int >= 1"
             )
+    registers = spec.get("registers")
+    if registers is not None and not isinstance(registers, dict):
+        raise PlanError(f"{where}: registers must be a mapping of family to list")
+    for family in families:
+        for record_type in record_types:
+            problem = illegal_triple(spec, family, record_type)
+            if problem:
+                raise PlanError(f"{where}: {problem}")
     share = spec["max_share"]
     if (
         isinstance(share, bool)
