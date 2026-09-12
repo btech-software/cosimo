@@ -187,9 +187,13 @@ def test_word_budget_is_enforced_both_ways():
 def test_whitelist_covers_structural_tokens_and_the_as_of_date():
     wl = whitelist_for(PACK)
     assert {"100", "2", "252"} <= wl
-    # TOKEN keeps the sign that precedes a digit: the date's own tokens are
-    # "-03"/"-31", and a written "2026-03-31," must survive its trailing comma
-    assert {"2026", "-03", "-31"} <= wl, "the pack's own as-of date may be cited"
+    # The date's own tokens, read the way an answer is read. They used to be
+    # "-03"/"-31" -- the shared tokenizer takes a hyphen before a digit as a
+    # sign -- and this test asserted that shape, which is how the reading
+    # survived long enough to dead-letter a live VaR row for an invented
+    # "-100" it had written as "a 1-in-100 day". The behaviour below is the
+    # actual contract and is unchanged either way.
+    assert {"2026", "03", "31"} <= wl, "the pack's own as-of date may be cited"
     assert invented_numbers("as of 2026-03-31", [0.03], wl) == []
     assert invented_numbers("as of 2027-03-31", [0.03], wl) == ["2027"], (
         "a date the pack never stated is an invented number, whitelisted or not"
@@ -611,3 +615,197 @@ def test_a_zero_written_to_a_tenth_is_not_a_count_with_false_precision():
     assert integer_format_offenders(counts, "430567.0 shares") == [
         "'430567.0' -- write 430,567"
     ]
+
+
+def test_the_sentence_ceiling_cannot_be_met_by_writing_longer_sentences():
+    """A live desk_chat memo ran 334 words in 7 sentences and scored clean.
+
+    48 words a sentence is not desk chat by any reading; the ceiling counts
+    full stops and a memo can simply use fewer of them.
+    """
+    from pipelines.v3.verification.register import (
+        DESK_CHAT_MAX_MEAN_SENTENCE,
+        register_violations,
+    )
+
+    long_ones = " ".join(["word"] * 60 + ["."]) + " " + " ".join(["word"] * 60) + "."
+    found = register_violations("desk_chat", long_ones, kind="analysis")
+    assert any("words a sentence" in v for v in found), found
+
+    terse = ". ".join(" ".join(["word"] * 8) for _ in range(6)) + "."
+    assert register_violations("desk_chat", terse, kind="analysis") == []
+    assert DESK_CHAT_MAX_MEAN_SENTENCE == 28
+
+
+def test_the_mean_sentence_rule_is_in_the_brief_like_every_other_one():
+    """The session's own lesson, applied to the rule it just added."""
+    from pipelines.v3.verification.register import (
+        DESK_CHAT_MAX_MEAN_SENTENCE,
+        register_shape,
+    )
+
+    assert str(DESK_CHAT_MAX_MEAN_SENTENCE) in register_shape("desk_chat", "analysis")
+
+
+# --------------------------------------------------------------------------
+# record type: the move, as distinct from the register's voice
+# --------------------------------------------------------------------------
+
+
+def test_every_record_type_asks_for_something_different():
+    """Before this, an `analysis` brief and a `grounded` brief differed by the
+    literal task string and two overlapping word budgets. Nothing else."""
+    from pipelines.v3.teacher.prompts import BRIEF_KINDS, kind_shape
+
+    shapes = {kind: kind_shape(kind) for kind in BRIEF_KINDS}
+    assert all(shapes.values()), [k for k, v in shapes.items() if not v]
+    assert len(set(shapes.values())) == len(BRIEF_KINDS), "two kinds share a rule"
+
+
+def test_the_task_rules_reach_the_brief():
+    from pipelines.v3.teacher.prompts import BRIEF_KINDS, kind_shape, render_brief
+
+    pack = {
+        "question": "q",
+        "register": "desk_chat",
+        "allowed_numbers": [1.0],
+        "must_mention": [],
+        "forbidden_claims": [],
+    }
+    for kind in BRIEF_KINDS:
+        user = render_brief(pack, kind=kind)[-1]["content"]
+        assert kind_shape(kind) in user, kind
+
+
+def test_no_task_rule_legislates_what_the_register_owns():
+    """One pack serves every record type, and the register is the family's.
+
+    A kind rule that ruled on headings, labelled calls or length would
+    contradict `_REGISTER_SHAPE` for some family -- `brinson_carino` is
+    `ic_memo` for all of its, so a `grounded` row there is *required* to make a
+    call. Told to make one and not to, a teacher has no brief at all, which is
+    the failure three rounds of this session were spent removing.
+    """
+    from pipelines.v3.teacher.prompts import BRIEF_KINDS, kind_shape
+
+    forbidden = ("heading", "final answer:", "sentence", "bullet")
+    for kind in BRIEF_KINDS:
+        rule = kind_shape(kind).casefold()
+        for term in forbidden:
+            assert term not in rule, (
+                f"{kind} legislates {term!r}, which the register owns"
+            )
+
+
+def test_the_two_desk_chat_length_rules_are_jointly_satisfiable_for_every_kind():
+    """A row must never face two rules it cannot both obey.
+
+    When the mean-sentence rule was first added it was derived independently of
+    the sentence ceiling, and for four of the five kinds the pair had no
+    solution at the top of the word band: a 341-word memo came back at 16
+    sentences against a ceiling of 15, having broken its sentences up exactly
+    as instructed. Both bounds now come off the same band, and this asserts
+    they close.
+    """
+    from pipelines.v3.teacher.prompts import WORD_BUDGETS
+    from pipelines.v3.verification.register import (
+        DESK_CHAT_MAX_MEAN_SENTENCE,
+        desk_chat_ceiling,
+    )
+
+    for kind in WORD_BUDGETS:
+        low, high = WORD_BUDGETS[kind]
+        assert low <= high, kind
+        ceiling = desk_chat_ceiling(kind)
+        assert high <= ceiling * DESK_CHAT_MAX_MEAN_SENTENCE, (
+            f"{kind}: {high} words in {ceiling} sentences needs "
+            f"{high / ceiling:.0f} words a sentence, over the "
+            f"{DESK_CHAT_MAX_MEAN_SENTENCE} mean"
+        )
+
+
+def test_a_verb_matches_its_own_conjugation():
+    """ "scaling" and "scale" are one word, and the matcher said otherwise.
+
+    A live VaR row wrote "the 10-day figures scale by the square-root of the
+    horizon" and was refused three times against an anchor of "square-root
+    horizon scaling" -- every term present, one of them merely conjugated.
+    """
+    from pipelines.v3.verification.prose import _stem, missing_mentions
+
+    assert len({_stem(w) for w in ("scale", "scaling", "scales", "scaled")}) == 1
+    assert _stem("assume") == _stem("assumption")
+
+    pack = {"must_mention": ["square-root horizon scaling"]}
+    covered = "the 10-day figures scale by the square-root of the horizon"
+    assert missing_mentions(pack, covered) == []
+    assert missing_mentions(pack, "the ten day figures are larger") == [
+        "square-root horizon scaling"
+    ]
+
+
+def test_short_function_words_survive_the_new_suffix():
+    """The three-character floor is what makes stripping a trailing "e" safe."""
+    from pipelines.v3.verification.prose import _stem
+
+    for word in ("the", "are", "one", "use", "due"):
+        assert _stem(word) == word, word
+
+
+# --------------------------------------------------------------------------
+# text that is broken rather than wrong
+# --------------------------------------------------------------------------
+
+
+def test_a_bracket_welded_to_the_next_word_is_a_defect():
+    """Four of twenty-four live rows shipped carrying this, clean on 16 axes.
+
+        ... a tail thinner than this book carries)Skip the headline: the
+        mechanism is square-root scaling ...
+
+    It predates the record-type rules, so it is not an instruction being
+    narrated back, and `think_present` was false on every row that carried it.
+    """
+    from pipelines.v3.verification.prose import malformed_prose
+
+    found = malformed_prose("a tail thinner than this book carries)Skip the headline")
+    assert found and "runs straight into the next word" in found[0]
+    assert malformed_prose("the total was [a]nd then")
+
+
+def test_well_formed_prose_is_not_flagged():
+    """The gate must be free of opinions about style."""
+    from pipelines.v3.verification.prose import malformed_prose
+
+    assert malformed_prose("The cost is 28 bp (impact, not spread). Work it.") == []
+    assert (
+        malformed_prose("Impact (26.66 bp) dominates the half-spread (1.5 bp).") == []
+    )
+    assert malformed_prose("") == []
+
+
+def test_unbalanced_brackets_are_reported():
+    from pipelines.v3.verification.prose import malformed_prose
+
+    assert any("unbalanced" in v for v in malformed_prose("the cost (impact is 26 bp"))
+    assert malformed_prose("the cost (impact) is 26 bp") == []
+
+
+def test_the_malformed_check_runs_before_the_judgements_below_it():
+    """The repair turn reads in order, and a broken row wastes the rest."""
+    from pipelines.v3.verification.prose import gate_violations
+
+    pack = {
+        "question": "q",
+        "register": "desk_chat",
+        "allowed_numbers": [1.0],
+        "must_mention": [],
+        "forbidden_claims": [],
+        "canonical": {},
+        "aliases": {},
+        "display": {},
+    }
+    found = gate_violations(
+        pack, "a broken aside)Skip the headline and 9.8 too", "analysis"
+    )
+    assert "runs straight into the next word" in found[0], found

@@ -48,12 +48,12 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):  # verification; repo root
         sys.path.insert(0, _p)
 
 from cosimo.tools.wire import TOOL_CALL_OPEN, parse_tool_calls  # noqa: E402
-from verification import nums  # noqa: E402
 from verification.gates import FINAL_ANSWER_TAG  # noqa: E402
 
 from .. import config  # noqa: E402
 from ..oracle import faults, runtime  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
+from .invented_numbers import read_tokens  # noqa: E402
 from .prose import forbidden_hits, missing_mentions  # noqa: E402
 from .prose import whitelist_for as _pack_whitelist  # noqa: E402
 
@@ -178,10 +178,15 @@ def _tool_tokens(messages: list[dict]) -> frozenset[str]:
     Extraction runs over the *raw* result bytes, not the parsed values: what
     the teacher was shown is the authority, glyph for glyph, which is exactly
     the reach of the spec's "union of fact pack and tool results".
+
+    Read with :func:`read_tokens`, the same reader the answer is read with. A
+    tool result dated ``2026-01-01`` is three tokens and which three depends
+    on whether a hyphen counts as a sign; two readers here means a set that
+    authorises spellings the answer cannot produce.
     """
     tokens: set[str] = set()
     for content in tool_contents(messages):
-        tokens.update(nums.TOKEN.findall(content))
+        tokens.update(read_tokens(content))
     return frozenset(tokens)
 
 

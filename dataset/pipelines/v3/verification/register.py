@@ -87,6 +87,16 @@ DESK_CHAT_MAX_SENTENCES = 12
 #: of them has to give in a way that is written down rather than discovered.
 DESK_CHAT_WORDS_PER_SENTENCE = 14
 
+#: The longest a desk_chat sentence may average before the register is being
+#: satisfied on a technicality. The sentence ceiling alone can be met by
+#: writing fewer, longer sentences, and a live sample did exactly that: a
+#: desk_chat memo of 334 words in 7 sentences scored ``register_ok`` at 48
+#: words per sentence, which is not desk chat by any reading. Twice the terse
+#: rate is the bar -- comfortably above real desk prose, tight enough that a
+#: memo cannot hide inside it.
+DESK_CHAT_MAX_MEAN_SENTENCE = 2 * DESK_CHAT_WORDS_PER_SENTENCE
+
+
 #: How far under the ceiling the brief asks for. Two sentences: enough to
 #: absorb a model's miscount, small enough that it does not quietly become the
 #: real ceiling. The gate still measures against the ceiling itself -- this
@@ -113,10 +123,18 @@ def desk_chat_ceiling(kind: str) -> int:
     work type an ``ic_memo`` family would, and that is a plan edit, made on
     purpose, not a gate quietly widened.
     """
-    floor = WORD_BUDGETS.get(kind, (0, 0))[0]
+    low, high = WORD_BUDGETS.get(kind, (0, 0))
     return max(
         DESK_CHAT_MAX_SENTENCES,
-        math.ceil(floor / DESK_CHAT_WORDS_PER_SENTENCE),
+        math.ceil(low / DESK_CHAT_WORDS_PER_SENTENCE),
+        # ...and enough sentences that the *top* of the band is reachable
+        # without breaching the mean. Without this the ceiling and the mean
+        # rule had no joint solution for four of the five kinds, and a row
+        # obeying one necessarily broke the other: a 341-word memo came back
+        # at 16 sentences against a ceiling of 15, having broken its sentences
+        # up exactly as instructed. Both bounds come off the same band, so
+        # they cannot disagree.
+        math.ceil(high / DESK_CHAT_MAX_MEAN_SENTENCE),
     )
 
 
@@ -172,7 +190,10 @@ def register_shape(register: str, kind: str = "") -> str:
         # spends the margin in prose rather than in retries.
         clauses.append(
             f"hard ceiling: at most {ceiling} sentences, and aim for "
-            f"{max(1, ceiling - _CEILING_MARGIN)} -- count them before you answer"
+            f"{max(1, ceiling - _CEILING_MARGIN)} -- count them before you "
+            f"answer. Keep sentences under {DESK_CHAT_MAX_MEAN_SENTENCE} words "
+            "on average; meeting the ceiling by writing longer sentences is "
+            "not meeting it"
         )
     return ". ".join(clauses)
 
@@ -284,6 +305,15 @@ def _desk_chat(text: str, kind: str) -> list[str]:
         )
     ceiling = desk_chat_ceiling(kind)
     sentences = sentence_count(text)
+    words = len(text.split())
+    mean = words / sentences if sentences else 0.0
+    if sentences and mean > DESK_CHAT_MAX_MEAN_SENTENCE:
+        out.append(
+            f"register desk_chat averages {mean:.0f} words a sentence over "
+            f"{sentences} sentences, past the {DESK_CHAT_MAX_MEAN_SENTENCE}-word "
+            "mark -- the sentence ceiling was met by writing longer sentences, "
+            "which is a memo breathing slowly; break the argument up"
+        )
     if sentences > ceiling:
         # Say how many to lose, not just that there are too many. The repair
         # turn quotes this string back at the teacher, and "over the ceiling"

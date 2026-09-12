@@ -33,6 +33,7 @@ failing, per the v1/v2 precedent in :mod:`verification.nums`.
 from __future__ import annotations
 
 import math
+import re
 import os
 import sys
 
@@ -50,6 +51,12 @@ REL_TOLERANCE = 0.005
 #: the *figure* -- that test is exact by construction -- only on the binary
 #: representation of a rounding both sides computed.
 _EXACT = 1e-9
+
+#: Dashes a writer means as a minus, folded before tokenizing. U+2212 is the
+#: true minus and U+2013 the en dash a model reaches for; the em dash (U+2014)
+#: is deliberately absent, being punctuation far more often than arithmetic.
+#: Only before a digit, so a dash between words stays a dash.
+_ASCII_MINUS = re.compile("[\u2212\u2013](?=\\d)")
 #: 1 (bare), 100 (fraction rendered as percent), 1/100 (percent rendered as
 #: fraction). Any other factor is an invention, which is exactly what a unit
 #: hallucination looks like numerically: a 1000x slip is *not* the same number.
@@ -72,6 +79,40 @@ def decimal_places(token: str) -> int:
     if "." not in token:
         return 0
     return len(token.split(".", 1)[1])
+
+
+def read_tokens(text: str) -> list[str]:
+    """Number tokens in *text*, with hyphens that are not minus signs undone.
+
+    The shared tokenizer treats a leading hyphen as part of the number, so any
+    hyphen
+    immediately before a digit becomes that number's sign. In prose it usually
+    is not one: "a 1-in-100 day" yields ``1`` and ``-100``, and a live VaR row
+    was dead-lettered three times over for an invented ``-100`` it never wrote.
+    The same applies to "a 1-in-20 event" and to any written range.
+
+    A leading sign counts as a sign only when what precedes it is not a word
+    character. Fixed here rather than in :mod:`verification.nums`, which the
+    v1 and v2 verifiers also read: their corpora are already scored, and a
+    tokenizer change would silently restate those results.
+
+    The other half is typography. A teacher writing properly uses a real
+    minus, and the tokenizer only knows ASCII ``-``: one live attribution memo
+    used U+2013 seventeen times, so *every* negative figure in it read as
+    positive and seven pack values were refused as inventions. En dash and
+    U+2212 are folded to ``-`` before a digit; the em dash is left alone,
+    because the same row used five of those as punctuation and "the cost -- 28
+    bp -- was high" does not mean minus twenty-eight.
+    """
+    out: list[str] = []
+    raw = _ASCII_MINUS.sub("-", str(text))
+    for match in nums.TOKEN.finditer(raw):
+        token = match.group(0)
+        start = match.start()
+        if token[0] in "-+" and start > 0 and (raw[start - 1].isalnum()):
+            token = token[1:]  # a hyphen inside a word, not a sign
+        out.append(token)
+    return out
 
 
 def _allowed_set(allowed) -> frozenset[float]:
@@ -147,7 +188,7 @@ def invented_numbers(text: str, allowed, whitelist=()) -> list[str]:
     passed = frozenset(str(w).strip().strip(",") for w in whitelist)
     offenders: list[str] = []
     seen: set[str] = set()
-    for tok in nums.TOKEN.findall(str(text)):
+    for tok in read_tokens(text):
         if tok in seen:
             continue
         if tok.strip(",") in passed:
