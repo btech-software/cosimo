@@ -268,6 +268,18 @@ def _build(
         # The model reaches an enterprise value. It carries no share count
         # and no market price, so per-share worth and cheapness are questions
         # about figures this pack does not have.
+        # The one constant that decides whether a terminal value is defensible:
+        # perpetual growth above long-run nominal GDP has the company eating
+        # the economy. A DCF that never says this has not been reviewed.
+        conventions=[
+            {
+                "says": (
+                    "terminal growth above long-run nominal GDP of roughly "
+                    "2.5% to 3% is not sustainable in perpetuity"
+                ),
+                "numbers": [2.5, 3.0],
+            }
+        ],
         abstention_question=(
             f"What is {params['name']}'s equity value per share on this model, "
             f"and is the "

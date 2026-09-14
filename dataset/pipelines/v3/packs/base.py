@@ -92,6 +92,26 @@ class FactPack:
     #: quantity so the gate can ask whether the answer named it too.
     abstention_question: str = ""
     abstention_missing: str = ""
+    #: Named constants of the discipline this work type may cite unprompted:
+    #: ``[{"says": str, "numbers": [float, ...]}]``.
+    #:
+    #: Everything else in this pack answers "what is true of *this* book". This
+    #: answers a different question -- "what does the desk know that makes the
+    #: figure mean something" -- and the corpus could not express it. A Sharpe
+    #: of 0.43 is arithmetic; "0.43 is weak against the ~1.0 a diversified book
+    #: targets" is the judgement that makes an assistant worth asking, and the
+    #: number gate refused the second half because 1.0 is not a figure of this
+    #: scenario. Measured before this existed: a teacher writing "Basel
+    #: multipliers of 3 to 4 apply" was dead-lettered, while one writing "a
+    #: Sharpe above 1.5 is strong" survived -- not by rule, but because 1.5
+    #: happened to round near a number that pack contained. A contract that
+    #: admits a textbook constant by coincidence is not a contract.
+    #:
+    #: Deliberately narrow, because the thing v3 got right is an invented-number
+    #: rate of zero: entries are *named constants of the discipline*, declared
+    #: per work type in advance, never a figure about the entity. A convention
+    #: declared here is legal in this work type's rows and nowhere else.
+    conventions: list[dict] = field(default_factory=list)
     stimulus: str | None = None
     program: str | None = None
     topic: str | None = None
@@ -351,6 +371,23 @@ def fold_conditionals(
         "conditional_mentions": declared_mentions,
         "conditional_forbids": declared_forbids,
     }
+
+
+def convention_numbers(pack: dict) -> list[float]:
+    """Every value the pack's declared conventions authorise, deduplicated.
+
+    Read by the number gate beside ``canonical``: the two lists say different
+    things -- "this is what the scenario measured" and "this is what the
+    discipline knows" -- and keeping them apart is what lets the gate stay
+    absolute about the first while permitting the second.
+    """
+    values: list[float] = []
+    for entry in pack.get("conventions") or []:
+        for number in entry.get("numbers") or ():
+            if isinstance(number, bool) or not isinstance(number, (int, float)):
+                continue
+            values.append(round(float(number), 12))
+    return sorted(set(values))
 
 
 AS_OF_DATES = ("2025-12-31", "2026-03-31", "2026-06-30")

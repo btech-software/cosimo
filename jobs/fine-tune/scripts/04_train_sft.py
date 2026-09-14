@@ -449,11 +449,84 @@ def print_masking_report(report: dict) -> None:
     print("-" * 72)
 
 
-def build_sft_config(cfg: dict, output_dir: Path, logging_dir: Path, has_eval: bool):
+#: How many times a run should stop to evaluate and checkpoint itself. Ten is
+#: enough to see a loss curve bend and to have something to fall back to when a
+#: run goes wrong, and few enough that the pauses stay a rounding error on the
+#: wall clock.
+CHECKPOINTS_PER_RUN = 10
+
+
+def total_optimizer_steps(cfg: dict, train_rows: int) -> int:
+    """How many optimizer steps this run will take. 0 when it cannot be known.
+
+    Not a detail: the shipped cadence was 250 steps against a run that takes
+    ~129 of them on the v3 corpus, so a full training run performed *zero*
+    mid-training evaluations and saved *zero* intermediate checkpoints. The
+    eval-loss curve the data config describes could not exist, and
+    `save_total_limit: 3` governed nothing. A cadence expressed in absolute
+    steps is only meaningful beside the number of steps there are.
+    """
+
+    def s(key: str, default: Any = None) -> Any:
+        return config_mod.get(cfg, f"sft.{key}", default)
+
+    max_steps = int(s("max_steps", -1))
+    if max_steps and max_steps > 0:
+        return max_steps
+    per_device = max(1, int(s("per_device_train_batch_size", 4)))
+    accum = max(1, int(s("gradient_accumulation_steps", 8)))
+    epochs = float(s("num_train_epochs", 1))
+    if train_rows <= 0:
+        return 0
+    return max(1, int((train_rows / (per_device * accum)) * epochs))
+
+
+def resolve_cadence(cfg: dict, name: str, total_steps: int) -> int:
+    """The eval/save interval for this run, in steps.
+
+    ``auto`` -- and any pinned value too large to fire on a run this length --
+    resolves to roughly :data:`CHECKPOINTS_PER_RUN` stops. An explicit value
+    that does fire is honoured untouched.
+    """
+    configured = config_mod.get(cfg, f"sft.{name}", "auto")
+    derived = max(1, round(total_steps / CHECKPOINTS_PER_RUN)) if total_steps else 250
+    if configured in (None, "auto"):
+        return derived
+    configured = int(configured)
+    if total_steps and configured >= total_steps:
+        # print, not logging: unsloth and transformers reconfigure the logging
+        # stack while the model loads, and an operator-facing fact about how
+        # this run will behave cannot depend on surviving that. The dry-run
+        # report below prints for the same reason.
+        print(
+            f"NOTE sft.{name}={configured} would never fire in a "
+            f"{total_steps}-step run; using {derived} so the run evaluates and "
+            f"checkpoints about {CHECKPOINTS_PER_RUN} times"
+        )
+        return derived
+    return configured
+
+
+def build_sft_config(
+    cfg: dict,
+    output_dir: Path,
+    logging_dir: Path,
+    has_eval: bool,
+    train_rows: int = 0,
+):
     """Build the TRL 0.24.0 SFTConfig from the resolved ``sft`` block."""
 
     def s(key: str, default: Any = None) -> Any:
         return config_mod.get(cfg, f"sft.{key}", default)
+
+    total_steps = total_optimizer_steps(cfg, train_rows)
+    eval_every = resolve_cadence(cfg, "eval_steps", total_steps)
+    save_every = resolve_cadence(cfg, "save_steps", total_steps)
+    if total_steps:
+        print(
+            f"{total_steps} optimizer steps planned; evaluating every "
+            f"{eval_every} step(s) and saving every {save_every}"
+        )
 
     # Without an eval file there is nothing to evaluate against; asking the
     # Trainer for periodic eval would then crash mid-run.
@@ -506,9 +579,9 @@ def build_sft_config(cfg: dict, output_dir: Path, logging_dir: Path, has_eval: b
         gradient_checkpointing=bool(s("gradient_checkpointing", False)),
         logging_steps=int(s("logging_steps", 10)),
         eval_strategy=eval_strategy,
-        eval_steps=int(s("eval_steps", 250)),
+        eval_steps=eval_every,
         save_strategy=s("save_strategy", "steps"),
-        save_steps=int(s("save_steps", 250)),
+        save_steps=save_every,
         save_total_limit=int(s("save_total_limit", 3)),
         dataloader_num_workers=int(s("dataloader_num_workers", 4)),
         **length_grouping,
@@ -592,7 +665,13 @@ def main() -> None:
         run.create("tb", "checkpoints", "adapter")
         output_dir, logging_dir = run.checkpoints_dir, run.tb_dir
 
-    sft_args = build_sft_config(cfg, output_dir, logging_dir, eval_dataset is not None)
+    sft_args = build_sft_config(
+        cfg,
+        output_dir,
+        logging_dir,
+        eval_dataset is not None,
+        train_rows=len(train_dataset),
+    )
     trainer = SFTTrainer(
         model=model,
         args=sft_args,

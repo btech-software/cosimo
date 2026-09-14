@@ -223,6 +223,26 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
         ),
         # The 95% expected shortfall is computed; the 99% is not, and it is
         # not a rescaling of the 95% under any assumption this pack states.
+        # Two constants a risk committee states without being handed them: the
+        # regulatory multiplier that turns a 10-day 99% VaR into capital, and
+        # the Sharpe bands that say whether a book is paid for its risk. Both
+        # are named quantities of the discipline, not figures about this book.
+        conventions=[
+            {
+                "says": (
+                    "the Basel market-risk capital multiplier starts at 3 and "
+                    "rises toward 4 as backtesting exceptions accumulate"
+                ),
+                "numbers": [3.0, 4.0],
+            },
+            {
+                "says": (
+                    "on the Sharpe scale a diversified book targets about 1; "
+                    "0.5 is weak and 2 is exceptional"
+                ),
+                "numbers": [0.5, 1.0, 2.0],
+            },
+        ],
         abstention_question=(
             f"What is the 99% expected shortfall for '{book}' over the "
             f"{horizon}-day horizon, and how far does it sit above the 99% VaR?"

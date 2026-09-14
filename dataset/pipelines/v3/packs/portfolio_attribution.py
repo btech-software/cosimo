@@ -316,6 +316,19 @@ def _build(work_type: str, family: str, variant: int, rng: random.Random) -> Fac
         # Attribution is a decomposition of a period that has happened. How
         # much of it repeats is a claim about the next period, which this pack
         # forbids and cannot support.
+        # Grinold-Kahn's information-ratio bands: the standard by which an
+        # active return is judged good or merely positive. Without them an
+        # attribution row can decompose 367.3 bp and say nothing about whether
+        # that is a manager worth paying.
+        conventions=[
+            {
+                "says": (
+                    "an information ratio near 0.5 is good, 0.75 very good and "
+                    "1 exceptional over a full cycle"
+                ),
+                "numbers": [0.5, 0.75, 1.0],
+            }
+        ],
         abstention_question=(
             f"How much of {book}'s active return should we expect to repeat "
             f"next period, and what does that imply for the manager's fee?"

@@ -16,15 +16,21 @@ data:
   # alone -- the other seven record types have no final-answer value for the
   # grader to read, so they get test_frac 0 and never reach an eval slice.
   #
-  # The premise behind the exact number changed with v3. Under the v2 mix exam
-  # was ~30% of the corpus and 1.7% of it produced the ~650-item headline
-  # slice. v3 caps exam at 12-18% of the corpus (spec §6 axis 8) and drops the
-  # v1 mix, so the same fraction of a much smaller exam pool yields far fewer
-  # items. Left at 0.017 rather than guessed upward: the right value follows
-  # from the first real corpus size (PR6), and raising it now would trade
-  # training data for an interval nobody has measured. Revisit once the
-  # published row count is known.
-  test_frac: 0.017
+  # The premise behind the exact number changed with v3, and the row count it
+  # was waiting on is now known: the plan yields ~360 supervised exam rows, so
+  # 0.017 produced a SIX-item headline slice -- a Wilson interval of roughly
+  # +/-35 points, which is not a measurement, it is a coin.
+  #
+  # 0.15 gives ~54 items for ~2.5% of the training rows. Deliberately not the
+  # ~90 items a tighter interval would want, because exam accuracy is a
+  # *milestone this harness measures, not the objective it optimises for*
+  # (README, first paragraph). Paying a larger slice of a small corpus to
+  # narrow the error bar on the metric we are explicitly not optimising would
+  # be the wrong trade: the read that matters for a quant assistant is
+  # 09_assistant_eval's suites -- register, calibration, grounded citation,
+  # critique, agentic -- plus the unseen-family slice. Raise this only if the
+  # exam number becomes a decision input rather than a milestone.
+  test_frac: 0.15
 
   # Cap on the number of SFT training rows written to sft_train.jsonl.
   # null = use every train-split record. Set it to shorten an epoch without

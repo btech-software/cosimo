@@ -140,13 +140,22 @@ tools:
   # eventually ships comes from schema variety here, not from schema identity.
   enabled: true
 
-  # Reduced from 5000 now that v2 supplies 19,503 real agentic records. What
-  # those records do NOT teach is declining to call: every one of them calls a
-  # tool, and 18,912 of them offer a single schema. These synthetic rows are
-  # kept for the two things the corpus lacks -- the tools.no_call_rate group and
-  # 2-5 competing schemas per example -- not for volume.
-  train_records: 2000
-  val_records: 100
+  # Sized as a SHARE of the prepared corpus, not as a constant. The constant
+  # that used to sit here (2000) was chosen when v2 supplied 19,503 real
+  # agentic records; v3 supplies 360, and the constant did not move with it. On
+  # the v3 plan that put 2,000 synthetic rows beside 2,134 real ones -- 48% of
+  # the supervised signal drilling the *shape* of a tool call rather than
+  # teaching anything about finance, which is not what this corpus is for.
+  #
+  # What these rows are still for is narrow and real: the corpus's agentic rows
+  # all call a tool and mostly offer one schema, so they teach neither
+  # declining to call (tools.no_call_rate) nor reading a list of 2-5 competing
+  # schemas. 12% buys both without crowding out the subject matter. Raise it if
+  # a real tool surface ships and the app's own schemas need drilling; pin
+  # `train_records` to an integer to reproduce an older run exactly.
+  train_share: 0.12
+  train_records: auto
+  val_records: auto
 
   # Schemas presented per example, sampled inclusively. More than one is
   # essential: with a single schema the model learns "call the tool" rather than

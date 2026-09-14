@@ -49,6 +49,7 @@ from ..config import NUMBER_WHITELIST  # noqa: E402
 from ..teacher.prompts import KIND_SENTENCE_CAPS  # noqa: E402
 from ..teacher.prompts import points_for  # noqa: E402
 from ..teacher.prompts import word_budget  # noqa: E402
+from ..packs.base import convention_numbers  # noqa: E402
 from .contradictions import contradiction_violations  # noqa: E402
 from .invented_numbers import decimal_places  # noqa: E402
 from .invented_numbers import invented_numbers  # noqa: E402
@@ -198,6 +199,24 @@ ROUNDING_DRIFT_TAG = "rounding_drift: "
 #: without comment; it is a number no desk would publish, and one that tells a
 #: reader the count is known to a tenth of a share.
 _INTEGER_WITH_ZERO_TAIL = re.compile(r"(?<![\d.])(\d{1,3}(?:,\d{3})+|\d+)\.0+(?![\d])")
+
+
+def gradeable_numbers(pack: dict) -> list[float]:
+    """What an answer may quote: this scenario's figures *and* its conventions.
+
+    The two are different permissions and stay in different fields (see
+    ``FactPack.conventions``). ``canonical`` is absolute -- a figure about this
+    book comes from this book -- and this function does not loosen it by a
+    digit. What it adds is the named constants the work type declared in
+    advance, so a risk row may say "the Basel multiplier starts at 3" and a
+    valuation row may say "terminal growth above nominal GDP is not
+    sustainable", which is the difference between reporting a number and
+    judging it.
+
+    One function rather than three call sites each remembering to concatenate:
+    the render gate, the board and the slice audit all grade against this.
+    """
+    return sorted(set(canonical_numbers(pack)) | set(convention_numbers(pack)))
 
 
 def canonical_numbers(pack: dict) -> list[float]:
@@ -726,7 +745,7 @@ def gate_violations(pack: dict, text: str, kind: str) -> list[str]:
     # Answers are graded against `canonical`, not against the union: the union
     # necessarily holds the question's own roundings, and a gate that admits
     # both spellings of one quantity is not measuring the thing it names.
-    offenders = invented_numbers(text, canonical_numbers(pack), whitelist_for(pack))
+    offenders = invented_numbers(text, gradeable_numbers(pack), whitelist_for(pack))
     if offenders:
         violations.append(
             "invented numbers not in the fact pack: "

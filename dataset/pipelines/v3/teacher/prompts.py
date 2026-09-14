@@ -311,6 +311,31 @@ def points_for(pack: dict, kind: str) -> list[str]:
     return list(pack.get("must_mention") or [])
 
 
+def conventions_policy(pack: dict) -> str:
+    """The constants this work type may cite, and the invitation to use one.
+
+    This is the one place the brief asks for *judgement* rather than accuracy.
+    Everything else in the contract is a fence -- these numbers, this shape,
+    this length -- and a teacher obeying all of it produces a correct answer
+    that never says whether the figure is good. "0.43" is arithmetic; "0.43 is
+    weak against the 1.0 a diversified book targets" is the sentence a desk
+    actually wants, and it was unwritable while every number had to come from
+    the scenario.
+    """
+    declared = pack.get("conventions") or []
+    if not declared:
+        return ""
+    lines = "; ".join(str(entry.get("says", "")).strip() for entry in declared)
+    return (
+        "you may also cite these standards of the field, which are knowledge "
+        f"rather than facts of this scenario: {lines}. Where one of them bears "
+        "on your headline figure, place the figure against it in a clause -- "
+        "that is the difference between reporting a number and judging it. "
+        "They are the only numbers you may use that this scenario did not "
+        "produce, and they may never be restated as facts about this entity"
+    )
+
+
 def number_policy(pack: dict) -> str:
     """How figures are spelled, with this pack's own display forms quoted.
 
@@ -441,6 +466,7 @@ def render_brief(pack: dict, *, kind: str) -> list[dict]:
         "word_budget": f"{low}-{high} words",
         "points_policy": POINTS_POLICY,
         "number_policy": number_policy(pack),
+        "conventions_policy": conventions_policy(pack),
         "as_of": pack.get("as_of"),
     }
     user = (
