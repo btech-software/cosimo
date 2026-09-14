@@ -161,12 +161,38 @@ def _words(text: str) -> list[str]:
 _CLAUSE_BREAK = re.compile(r"[;:.!?,]")
 
 
+#: Quote marks, straight and curly. A model that writes `so "should we own it"
+#: is not yet answerable` is *quoting the question it was asked* in order to
+#: decline it -- found on the base model's own trap answer, which the gate then
+#: scored as making the call it had just refused to make.
+#: Double quotes only, straight and curly. An apostrophe is not a delimiter --
+#: including it made "can't" open a span that swallowed half a sentence, which
+#: is how the first version of this rule failed to fire on the case it was
+#: written for.
+_QUOTED = re.compile('["\u201c\u201d]([^"\u201c\u201d]{1,160})["\u201c\u201d]')
+
+
+def _inside_quotes(text: str, match: re.Match) -> bool:
+    """Does this match sit inside a quoted span?"""
+    return any(
+        quoted.start(1) <= match.start() and match.end() <= quoted.end(1)
+        for quoted in _QUOTED.finditer(text)
+    )
+
+
 def _negated(text: str, match: re.Match) -> bool:
     """Is this match a denial of the claim rather than the claim?"""
+    if _inside_quotes(text, match):
+        return True
     span = match.group(0).casefold()
     before = text[: match.start()].casefold()
     clause = _CLAUSE_BREAK.split(before)[-1]
     window = " ".join(clause.split()[-_NEGATION_WINDOW:])
+    # Deliberately only what comes *before*. A trailing negation usually
+    # confirms the claim rather than denying it -- "the risk is the schedule
+    # rather than the impact" asserts exactly what it appears to, and reading
+    # the "rather than" as a denial suppressed a true positive the moment it
+    # was tried.
     if any(phrase in span or phrase in window for phrase in _NEGATING_PHRASES):
         return True
     return bool(_NEGATORS & set(_words(span) + _words(window)))
@@ -295,6 +321,15 @@ _EV_AGAINST_PRICE = re.compile(
 #: confusion is the whole of "EV as price".
 _PRICE_KEYS = ("market_price", "share_price", "price_per_share", "last_price", "px")
 
+#: The bridge from an enterprise value to something a price can be compared
+#: with. Naming any of it is what separates "EV is not a share price, here is
+#: how you would get one" from "this EV looks cheap".
+_CONVERSION_CHAIN = re.compile(
+    r"\bper[- ]share\b|\bequity\s+value\b|\bnet\s+debt\b|\bshare\s+count\b"
+    r"|\bshares\s+outstanding\b|\bequity\s+bridge\b",
+    re.IGNORECASE,
+)
+
 
 def ev_as_price(pack: dict, text: str) -> str:
     """§B.4's valuation rule: no market price, no ownership call.
@@ -314,7 +349,14 @@ def ev_as_price(pack: dict, text: str) -> str:
     canonical = _canonical(pack)
     if any(any(key in name for key in _PRICE_KEYS) for name in canonical):
         return ""
-    if _asserted(text, _EV_AGAINST_PRICE):
+    # ...unless the answer does the conversion first. "EV -> equity -> per
+    # share -> compare with the price" is the correct chain, and an answer that
+    # spells it out is teaching the method rather than committing the error.
+    # Found on the base model's own output: it wrote "convert the EV into an
+    # implied per-share value, compare that to the market price" and closed
+    # "one EV number against an unknown market price isn't enough to say 'own
+    # it'" -- the right answer, flagged by a rule that read only the comparison.
+    if _asserted(text, _EV_AGAINST_PRICE) and not _CONVERSION_CHAIN.search(text):
         return (
             "ev_as_price: the answer proposes weighing the enterprise value "
             "against a market price or market capitalisation -- EV carries net "

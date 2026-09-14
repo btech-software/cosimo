@@ -45,6 +45,29 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
 #: regression fixture; `live_three_registers` is the before-picture.
 EXCLUDED_FILES = ("_rejected", "live_analysis", "live_three_registers")
 
+#: The one-row-per-record-type files `make_examples.py` writes. They are the
+#: *scripted* teacher -- prose assembled by the fixture harness to prove the
+#: schema -- and examples/v3/README.md says in as many words: "do not train on
+#: analysis.jsonl. That row is the scripted teacher, and it reads like one. It
+#: proves the schema and would poison the voice if it reached SFT."
+#:
+#: It does. A 40-step smoke that included them produced an adapter answering a
+#: VaR question with "Answering the risk.market.var_es question as of
+#: 2025-12-31, on the figures given and without any others" -- the harness's
+#: own opening line, reproduced verbatim, followed by fluent nonsense about
+#: drift being "drawn subtractively". Eight of that run's sixteen rows were
+#: these files.
+SCRIPTED_EXAMPLES = (
+    "analysis.jsonl",
+    "memo.jsonl",
+    "grounded.jsonl",
+    "critique.jsonl",
+    "abstention.jsonl",
+    "exam.jsonl",
+    "agentic.jsonl",
+    "implementation.jsonl",
+)
+
 
 def trap_coordinates(suite_path: str) -> set[tuple[str, int]]:
     """``(scenario_id, variant)`` for every pack the trap suite draws on."""
@@ -68,6 +91,7 @@ def collect(examples_dir: str, goldbar: str, traps: set) -> tuple[list, dict]:
         os.path.join(examples_dir, name)
         for name in os.listdir(examples_dir)
         if name.endswith(".jsonl")
+        and name not in SCRIPTED_EXAMPLES
         and not any(token in name for token in EXCLUDED_FILES)
     )
     # The gold bar is read only to *exclude* its ids: those rows are the
@@ -76,7 +100,7 @@ def collect(examples_dir: str, goldbar: str, traps: set) -> tuple[list, dict]:
     gold_ids: set[str] = set()
     if os.path.isfile(goldbar):
         with open(goldbar, encoding="utf8") as handle:
-            gold_ids = {json.loads(l)["id"] for l in handle if l.strip()}
+            gold_ids = {json.loads(line)["id"] for line in handle if line.strip()}
     for path in sources:
         with open(path, encoding="utf8") as handle:
             for line in handle:
