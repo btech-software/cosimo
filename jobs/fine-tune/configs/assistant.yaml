@@ -28,6 +28,23 @@ assistant:
     # would inherit the training corpus's own template bias, and these are
     # meant to be read.
     memo: suites/memo.jsonl
+    # The one suite that is NOT hand-written, and the exception is the point:
+    # `traps` is generated from the fact packs themselves
+    # (dataset/tools/trap_suite.py), so its figures are the corpus's own to the
+    # last decimal. Hand-typing "367.3 bp" beside a pack that says 367.4 would
+    # measure the typo.
+    #
+    # Every other suite asks a competent desk question that any capable model
+    # answers. These ask the four this corpus was built because the teacher got
+    # wrong: a 4.86% clip called a pacing problem, an effect named worth acting
+    # on out of pieces that do not reconcile, a negative drift read as a gain,
+    # and an enterprise value turned into an ownership call. A green board on
+    # generic prompts says nothing about any of them.
+    #
+    # Eval-only. Its four pack coordinates must stay out of training or the
+    # measurement is memorisation: two are the configured holdout families and
+    # two carry the gold bar, which `write.gold_bar_ids` keeps the renderer off.
+    traps: suites/traps.jsonl
     critique: suites/critique.jsonl
     grounded: suites/grounded.jsonl
 

@@ -1,0 +1,30 @@
+# The cheap experiment: a few hundred v3 student rows, one epoch, no DPO.
+#
+# Layered on top of configs/sft.yaml (`--config configs/sft_smoke.yaml`). It
+# exists so a smoke run is a *named* thing rather than a pile of --set flags
+# that nobody can reproduce, and so the row-count guard has a ceiling to
+# enforce: the whole point of this stage is to see the student fail on a
+# handful of rows before any teacher tokens are spent on more of them.
+#
+# What it deliberately does NOT change: learning rate, LoRA rank, batch shape.
+# A smoke that trains differently from the real run measures the smoke.
+sft:
+  run_name: sft_smoke
+
+  # The cap the reviewer asked for. 200 rows is enough for the optimizer to
+  # move and small enough that an epoch is minutes; the guard refuses anything
+  # larger rather than quietly running for hours.
+  max_train_rows: 300
+  min_train_rows: 8
+
+  # Cadence follows the step count (configs/sft.yaml), which on a run this
+  # short means evaluating every step or two -- which is what you want when
+  # the question is "did this move at all".
+  eval_steps: auto
+  save_steps: auto
+  save_total_limit: 2
+
+data:
+  # Belt and braces with the ceiling above: 01_prepare_data subsamples to this
+  # before the trainer ever sees the file, and the subsample is seeded.
+  max_train_records: 200

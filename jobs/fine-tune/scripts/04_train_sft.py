@@ -507,6 +507,35 @@ def resolve_cadence(cfg: dict, name: str, total_steps: int) -> int:
     return configured
 
 
+def guard_row_count(cfg: dict, rows: int) -> None:
+    """Refuse a training set outside the band this config declares.
+
+    The smoke path and the full path are the same script reading whatever
+    ``01_prepare_data`` last wrote, and they differ by two orders of magnitude.
+    Without a band, a smoke silently becomes a multi-hour run when someone
+    forgets `--config configs/sft_smoke.yaml`, and a "full" run silently
+    becomes eight rows when someone forgets to re-prepare -- and the second one
+    produces an adapter that looks like a bad model rather than like a mistake.
+
+    Null on either bound means "no opinion", which is what a full run wants.
+    """
+    low = config_mod.get(cfg, "sft.min_train_rows", 1)
+    high = config_mod.get(cfg, "sft.max_train_rows", None)
+    if low is not None and rows < int(low):
+        raise SystemExit(
+            f"training set is {rows} rows, under sft.min_train_rows={low}. "
+            "Re-run scripts/01_prepare_data.py, or lower the floor on purpose."
+        )
+    if high is not None and rows > int(high):
+        raise SystemExit(
+            f"training set is {rows} rows, over sft.max_train_rows={high}. "
+            "This looks like a full corpus reaching a smoke config: drop "
+            "--config configs/sft_smoke.yaml for the real run, or raise the "
+            "ceiling deliberately."
+        )
+    print(f"row-count guard: {rows} rows inside [{low}, {high if high else '-'}]")
+
+
 def build_sft_config(
     cfg: dict,
     output_dir: Path,
@@ -664,6 +693,8 @@ def main() -> None:
     else:
         run.create("tb", "checkpoints", "adapter")
         output_dir, logging_dir = run.checkpoints_dir, run.tb_dir
+
+    guard_row_count(cfg, len(train_dataset))
 
     sft_args = build_sft_config(
         cfg,
