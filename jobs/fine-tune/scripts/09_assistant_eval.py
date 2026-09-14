@@ -222,9 +222,34 @@ def run_prose_suite(
                 "exam_shape_markers": markers,
                 "abstention": assistant.is_abstention(text),
                 "unknown_terms": assistant.unknown_terms(text, vocabulary),
+                # Graded against the row's own figures PLUS the standards of
+                # the field it declares (`conventions`). The two are different
+                # permissions and the metric only means something when they are
+                # kept apart: a figure about the instrument must come from the
+                # prompt, while "a diversified book targets a Sharpe near 1" is
+                # knowledge, and an assistant that cannot say it is a
+                # calculator. Measured before this split: a correct Sharpe
+                # answer -- right arithmetic, right reading -- scored
+                # invented_numbers 1.000 for citing the 0.5/1/2 bands, so the
+                # headline number for the corpus's whole purpose was a false
+                # positive.
                 "invented_numbers": (
-                    assistant.invented_numbers(text, allowed, whitelist)
+                    assistant.invented_numbers(
+                        text,
+                        list(allowed) + list(row.get("conventions") or []),
+                        whitelist,
+                    )
                     if allowed
+                    else None
+                ),
+                # Reported, never scored: which declared standards the answer
+                # actually reached for. A quant assistant placing its figure
+                # against one is doing the job, so this is a feature counter
+                # and not a fault counter -- and keeping it visible is what
+                # stops the permission above from quietly becoming a hole.
+                "conventions_cited": (
+                    assistant.conventions_cited(text, row.get("conventions"))
+                    if row.get("conventions")
                     else None
                 ),
                 "must_mention_hit": hit,

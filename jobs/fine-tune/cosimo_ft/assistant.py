@@ -311,7 +311,29 @@ def _number_value(token: str) -> float | None:
         return None
 
 
-def _number_allowed(value: float, allowed: frozenset[float]) -> bool:
+def _decimals(token: str) -> int:
+    """Decimal places the token as *written* claims, the way a reader reads it."""
+    token = str(token).strip().lstrip("+-").replace(",", "")
+    return len(token.split(".", 1)[1]) if "." in token else 0
+
+
+def _number_allowed(value: float, allowed: frozenset[float], decimals: int = 0) -> bool:
+    """Is *value* one of the permitted figures, spelled the way a desk spells it?
+
+    Two paths, and the second is the one this was missing. The relative band
+    catches a figure written at full precision; the rounding path catches a
+    figure the answer *rounded for the reader* -- "about -2.2%" of a -2.24, or
+    "0.43" of a 0.433. A desk rounds when it speaks, and a metric that scores
+    the rounding as an invented number is measuring house style rather than
+    grounding: a live bond answer, correct on duration and convexity both, was
+    marked as inventing 2.2 and 2.3 for exactly this.
+
+    The rounding path is exact at the precision the token itself carries, so it
+    admits nothing a reader could tell apart from the permitted figure. It
+    mirrors `verification/invented_numbers.py` on the corpus side deliberately:
+    the generator and the evaluator disagreeing about what counts as the same
+    number is how a corpus ends up certified by a rule it was not written to.
+    """
     for scale in NUMBER_SCALE_FACTORS:
         scaled = value * scale
         for permitted in allowed:
@@ -321,7 +343,42 @@ def _number_allowed(value: float, allowed: frozenset[float]) -> bool:
                 continue
             if abs(scaled - permitted) <= NUMBER_REL_TOLERANCE * abs(permitted):
                 return True
+            if (
+                decimals >= 1
+                and abs(round(permitted / scale, decimals) - value) <= 1e-9
+            ):
+                return True
     return False
+
+
+def conventions_cited(text: str, conventions) -> list[str]:
+    """Which declared standards of the field this answer reached for.
+
+    A counter, not a gate. The suites declare `conventions` -- the Sharpe
+    bands, a Basel multiplier, long-run nominal GDP -- because an assistant
+    that never places its figure against one is a calculator; this reports how
+    often the model does it, so the permission granted in
+    `invented_numbers` stays visible rather than becoming an unexamined hole.
+    """
+    if not conventions:
+        return []
+    # Read with this module's own number tokenizer, so "cited" means the same
+    # thing here as "invented" does twenty lines down.
+    seen = {
+        value
+        for value in (
+            _number_value(token) for token in _NUMBER_TOKEN_RE.findall(text or "")
+        )
+        if value is not None
+    }
+    cited: list[str] = []
+    for number in conventions:
+        value = float(number)
+        if any(abs(value - found) <= 1e-9 for found in seen):
+            token = f"{value:g}"
+            if token not in cited:
+                cited.append(token)
+    return cited
 
 
 def invented_numbers(
@@ -360,7 +417,7 @@ def invented_numbers(
         if token in seen or token.strip(",") in passed:
             continue
         value = _number_value(token)
-        if value is None or not _number_allowed(value, permitted):
+        if value is None or not _number_allowed(value, permitted, _decimals(token)):
             offenders.append(token)
             seen.add(token)
     return offenders

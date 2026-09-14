@@ -105,8 +105,8 @@ from .verification.exam import (
 from .verification.contradictions import contradiction_violations
 from .verification.prose import (
     FINAL_ANSWER_TAG,
-    canonical_numbers,
     forbidden_hits,
+    gradeable_numbers,
     integer_format_offenders,
     malformed_prose,
     missing_mentions,
@@ -565,7 +565,7 @@ def _check_row(
     # than the generator did would certify rows the generator would have
     # repaired (amendment §D).
     for token in invented_numbers(
-        answer, canonical_numbers(pack_dict), whitelist_for(pack_dict)
+        answer, gradeable_numbers(pack_dict), whitelist_for(pack_dict)
     ):
         failures["invented numbers"].append(f"{token!r} is not in the fact pack")
     for drift in rounding_drift(pack_dict, answer):

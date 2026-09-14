@@ -50,7 +50,7 @@ from pipelines.v3.verification.contradictions import (  # noqa: E402
     tag_of,
 )
 from pipelines.v3.verification.prose import (  # noqa: E402
-    canonical_numbers,
+    gradeable_numbers,
     whitelist_for,
 )
 from pipelines.v3.verification.invented_numbers import invented_numbers  # noqa: E402
@@ -118,7 +118,7 @@ def audit(out_dir: str) -> list[str]:
             ungradeable += 1
             continue
         answer = str(record.get("answer") or "")
-        tokens = invented_numbers(answer, canonical_numbers(pack), whitelist_for(pack))
+        tokens = invented_numbers(answer, gradeable_numbers(pack), whitelist_for(pack))
         if tokens:
             offenders.append(f"{record.get('id', '?')}: {', '.join(tokens[:3])}")
         # §D: the claims the pack's own arithmetic refutes. Invisible to every

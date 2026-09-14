@@ -200,11 +200,17 @@ sft:
   # Periodic validation loss is the only in-training signal available (accuracy
   # needs generation, which happens in scripts/06_evaluate.py).
   eval_strategy: steps
-  eval_steps: 250
+  # `auto` derives the interval from the number of optimizer steps this run
+  # will actually take (~10 stops per run). The literal 250 that used to sit
+  # here never fired on the v3 corpus: 4,134 rows at an effective batch of 32
+  # is ~129 steps, so the run evaluated zero times and the eval-loss curve the
+  # data config describes did not exist. An explicit integer is still honoured
+  # when it would fire, and warned about when it would not.
+  eval_steps: auto
 
   # Checkpoint on the same cadence as eval so every eval point is recoverable.
   save_strategy: steps
-  save_steps: 250
+  save_steps: auto
 
   # Three checkpoints is ~3 x adapter size (small) plus optimizer state; enough
   # to roll back two evals without filling the disk.

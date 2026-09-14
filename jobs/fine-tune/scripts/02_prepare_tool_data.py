@@ -653,6 +653,80 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+#: How many synthetic rows to write per real corpus row when the config asks
+#: for a share rather than a count. 0.12 keeps the two things these rows exist
+#: for -- the no-call group and 2-5 competing schemas -- without letting format
+#: drills outweigh the corpus that carries the actual subject matter.
+DEFAULT_TRAIN_SHARE = 0.12
+
+#: Floor: below this the schema variety these rows are *for* stops being sampled.
+MIN_TRAIN_ROWS = 120
+
+
+def corpus_train_rows(out_dir) -> "int | None":
+    """How many real rows 01_prepare_data wrote, or None if it has not run."""
+    path = out_dir / "sft_train.jsonl"
+    if not path.exists():
+        return None
+    with path.open(encoding="utf8") as handle:
+        return sum(1 for line in handle if line.strip())
+
+
+def resolve_counts(cfg: dict, out_dir) -> "tuple[int, int]":
+    """``(train, val)`` synthetic row counts, proportional unless pinned.
+
+    A constant here was sized against a corpus that no longer exists. The
+    config comment still said so in as many words -- "reduced from 5000 now
+    that v2 supplies 19,503 real agentic records" -- and v3 supplies 360. On
+    the v3 plan that constant put 2,000 synthetic format drills beside 2,134
+    real rows: 48% of the supervised signal teaching the *shape* of a tool call
+    rather than anything about finance. Measured on a smoke run where the ratio
+    was more extreme, the model answered a four-option multiple-choice question
+    -- every figure it needed already in the prompt -- with a calculator tool
+    call, which is this corpus's own `no_call` lesson inverted.
+
+    So the count follows the corpus: ``tools.train_share`` of whatever
+    ``01_prepare_data`` actually wrote, floored at :data:`MIN_TRAIN_ROWS` so a
+    small tree still samples the schema variety. An explicit
+    ``tools.train_records`` integer still wins -- pinning it is how an older run
+    is reproduced -- and the resolved number is logged either way, with the
+    share of the supervised signal it will occupy, because that ratio is the
+    thing nobody was looking at.
+    """
+    pinned = config_mod.get(cfg, "tools.train_records", None)
+    val_pinned = config_mod.get(cfg, "tools.val_records", None)
+    corpus_rows = corpus_train_rows(out_dir)
+    if pinned not in (None, "auto"):
+        train_count = int(pinned)
+        basis = "pinned by tools.train_records"
+    elif corpus_rows is None:
+        train_count = MIN_TRAIN_ROWS
+        basis = "no sft_train.jsonl yet, so the floor stands (run 01 first)"
+    else:
+        share = float(config_mod.get(cfg, "tools.train_share", DEFAULT_TRAIN_SHARE))
+        train_count = max(MIN_TRAIN_ROWS, round(corpus_rows * share))
+        basis = "{:.0%} of {} corpus rows".format(share, corpus_rows)
+    if val_pinned not in (None, "auto"):
+        val_count = int(val_pinned)
+    else:
+        val_count = max(20, round(train_count * 0.05))
+    occupies = (
+        "{:.0%} of the supervised signal".format(
+            train_count / (corpus_rows + train_count)
+        )
+        if corpus_rows
+        else "an unknown share of the supervised signal"
+    )
+    logging.getLogger("prepare_tool_data").info(
+        "synthetic tool rows: %d train / %d val (%s); they will be %s",
+        train_count,
+        val_count,
+        basis,
+        occupies,
+    )
+    return train_count, val_count
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -691,8 +765,7 @@ def main() -> None:
             "the vendor template, which drops tool schemas entirely."
         )
 
-    train_count = int(config_mod.get(cfg, "tools.train_records", 5000))
-    val_count = int(config_mod.get(cfg, "tools.val_records", 100))
+    train_count, val_count = resolve_counts(cfg, out_dir)
 
     # Distinct seeds so no validation conversation is a training conversation.
     train_rows = build_rows(cfg, tokenizer, train_count, seed, "tool-train")
