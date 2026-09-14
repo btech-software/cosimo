@@ -134,6 +134,28 @@ def test_a_denial_in_the_previous_clause_does_not_excuse_the_next():
     )
 
 
+def test_a_quoted_question_is_not_the_answer_making_the_call():
+    """Found on the base model's own trap answer, which the gate scored as
+    making the call it had just refused to make.
+
+    The model wrote: *without that bridge you can't compare to a share price,
+    so "should we own it" is not yet answerable from the single figure* -- the
+    §B.4 discipline, unprompted and correct. It quotes the question in order to
+    decline it, and a gate that reads a quoted question as a claim will flag
+    every careful refusal in the corpus.
+    """
+    pack = _pack(DCF)
+    refusal = (
+        "EV is the enterprise value; to get an equity value you still need to "
+        "subtract net debt and divide by diluted shares. Without that bridge "
+        'you cannot compare to a share price, so "should we own it" is not yet '
+        "answerable from the single figure."
+    )
+    assert contradiction_violations(pack, refusal) == []
+    # The same words unquoted, as the model's own view, still fire.
+    assert _tags(pack, "We should own it on this EV.") == ["ev_as_price"]
+
+
 def test_a_pack_at_the_cap_is_allowed_the_claim():
     """The rule is the inequality, not the sentence."""
     pack = _pack(TCA)

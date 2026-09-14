@@ -28,6 +28,23 @@ assistant:
     # would inherit the training corpus's own template bias, and these are
     # meant to be read.
     memo: suites/memo.jsonl
+    # The one suite that is NOT hand-written, and the exception is the point:
+    # `traps` is generated from the fact packs themselves
+    # (dataset/tools/trap_suite.py), so its figures are the corpus's own to the
+    # last decimal. Hand-typing "367.3 bp" beside a pack that says 367.4 would
+    # measure the typo.
+    #
+    # Every other suite asks a competent desk question that any capable model
+    # answers. These ask the four this corpus was built because the teacher got
+    # wrong: a 4.86% clip called a pacing problem, an effect named worth acting
+    # on out of pieces that do not reconcile, a negative drift read as a gain,
+    # and an enterprise value turned into an ownership call. A green board on
+    # generic prompts says nothing about any of them.
+    #
+    # Eval-only. Its four pack coordinates must stay out of training or the
+    # measurement is memorisation: two are the configured holdout families and
+    # two carry the gold bar, which `write.gold_bar_ids` keeps the renderer off.
+    traps: suites/traps.jsonl
     critique: suites/critique.jsonl
     grounded: suites/grounded.jsonl
 
@@ -46,7 +63,26 @@ assistant:
   # Generous, and deliberately not the exam budget. The question under test is
   # whether the model still writes at length when the task calls for it, so the
   # cap must not be the thing that stops it.
-  max_new_tokens: 2048
+  # 6144, not 2048, and the reason is a measurement that turned out to be
+  # measuring itself. Qwen3.8 thinks by default and nothing in this harness
+  # suppresses it (configs/chat_template.jinja passes <think> through as
+  # content, deliberately). At 2048, seven of eight trap prompts hit the
+  # ceiling and were cut off mid-sentence -- two never closed their <think>
+  # block -- so every number the base row reported (invented_numbers, register,
+  # unknown_terms, mean_tokens) was computed over truncated *reasoning* rather
+  # than over an answer. The one prompt that finished inside the budget is the
+  # only one whose score meant anything.
+  #
+  # probe_teacher.py measured this model's think-on appetite at 3,081-3,736
+  # completion tokens on comparable briefs; 6144 clears that with room for the
+  # answer that follows it. It costs eval wall clock and buys the difference
+  # between a metric and a coin.
+  #
+  # A tuned adapter should need far less: no supervised target in this corpus
+  # carries a think block, so "the adapter answers in 120 words where the base
+  # spends 1,900 on reasoning" is a delta this ceiling now lets you see rather
+  # than clipping into a tie.
+  max_new_tokens: 6144
 
   # Greedy: a base-vs-tuned behavioural delta must not be sampling noise.
   temperature: 0.0

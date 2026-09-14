@@ -156,15 +156,35 @@ sft:
   # fit for that than a deprecated argument that still works.
   warmup_ratio: 0.03
 
-  # One epoch over ~128k rows (~126k corpus + 2k tool rows). The dataset is
-  # synthetic and generated from 299 stems; a second epoch memorises stem
-  # wording instead of teaching method. This is ~3,940 optimizer steps at
-  # effective batch 32, against 2,147 on the v1-only corpus -- roughly 12 h.
+  # One epoch. The v2-era numbers that used to be quoted here -- "~128k rows,
+  # ~3,940 optimizer steps, roughly 12 h" -- described a corpus that no longer
+  # exists, and they sat a few lines from the cadence fix that was derived from
+  # the real one. v3 plans ~2,200 supervised rows; with the tool rows now sized
+  # as a share of them (configs/base.yaml) an epoch is ~2,400 rows, ~74
+  # optimizer steps at effective batch 32, under two hours.
+  #
+  # The reason for one epoch is unchanged and is not about size: the corpus is
+  # synthetic and narrow -- v3 ships ten scenario families, and at the time of
+  # writing the committed student rows sit on eight *pack coordinates* -- so a
+  # second pass memorises scenarios rather than teaching method. That risk went
+  # up, not down, when the corpus got smaller.
   num_train_epochs: 1
 
   # -1 = run the full epoch. Set to a small positive number (e.g. --set
-  # sft.max_steps=20) for a smoke run that actually touches the optimizer.
+  # sft.max_steps=40) for a smoke run that actually touches the optimizer.
   max_steps: -1
+
+  # Refuse to train on a row count outside this band. Null on either side means
+  # "no opinion", which is what a full run wants.
+  #
+  # It exists because the smoke path and the full path are one script reading
+  # whatever `01_prepare_data` last wrote, and those two runs differ by two
+  # orders of magnitude. A smoke that silently trained on a full corpus would
+  # burn hours; a "full" run that silently trained on the 8 rows left over from
+  # a smoke would produce an adapter nobody could tell apart from a broken one.
+  # configs/sft_smoke.yaml sets the ceiling; nothing sets the floor but zero.
+  min_train_rows: 1
+  max_train_rows: null
 
   # Mild decoupled weight decay on the adapter matrices only; keeps the update
   # norm from drifting over ~4k steps.

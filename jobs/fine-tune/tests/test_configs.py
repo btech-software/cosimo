@@ -37,6 +37,9 @@ def test_every_config_file_is_a_yaml_mapping():
         "dpo.yaml",
         "orpo.yaml",
         "assistant.yaml",
+        # A named smoke overlay, so "run the cheap experiment" is reproducible
+        # rather than a pile of --set flags in somebody's shell history.
+        "sft_smoke.yaml",
     }
     for path in files:
         loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
