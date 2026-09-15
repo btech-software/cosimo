@@ -28,3 +28,36 @@ data:
   # Belt and braces with the ceiling above: 01_prepare_data subsamples to this
   # before the trainer ever sees the file, and the subsample is seeded.
   max_train_records: 200
+
+  # 0.01 (configs/data.yaml) is a fraction sized for the full corpus. On a
+  # smoke-sized pool it rounds to zero rows and `01_prepare_data` refuses --
+  # "the 'val' split is empty for a pool of N records" -- so the smoke needs
+  # its own fraction rather than a --set at the call site. 0.1 of a ~50-row
+  # train pool is a handful of rows: enough for the eval cadence above to have
+  # something to score, and the point of this stage is the loss curve moving at
+  # all, not a tight validation estimate.
+  val_frac: 0.1
+
+dataset:
+  # No DPO in this stage, and `configs/base.yaml` declares `preference_config:
+  # preference` for the full run -- which makes `01_prepare_data` treat empty
+  # pair files as *lost* pairs rather than absent ones, and fail. A v3 tree that
+  # has not reached the `prefer` stage has nothing to lose, so the smoke says so
+  # explicitly instead of being read as a broken preference run.
+  preference_config: null
+
+tools:
+  # Off for the smoke, and this is a ratio decision rather than a view about
+  # tool-calling. `02_prepare_tool_data.py` floors its synthetic rows at
+  # MIN_TRAIN_ROWS = 120 so that a small tree still samples schema variety; but
+  # against a ~50-row corpus that floor *is* the corpus -- measured at 72% of
+  # the supervised signal, which is the same crowding-out its own docstring
+  # records from the 2000-row constant era (48%, and a model that answered a
+  # multiple-choice question with a calculator call).
+  #
+  # The suites this stage is judged on are prose: `traps.jsonl` is TCA
+  # shortfall and Brinson reconciliation, and contains no tool call at all. So
+  # the drills cannot show up in the result, only in what they displaced, and a
+  # flat trap score would be unattributable. Turn this back on when the mix is
+  # large enough that 12% of it is 12% of it.
+  enabled: false

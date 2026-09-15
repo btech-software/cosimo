@@ -12,3 +12,6 @@ runs/
 .cache/
 __pycache__/
 .pytest_cache/
+
+# unsloth writes compiled kernels here on the GPU box; generated, not source.
+unsloth_compiled_cache/
