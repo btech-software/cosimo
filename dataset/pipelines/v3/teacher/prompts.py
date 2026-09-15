@@ -24,11 +24,11 @@ from .. import config
 #: before asked for a junior-desk register *and* the voice of the head of quant
 #: research, and then, in one sentence, for the mechanism, the binding
 #: constraint, the hidden assumption, what would move the conclusion and the
-#: call -- on every row of every kind. That list is what produced
-#: ``live_three_registers.jsonl``: five beats, five paragraphs, the same first
-#: sentence for ``analysis`` and ``grounded``, and a 288-word desk note that
-#: said the schedule both was and was not the risk. It was the exam liturgy
-#: V3.1 deleted ``FINAL ANSWER:`` to escape, grown back in prose.
+#: call -- on every row of every kind. What that list produced, measured on the
+#: capture that prompted the rewrite: five beats and five paragraphs per row,
+#: the same first sentence for ``analysis`` and ``grounded``, and a 288-word
+#: desk note that said the schedule both was and was not the risk. It was the
+#: exam liturgy V3.1 deleted ``FINAL ANSWER:`` to escape, grown back in prose.
 #:
 #: What replaces it is the part that is true of every row -- the facts are the
 #: pack's, the entities are the pack's, an unanswerable brief is an abstention,
