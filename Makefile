@@ -31,7 +31,15 @@ test: test_unit test_integration
 #   make v3-render HOLDOUT=1                         # the eval tree (§E)
 #   make v3-verify QUICK=1 OUT=/tmp/corpus           # a board over a scratch tree
 #
-V3 = uv run --group corpus python -m dataset.pipelines.v3.cli
+# The teacher endpoint lives in `.env`, and nothing was reading it: `make
+# v3-render LIVE=1` died on "TEACHER_BASE_URL, TEACHER_API_KEY not set" while
+# `dataset_build.sh` worked, because the script exports them itself. uv reads
+# the file properly -- dotenv quoting stripped, and an already-exported
+# variable still wins, so `TEACHER_BASE_URL=... make v3-render` overrides it.
+# Conditional on the file existing: uv *errors* on a missing --env-file, and
+# .env is developer-local (v3-smoke is the CI gate and runs without one).
+V3_ENV = $(if $(wildcard .env),--env-file .env)
+V3 = uv run $(V3_ENV) --group corpus python -m dataset.pipelines.v3.cli
 V3_TYPES = $(if $(TYPES),--types $(TYPES))
 V3_LIMIT = $(if $(LIMIT),--limit $(LIMIT))
 V3_WORK  = $(if $(WORK),--work-type $(WORK))
@@ -65,7 +73,7 @@ v3-publish:
 # read off the shards rather than off a remembered run. `dataset_build.sh full`
 # refuses on this; run it yourself before raising LIMIT.
 v3-slice-audit:
-	uv run --group corpus python dataset/tools/slice_audit.py $(V3_OUT)
+	uv run $(V3_ENV) --group corpus python dataset/tools/slice_audit.py $(V3_OUT)
 
 v3-test:
 	uv run --group test pytest dataset/tests/v3 jobs/fine-tune/tests -q
