@@ -1,6 +1,34 @@
-# examples/v3
+# Examples — one real row per record type
 
-Two kinds of file -- generated and captured -- and the difference matters.
+Every `<record_type>.jsonl` here is **a row a live teacher actually wrote**,
+lifted from a rendered corpus by `make_examples.py`, except where no live
+render has produced that type yet:
+
+| file | provenance |
+| --- | --- |
+| `analysis`, `grounded`, `memo`, `critique`, `abstention` | live (`deepseek-v4-flash-0731`, think off) |
+| `agentic`, `implementation` | live (same teacher, reasoning lane, think on) |
+| `exam` | deterministic — the exam renderer builds it from the pack, so there is no teacher to be live |
+
+Seven of the eight are rows a teacher actually wrote; the eighth has no teacher
+by construction. They are drawn from seven different pack coordinates across
+five work types, because eight examples of one computer would show the schema
+and hide the range.
+
+**This changed because the old arrangement caused real damage.** These files
+used to be rendered through the real renderers with a *scripted* teacher whose
+prose came from the fixture harness. The README warned "do not train on
+analysis.jsonl… it would poison the voice if it reached SFT" — and when a smoke
+corpus swept this directory up, it did: the adapter answered a VaR question
+with the harness's own opening line, `"Answering the risk.market.var_es
+question as of 2025-12-31, on the figures given and without any others"`,
+followed by fluent nonsense. `make_examples.py` now prefers a real row and says
+which is which; `dataset/tools/smoke_corpus.py` excludes this directory from
+training by name regardless.
+
+Captures that are no longer examples of anything live in `_superseded/`, with
+their own README explaining why each is kept. `_rejected_v3_2.jsonl` stays here
+because it is the live capture's own regression fixture.
 
 ## `<record_type>.jsonl` — generated, one row each
 

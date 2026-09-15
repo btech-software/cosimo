@@ -44,3 +44,11 @@ os.environ.pop("COSIMO_V3_MAX_TOKENS", None)
 # this, being per-test), and every other test renders the plan it declares.
 os.environ.setdefault("COSIMO_V3_GOLDBAR", os.path.join(_HERE, "_no_gold_bar.jsonl"))
 os.environ["COSIMO_V3_GOLDBAR"] = os.path.join(_HERE, "_no_gold_bar.jsonl")
+
+# The eval-reserved coordinates are a curated artefact like the gold bar, and
+# the renderer skips whole packs it names -- so a suite that read the committed
+# file would silently stop rendering the coordinates its fixtures count on, the
+# hour somebody reserved a pack. Tests that are *about* the reservation set the
+# variable themselves.
+os.environ["COSIMO_V3_RESERVED_COORDS"] = os.path.join(_HERE, "_no_reserved.json")
+

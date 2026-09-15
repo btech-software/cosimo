@@ -333,6 +333,11 @@ def cmd_render(args) -> int:
                 if report.get("gold_barred")
                 else ""
             )
+            + (
+                f", {report['reserved_for_eval']} reserved for eval"
+                if report.get("reserved_for_eval")
+                else ""
+            )
             + ") "
             f"-> {out_dir}/{bucket}" + (f"  [+{logs} teacher logs]" if logs else "")
         )

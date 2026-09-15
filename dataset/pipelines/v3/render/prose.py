@@ -353,12 +353,18 @@ def run_render_stage(
     # axis 13 calls that a leak of the held-out set into training. Read once
     # per stage rather than per job -- it is one small file.
     gold_barred = write.gold_bar_ids()
+    # Coordinates an evaluation asks about. Broader than the gold bar by
+    # design: the bar holds individual rows, this holds whole packs, and a
+    # single row rendered here would put the trap suite's own figures into
+    # training.
+    reserved = write.reserved_coordinates()
 
     report = {
         "jobs_seen": len(selected),
         "rendered": 0,
         "existing": 0,
         "gold_barred": 0,
+        "reserved_for_eval": 0,
         "dead_lettered": 0,
         "skipped_by_pack_gate": [],
         "missing_packs": [],
@@ -381,6 +387,9 @@ def run_render_stage(
                 known[kind] = write.existing_ids(
                     write.path_for(shard, kind, out_dir)
                 ) | write.existing_ids(write.path_for("dead_letter", kind, out_dir))
+            if (job.work_type, job.family, job.variant) in reserved:
+                report["reserved_for_eval"] += 1
+                continue
             if rid in gold_barred:
                 # Counted apart from `existing`, because the two are different
                 # events: one says "already generated", the other says "never

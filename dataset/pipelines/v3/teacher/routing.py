@@ -182,7 +182,7 @@ def note_truncation(lane: str, budget: int) -> int:
     costs one row's worth of probing and one that costs all of them.
     """
     grown = int(budget * config.TRUNCATION_GROWTH)
-    ceiling = config.MAX_TOKENS_THINK_ON * config.MAX_TOKENS_TRUNCATION_CEILING
+    ceiling = config.MAX_TOKENS_TRUNCATION_CEILING_TOKENS
     floor = min(max(_OBSERVED_FLOOR.get(lane, 0), grown), ceiling)
     _OBSERVED_FLOOR[lane] = floor
     return floor
@@ -204,7 +204,7 @@ def budget_for_attempt(route_: Route, *, truncations: int) -> int:
     """
     base = max(route_.max_tokens, observed_floor(route_.lane))
     grown = int(base * (config.TRUNCATION_GROWTH**truncations))
-    ceiling = config.MAX_TOKENS_THINK_ON * config.MAX_TOKENS_TRUNCATION_CEILING
+    ceiling = config.MAX_TOKENS_TRUNCATION_CEILING_TOKENS
     return min(grown, ceiling)
 
 

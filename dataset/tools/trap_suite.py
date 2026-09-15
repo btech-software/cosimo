@@ -187,6 +187,39 @@ def build() -> list[dict]:
     return rows
 
 
+RESERVED = os.path.join(_DATASET, "eval", "reserved_coordinates.json")
+
+
+def write_reserved() -> str:
+    """Declare the trap packs off-limits to generation, for the renderer.
+
+    One author for the reservation: the suite that asks the questions is the
+    thing that knows which packs must stay out of training.
+    """
+    payload = {
+        "why": (
+            "Packs the trap suite (jobs/fine-tune/suites/traps.jsonl) asks "
+            "questions about. Rendering any record type on these coordinates "
+            "puts the evaluation's own figures into training, which turns a "
+            "generalisation test into a recall test."
+        ),
+        "reserved": [
+            {
+                "work_type": work_type,
+                "family": family,
+                "variant": variant,
+                "suite": "traps",
+            }
+            for (work_type, family, variant) in sorted(TRAPS)
+        ],
+    }
+    os.makedirs(os.path.dirname(RESERVED), exist_ok=True)
+    with open(RESERVED, "w", encoding="utf8") as handle:
+        json.dump(payload, handle, indent=1, sort_keys=True)
+        handle.write("\n")
+    return RESERVED
+
+
 def main() -> int:
     rows = build()
     path = os.path.abspath(OUT)
@@ -194,6 +227,7 @@ def main() -> int:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
     print(f"wrote {len(rows)} trap prompts to {path}")
+    print(f"reserved {len(TRAPS)} coordinates in {write_reserved()}")
     for row in rows:
         print(f"  {row['id']:24s} {row['scenario_id']}")
     return 0

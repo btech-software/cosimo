@@ -32,7 +32,9 @@ for _p in (_HERE, os.path.join(_HERE, "fixtures")):
 from pipelines.v3 import config, row as rowlib  # noqa: E402
 from pipelines.v3.verify_v3 import ROW_REQUIRED  # noqa: E402
 
-CAPTURE = os.path.join(_DATASET, "examples", "v3", "live_three_registers.jsonl")
+CAPTURE = os.path.join(
+    _DATASET, "examples", "v3", "_superseded", "live_three_registers.jsonl"
+)
 
 
 def _rows() -> list[dict]:

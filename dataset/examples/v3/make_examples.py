@@ -117,8 +117,75 @@ def _write(kind: str, row: dict, log: dict | None) -> None:
             handle.write("\n")
 
 
+#: Where to look for *real* rows before falling back to the scripted teacher.
+#: A rendered corpus root -- `COSIMO_V3_OUT`, or the repo's default shard tree.
+def corpus_root() -> str:
+    return os.environ.get("COSIMO_V3_OUT") or os.path.join(
+        _DATASET, "shards", "v3"
+    )
+
+
+def real_rows(root: str) -> dict:
+    """``record_type -> [row]`` from a rendered corpus, newest render first.
+
+    Examples exist to show a reader what a row looks like. For most of this
+    project's life they showed what the *fixture harness* looks like: the
+    renderers were real but the teacher was `Scripted`, answering with prose
+    assembled by `make_prose_fixture.compliant_text`. That was defensible while
+    no live corpus existed and indefensible afterwards -- examples/v3/README.md
+    warned "do not train on analysis.jsonl… it would poison the voice if it
+    reached SFT", and when a smoke corpus swept this directory up, it did
+    exactly that: the adapter answered a VaR question with the harness's own
+    opening line.
+
+    So a real row wins whenever one exists. The scripted path stays for the
+    record types no live render has produced yet, and the run says which is
+    which rather than leaving a reader to guess.
+    """
+    out: dict[str, list] = {}
+    sft = os.path.join(root, "sft")
+    if not os.path.isdir(sft):
+        return out
+    for name in sorted(os.listdir(sft)):
+        if not name.endswith(".jsonl"):
+            continue
+        kind = name[: -len(".jsonl")]
+        rows = []
+        with open(os.path.join(sft, name), encoding="utf8") as handle:
+            for line in handle:
+                if line.strip():
+                    rows.append(json.loads(line))
+        if rows:
+            out[kind] = sorted(rows, key=lambda r: r["id"])
+    return out
+
+
+def pick_for_variety(available: dict) -> dict:
+    """One row per record type, spread across work types where it can be.
+
+    Eight examples of one computer would show the schema and hide the range,
+    and the range is half of what an example is for -- the same reason
+    :data:`COORDS` spreads its coordinates by hand.
+    """
+    chosen: dict[str, dict] = {}
+    used: set[str] = set()
+    for kind in sorted(available):
+        rows = available[kind]
+        fresh = [r for r in rows if r["work_type"] not in used] or rows
+        chosen[kind] = fresh[0]
+        used.add(fresh[0]["work_type"])
+    return chosen
+
+
 def main() -> int:
+    available = real_rows(corpus_root())
+    live = pick_for_variety(available)
+    for kind, row in sorted(live.items()):
+        _write(kind, row, None)
+        print(f"  ^ real row from {corpus_root()}/sft/{kind}.jsonl")
     for kind, (work_type, family, variant) in COORDS.items():
+        if kind in live:
+            continue
         pack_line = pack_record(work_type, family, variant)
         pack = rowlib.strip_envelope(pack_line)
         if kind in BRIEF_KINDS:

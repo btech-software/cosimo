@@ -40,9 +40,10 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
         sys.path.insert(0, _p)
 
 #: Files under examples/ that are not training material, whatever they contain.
-#: `live_analysis` is the v3.1 capture -- it predates the amendment's briefs and
-#: would teach the long-essay style the whole rewrite removed; `_rejected` is a
-#: regression fixture; `live_three_registers` is the before-picture.
+#: The superseded captures now live in `examples/v3/_superseded/`, which this
+#: walk never descends into, so the only name left to exclude is the rejected
+#: row -- kept beside the live capture because it is that capture's own
+#: regression fixture.
 EXCLUDED_FILES = ("_rejected", "live_analysis", "live_three_registers")
 
 #: The one-row-per-record-type files `make_examples.py` writes. They are the
