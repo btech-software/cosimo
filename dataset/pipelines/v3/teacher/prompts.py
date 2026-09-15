@@ -135,7 +135,16 @@ _KIND_SHAPE = {
         "answer the question and stop. In this order: (1) the first sentence "
         "gives your reading of the situation and the number that forces it, in "
         "one breath -- a judgement with a figure in it, never the quantity's "
-        "name restated; (2) one sentence on the "
+        "name restated. Test it before you write the rest: if your opening "
+        "sentence is one a plain citation of these figures could also have "
+        "opened with -- 'the median of X supports Y', 'the shortfall is Z bp' "
+        "-- it is the wrong sentence, because it reports rather than reads. "
+        "'28.16 bp is an impact bill, not a pacing problem' is an opening; "
+        "'implementation shortfall is 28.16 bp' is not. The test is on the "
+        "opening *clause*, not the sentence: quoting the figure and then "
+        "rescuing it with 'but' still opens on the citation, and the reading "
+        "you reached for after the comma was the sentence you should have "
+        "started with; (2) one sentence on the "
         "mechanism that produces that number, using a figure from the pack; "
         "(3) one constraint or assumption that would change it; (4) a call "
         "consistent with (1)-(3) -- if they conflict, say so and prefer the "
@@ -243,7 +252,10 @@ _WORK_TYPE_RULES = {
     "valuation.equity.multiples": (
         "Enterprise value is not a share price. If the price or the share "
         "count is missing, the call is that there is no ownership call -- not "
-        "that the name is worth owning near this EV."
+        "that the name is worth owning near this EV. The peer *spread* is the "
+        "finding, not the median: a median multiple is a point estimate, and "
+        "where the peers disagree it carries a range rather than a number. "
+        "Say what the dispersion does to the read before you quote the point."
     ),
 }
 

@@ -205,6 +205,31 @@ def test_the_profile_separates_prose_and_does_not_separate_a_voice_from_itself()
     assert profile_distance(near, register_profile([TERSE] * 8)) == 0.0
 
 
+def test_constraint_vocabulary_separates_two_voices_of_the_same_shape():
+    """Why the profile has a fourth axis.
+
+    Sentence length, headings and calls all measure *shape*, and a live slice
+    made the gap that leaves concrete: desk_chat and risk_committee both write
+    flat prose without headings, and a committee that constrains rather than
+    directs trips no call terms either -- 16 vs 21 words a sentence was the
+    whole of the difference, landing on 0.15, the separation floor, for two
+    passages no reader would confuse.
+
+    These two say the same thing at the same length. Only one of them names
+    what it is constraining, which is the thing the register gate already
+    requires of risk_committee -- so the profile measures the contract rather
+    than three proxies that miss it.
+    """
+    desk = "Cost is 12 bp against arrival. Work it patiently through the close."
+    committee = "Cost is 12 bp against arrival. That sits inside the horizon limit."
+
+    shape_only = {"n": 8, "sentence_len": 11.0, "heading_rate": 0.0, "call_rate": 0.0}
+    assert profile_distance(shape_only, shape_only) == 0.0
+
+    apart = profile_distance(register_profile([desk] * 8), register_profile([committee] * 8))
+    assert apart >= REGISTER_MIN_SEPARATION
+
+
 # --------------------------------------------------------------------------
 # the root cause the axes exist to watch: scenario diversity
 # --------------------------------------------------------------------------
