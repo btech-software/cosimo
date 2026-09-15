@@ -496,6 +496,7 @@ def run_agentic_stage(
         "jobs_seen": len(selected),
         "rendered": 0,
         "existing": 0,
+        "reserved_for_eval": 0,
         "dead_lettered": 0,
         "skipped_by_pack_gate": [],
         "missing_packs": [],
@@ -509,6 +510,14 @@ def run_agentic_stage(
     rows: list[dict] = []
     deads: list[dict] = []
     seen_ids: set[str] = set()
+    # Coordinates an evaluation asks about. The gold bar says "do not
+    # regenerate this row"; this says "do not generate *any* row on this
+    # pack", because the trap suite interrogates the whole scenario -- so a
+    # row rendered here would put the evaluation's own figures into training
+    # and a recall result would read as generalisation. Unconditional in the
+    # shard: the suite asks its questions straight off the fact pack, so the
+    # holdout tree has no more use for these than the train tree does.
+    reserved = write.reserved_coordinates()
     known = write.existing_ids(
         write.path_for(shard, KIND, out_dir)
     ) | write.existing_ids(write.path_for("dead_letter", KIND, out_dir))
@@ -517,6 +526,9 @@ def run_agentic_stage(
         if rid in seen_ids:
             continue
         seen_ids.add(rid)
+        if (job.work_type, job.family, job.variant) in reserved:
+            report["reserved_for_eval"] += 1
+            continue
         if rid in known:
             report["existing"] += 1
             report["by_kind"].setdefault(KIND, {"rendered": 0, "existing": 0})[

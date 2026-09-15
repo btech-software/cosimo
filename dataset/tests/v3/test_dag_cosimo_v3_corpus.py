@@ -54,7 +54,12 @@ def _makefile_recipes() -> dict[str, str]:
         "v3-publish",
     ):
         printed = subprocess.run(
-            ["make", "-s", "-n", target],
+            # ``V3_ENV=`` empties the dotenv shim the Makefile adds when a
+            # developer-local ``.env`` exists. That flag is a convenience for
+            # the human at the terminal, not part of what the DAG schedules --
+            # and reading it off the file system would make this test pass in
+            # CI and fail on any box that has one.
+            ["make", "-s", "-n", target, "V3_ENV="],
             cwd=_REPO,
             capture_output=True,
             text=True,

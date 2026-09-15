@@ -180,6 +180,14 @@ AXES = (
     # of the *slice*, so both are measured after the rows are read.
     (15, "corpus near-dup"),
     (16, "register separation"),
+    # The fence the renderers keep, read back off the shards. Four lanes render
+    # rows and for a long time only ``prose`` consulted the reservation, so a
+    # trap pack could reach a training shard through ``exam``, ``agentic`` or
+    # ``implementation`` while every other axis stayed green -- the board
+    # cannot certify a split it never measures. Cheap (a set membership per
+    # row), so it runs under ``--quick`` too: it is an integrity gate, not a
+    # measurement, and a corpus that fails it must not train.
+    (17, "eval-reserved coordinates"),
 )
 
 #: The agentic record type, named once: the board branches on it, the
@@ -727,6 +735,40 @@ def _measure_shares(axes_report: dict, rows: list[dict]) -> None:
         )
 
 
+def _measure_reserved(axes_report: dict, rows: list[dict], reserved) -> None:
+    """Axis 17: no training row sits on a coordinate an evaluation asks about.
+
+    The renderers already refuse these (``write.reserved_coordinates`` is read
+    by every lane), so a finding here means either a shard predating the guard
+    or a lane that grew back without it. Measured over the *training* rows
+    only: ``all_rows`` excludes the eval cohort by construction, and a trap
+    pack rendered into ``eval/`` is the reservation working, not breaking.
+
+    Red, never a note. The gold bar and the share bands can report "below
+    support"; a reservation cannot be partly kept, and a corpus that trains on
+    the evaluation's own figures reports recall as generalisation.
+    """
+    axis = axes_report["eval-reserved coordinates"]
+    if not reserved:
+        # No declaration is a tree that reserves nothing -- say so rather than
+        # reporting a vacuous pass over every row.
+        axis["note"] = "no reserved coordinates declared; nothing to hold out"
+        return
+    axis["checked"] = len(rows)
+    for row in rows:
+        key = (row.get("work_type"), row.get("family"), int(row.get("variant", 0)))
+        if key in reserved:
+            axis["failures"].append(
+                {
+                    "id": row.get("id", "?"),
+                    "problem": (
+                        f"trains on {key[0]}/{key[1]} variant {key[2]}, a "
+                        "coordinate reserved for evaluation (axis 17)"
+                    ),
+                }
+            )
+
+
 def _measure_teacher_pinning(axes_report: dict, rows: list[dict]) -> None:
     """Axis 14: every row pins the teacher that wrote it, and one style rules.
 
@@ -1173,6 +1215,7 @@ def verify_dir(
                     )
     _measure_shares(axes_report, all_rows)
     _measure_teacher_pinning(axes_report, all_rows)
+    _measure_reserved(axes_report, all_rows, write.reserved_coordinates())
     if not quick:
         _measure_gold_bar(axes_report, all_rows, bar_path)
         _measure_corpus_near_dup(axes_report, all_rows)
