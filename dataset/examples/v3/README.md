@@ -7,8 +7,13 @@ render has produced that type yet:
 | file | provenance |
 | --- | --- |
 | `analysis`, `grounded`, `memo`, `critique`, `abstention` | live (`deepseek-v4-flash-0731`, think off) |
-| `exam` | deterministic — the exam renderer builds it from the pack, no teacher |
-| `agentic`, `implementation` | still scripted; replaced as soon as a live render produces one |
+| `agentic`, `implementation` | live (same teacher, reasoning lane, think on) |
+| `exam` | deterministic — the exam renderer builds it from the pack, so there is no teacher to be live |
+
+Seven of the eight are rows a teacher actually wrote; the eighth has no teacher
+by construction. They are drawn from seven different pack coordinates across
+five work types, because eight examples of one computer would show the schema
+and hide the range.
 
 **This changed because the old arrangement caused real damage.** These files
 used to be rendered through the real renderers with a *scripted* teacher whose
