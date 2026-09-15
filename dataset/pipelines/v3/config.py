@@ -257,13 +257,24 @@ MAX_TOKENS_THINK_ON = 6144
 #: chain of thought exists at all, and against one that reasons regardless they
 #: are an order of magnitude short.
 #:
-#: Sized against a teacher that was thinking when it should not have been
-#: (nine live rows wanting 4,084-13,167 tokens, a 3.2x spread) -- the headroom
-#: a *genuinely* reasoning lane needs. With the think flag reaching the model
-#: this ceiling is never approached: think-off rows land near 450 tokens.
-#: It stays because a lane that truncates must be able to recover, and the
-#: alternative is the run that spent forty-eight minutes producing nothing.
-MAX_TOKENS_TRUNCATION_CEILING = 24
+#: The hard ceiling on an escalated budget, **in tokens**. Absolute, and that
+#: is the correction: it used to be a multiple (24x) of
+#: :data:`MAX_TOKENS_THINK_ON`, which made it a number nobody had chosen. When
+#: the think-on cap was 2048 the ceiling was 49,152; raising that cap to 6,144
+#: -- a fix for a real truncation, measured -- silently moved the ceiling to
+#: 147,456 without a line of the diff saying so.
+#:
+#: What that cost, measured on the render it broke: a critique row truncated at
+#: 6,144, the lane floor doubled, and every reasoning call afterwards asked for
+#: 24,576 tokens against a deadline of twenty minutes. The row it produced was
+#: 116 words. Because the floor is process-global and sticky, one truncation
+#: made the rest of the run pay it -- two hours of wall clock for two rows.
+#:
+#: 16,384 is four times what this teacher has been measured to need when it
+#: thinks (3,081-3,736 on the probe, 13,167 worst case on a think-forced one),
+#: which is headroom for the recovery this ladder exists to perform and not
+#: enough to let a model ramble for twenty minutes.
+MAX_TOKENS_TRUNCATION_CEILING_TOKENS = 16384
 #: What a budget is multiplied by when a call truncates before writing a word.
 #: Doubling, because the quantity being searched for varies by 3x between rows
 #: and a linear probe would spend the run discovering it.
@@ -375,6 +386,11 @@ NEAR_DUP_MAX_REPORTED = 12
 #: synthetic one to exercise the fence -- which is exactly why the gate checks
 #: *presence* rather than trusting the path to be the real bar.
 GOLDBAR_ENV = "COSIMO_V3_GOLDBAR"
+#: Where the eval-reserved coordinates live (see ``write.reserved_coordinates``).
+#: Overridable for the same reason the gold bar is: it is a curated artefact
+#: that changes when somebody reserves a pack, and a test suite that read the
+#: committed file would change behaviour underneath every unrelated change.
+RESERVED_COORDS_ENV = "COSIMO_V3_RESERVED_COORDS"
 
 #: Teacher provenance is pinned per row (``verification.teacher.model``); a
 #: corpus that mixes models is a mistake until an operator says it is on

@@ -1,0 +1,29 @@
+{
+ "reserved": [
+  {
+   "family": "large_cap_intraday",
+   "suite": "traps",
+   "variant": 0,
+   "work_type": "execution.tca.arrival"
+  },
+  {
+   "family": "global_equity_long",
+   "suite": "traps",
+   "variant": 0,
+   "work_type": "portfolio.attribution.brinson_carino"
+  },
+  {
+   "family": "equity_longonly",
+   "suite": "traps",
+   "variant": 0,
+   "work_type": "risk.market.var_es"
+  },
+  {
+   "family": "cyclical_industrial",
+   "suite": "traps",
+   "variant": 0,
+   "work_type": "valuation.equity.dcf"
+  }
+ ],
+ "why": "Packs the trap suite (jobs/fine-tune/suites/traps.jsonl) asks questions about. Rendering any record type on these coordinates puts the evaluation's own figures into training, which turns a generalisation test into a recall test."
+}

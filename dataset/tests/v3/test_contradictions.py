@@ -370,3 +370,41 @@ def test_the_board_and_the_render_gate_agree_about_length_and_shape(tmp_path):
     )
     failures = _check_row(row, frozenset(), quick=True)
     assert any("outside the analysis budget" in p for p in failures["schema"])
+
+
+def test_the_trap_packs_are_reserved_against_generation():
+    """The reservation the trap suite writes, read by the renderer.
+
+    Two fences, and they answer different questions. The gold bar says "do not
+    regenerate this row"; the reservation says "do not generate *any* row on
+    this pack", because the trap suite asks about the whole scenario. Of 17
+    committed live prose rows, 12 sat on these four coordinates -- so without
+    the second fence a smoke corpus trains on the evaluation's own figures and
+    a recall result reads as generalisation.
+    """
+    import json
+    import os
+
+    from pipelines.v3 import config, write
+
+    path = os.path.join(config.BASE_DIR, "eval", "reserved_coordinates.json")
+    assert os.path.isfile(path), "trap_suite.py writes this; re-run it"
+    with open(path, encoding="utf8") as handle:
+        payload = json.load(handle)
+    reserved = write.reserved_coordinates(path)
+    assert len(reserved) == 4
+    assert ("execution.tca.arrival", "large_cap_intraday", 0) in reserved
+    # Every reserved coordinate is one the suite actually asks about, and every
+    # pack the suite asks about is reserved: one declaration, both directions.
+    suite = os.path.join(
+        os.path.dirname(config.BASE_DIR), "jobs", "fine-tune", "suites", "traps.jsonl"
+    )
+    with open(suite, encoding="utf8") as handle:
+        asked = {
+            (json.loads(line)["scenario_id"], json.loads(line)["variant"])
+            for line in handle
+            if line.strip()
+        }
+    declared = {(f"{w}.{f}", v) for (w, f, v) in reserved}
+    assert declared == asked
+    assert payload["why"]

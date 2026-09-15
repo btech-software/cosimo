@@ -145,6 +145,41 @@ def gold_bar_ids(path: str | None = None) -> frozenset[str]:
     return existing_ids(resolved)
 
 
+def reserved_coordinates(path: str | None = None) -> frozenset[tuple[str, str, int]]:
+    """``(work_type, family, variant)`` the corpus keeps for evaluation only.
+
+    The gold-bar fence answers "do not regenerate a row a human certified".
+    This answers the question a level up: *do not generate any row on a pack an
+    evaluation asks questions about*. They are different reservations -- the
+    gold bar holds two of the eight rows on its TCA coordinate, while the trap
+    suite interrogates that whole pack -- and conflating them is how a
+    generalisation test quietly becomes a recall test.
+
+    Measured before this existed: of 17 committed live prose rows, 12 sat on
+    the four coordinates the trap suite asks about, so training and evaluation
+    shared their numbers and the only clean split left five rows.
+
+    Written by ``dataset/tools/trap_suite.py`` so the declaration has one
+    author; empty when the file is absent, because a tree with no evaluation
+    reserved is a tree that reserves nothing.
+    """
+    from . import config
+
+    resolved = (
+        path
+        or os.environ.get(config.RESERVED_COORDS_ENV)
+        or os.path.join(config.BASE_DIR, "eval", "reserved_coordinates.json")
+    )
+    if not os.path.isfile(resolved):
+        return frozenset()
+    with open(resolved, encoding="utf8") as handle:
+        payload = json.load(handle)
+    return frozenset(
+        (str(entry["work_type"]), str(entry["family"]), int(entry["variant"]))
+        for entry in payload.get("reserved", [])
+    )
+
+
 def write_jsonl(path: str, records: list[dict]) -> int:
     """(Re)write *path* with exactly *records*. Whole-file, atomic. Idempotent."""
     _check_records(records, path)
