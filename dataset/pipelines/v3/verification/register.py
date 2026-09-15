@@ -500,7 +500,13 @@ def register_profile(texts: list[str]) -> dict:
     """
     texts = [str(t) for t in texts if str(t).strip()]
     if not texts:
-        return {"n": 0, "sentence_len": 0.0, "heading_rate": 0.0, "call_rate": 0.0}
+        return {
+            "n": 0,
+            "sentence_len": 0.0,
+            "heading_rate": 0.0,
+            "call_rate": 0.0,
+            "constraint_rate": 0.0,
+        }
     lengths = []
     for text in texts:
         sentences = max(1, sentence_count(text))
@@ -511,6 +517,22 @@ def register_profile(texts: list[str]) -> dict:
         "heading_rate": sum(1 for t in texts if _headings(t)) / len(texts),
         "call_rate": sum(
             1 for t in texts if any(term in t.casefold() for term in _CALL_TERMS)
+        )
+        / len(texts),
+        # How often a passage names the thing it is constraining. The other
+        # three axes measure *shape* -- how long, how scaffolded, does it
+        # decide -- and shape is exactly where `desk_chat` and `risk_committee`
+        # look alike: both write flat prose without headings, and a committee
+        # that constrains rather than directs rarely trips the call terms
+        # either. Measured on a live slice the two sat at 0.15, the separation
+        # floor, while being unmistakably different documents to a reader.
+        #
+        # What actually distinguishes them is vocabulary the register gate
+        # already requires -- `_risk_committee` refuses a passage naming no
+        # limit, horizon or assumption -- so the profile now measures the thing
+        # the contract demands rather than three proxies that miss it.
+        "constraint_rate": sum(
+            1 for t in texts if any(term in t.casefold() for term in _RISK_TERMS)
         )
         / len(texts),
     }
@@ -527,4 +549,7 @@ def profile_distance(left: dict, right: dict) -> float:
     dl = (left["sentence_len"] - right["sentence_len"]) / _SENTENCE_LEN_SCALE
     dh = left["heading_rate"] - right["heading_rate"]
     dc = left["call_rate"] - right["call_rate"]
-    return (dl * dl + dh * dh + dc * dc) ** 0.5
+    # `constraint_rate` is absent from a profile written before it existed, so
+    # an old report still compares rather than raising.
+    dk = left.get("constraint_rate", 0.0) - right.get("constraint_rate", 0.0)
+    return (dl * dl + dh * dh + dc * dc + dk * dk) ** 0.5

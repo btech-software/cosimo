@@ -33,6 +33,7 @@ one string ``dataset_build.sh`` greps for.
 from __future__ import annotations
 
 import argparse
+import collections
 import os
 import sys
 
@@ -106,6 +107,7 @@ def audit(out_dir: str) -> list[str]:
     offenders: list[str] = []
     contradicted: list[str] = []
     tags: dict[str, int] = {}
+    skipped_kinds: collections.Counter = collections.Counter()
     ungradeable = 0
     for record in rows:
         try:
@@ -118,6 +120,18 @@ def audit(out_dir: str) -> list[str]:
             ungradeable += 1
             continue
         answer = str(record.get("answer") or "")
+        # Prose kinds only, because that is what the generator does. A record
+        # type has exactly one gate -- `exam_gate_violations`,
+        # `impl_gate_violations`, the agentic trajectory gate -- and running the
+        # *prose* number rule over all of them makes this audit stricter than
+        # the thing it is auditing. Measured: two implementation rows were
+        # reported as inventing "1.0, -1.0, 2.0", which are Python literals in
+        # their own reference solution (`signed = 1.0`, `spread / 2.0`). An
+        # auditor that fails a row the generator would ship is not measuring
+        # the corpus, it is measuring itself.
+        if record.get("record_type") not in BRIEF_KINDS:
+            skipped_kinds[str(record.get("record_type"))] += 1
+            continue
         tokens = invented_numbers(answer, gradeable_numbers(pack), whitelist_for(pack))
         if tokens:
             offenders.append(f"{record.get('id', '?')}: {', '.join(tokens[:3])}")
@@ -127,7 +141,14 @@ def audit(out_dir: str) -> list[str]:
             tag = tag_of(violation) or "untagged"
             tags[tag] = tags.get(tag, 0) + 1
             contradicted.append(f"{record.get('id', '?')}: {violation}")
-    graded = len(rows) - ungradeable
+    graded = len(rows) - ungradeable - sum(skipped_kinds.values())
+    if skipped_kinds:
+        print(
+            "slice_audit: prose gates applied to "
+            f"{graded} of {len(rows)} rows; "
+            + ", ".join(f"{n} {kind}" for kind, n in sorted(skipped_kinds.items()))
+            + " answer to their own gates"
+        )
     rate = len(offenders) / graded if graded else 1.0
     print(f"slice_audit: invented_number_rate {rate:.4f} over {graded} graded rows")
     if offenders:

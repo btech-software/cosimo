@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Assemble the few hundred rows a smoke SFT should train on, and no more.
+"""Assemble the rows a smoke SFT should train on, and no more.
+
+Reads a **rendered corpus** (`--from`, default `dataset/shards/v3`), not the
+examples directory. It used to read `examples/v3/` because that was the only
+place committed live rows existed; those captures are gone and the examples are
+documentation, one row per record type.
 
 Two rules, and the second is the one that makes the experiment worth running:
 
@@ -39,35 +44,6 @@ for _p in (_DATASET, os.path.dirname(_DATASET)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-#: Files under examples/ that are not training material, whatever they contain.
-#: The superseded captures now live in `examples/v3/_superseded/`, which this
-#: walk never descends into, so the only name left to exclude is the rejected
-#: row -- kept beside the live capture because it is that capture's own
-#: regression fixture.
-EXCLUDED_FILES = ("_rejected", "live_analysis", "live_three_registers")
-
-#: The one-row-per-record-type files `make_examples.py` writes. They are the
-#: *scripted* teacher -- prose assembled by the fixture harness to prove the
-#: schema -- and examples/v3/README.md says in as many words: "do not train on
-#: analysis.jsonl. That row is the scripted teacher, and it reads like one. It
-#: proves the schema and would poison the voice if it reached SFT."
-#:
-#: It does. A 40-step smoke that included them produced an adapter answering a
-#: VaR question with "Answering the risk.market.var_es question as of
-#: 2025-12-31, on the figures given and without any others" -- the harness's
-#: own opening line, reproduced verbatim, followed by fluent nonsense about
-#: drift being "drawn subtractively". Eight of that run's sixteen rows were
-#: these files.
-SCRIPTED_EXAMPLES = (
-    "analysis.jsonl",
-    "memo.jsonl",
-    "grounded.jsonl",
-    "critique.jsonl",
-    "abstention.jsonl",
-    "exam.jsonl",
-    "agentic.jsonl",
-    "implementation.jsonl",
-)
 
 
 def trap_coordinates(suite_path: str) -> set[tuple[str, int]]:
@@ -85,32 +61,28 @@ def trap_coordinates(suite_path: str) -> set[tuple[str, int]]:
     return coords
 
 
-def collect(examples_dir: str, goldbar: str, traps: set) -> tuple[list, dict]:
+def collect(root: str, traps: set) -> tuple[list, dict]:
+    """Rows from ``<root>/sft/*.jsonl``, minus both evaluation fences."""
     rows, dropped = [], collections.Counter()
-    seen: set[str] = set()
-    sources = sorted(
-        os.path.join(examples_dir, name)
-        for name in os.listdir(examples_dir)
-        if name.endswith(".jsonl")
-        and name not in SCRIPTED_EXAMPLES
-        and not any(token in name for token in EXCLUDED_FILES)
-    )
-    # The gold bar is read only to *exclude* its ids: those rows are the
-    # held-out human set, and a training row that near-duplicates one is what
-    # verify_v3 axis 13 fails a corpus for.
+    sft = os.path.join(root, "sft")
+    if not os.path.isdir(sft):
+        raise SystemExit(
+            f"{root} has no sft/ directory. Point --from at a rendered corpus "
+            "root (the one holding sft/, fact_packs/, dead_letter/)."
+        )
     gold_ids: set[str] = set()
+    goldbar = os.path.join(_DATASET, "goldbar", "gold_bar_v3.jsonl")
     if os.path.isfile(goldbar):
         with open(goldbar, encoding="utf8") as handle:
             gold_ids = {json.loads(line)["id"] for line in handle if line.strip()}
-    for path in sources:
-        with open(path, encoding="utf8") as handle:
+    for name in sorted(os.listdir(sft)):
+        if not name.endswith(".jsonl"):
+            continue
+        with open(os.path.join(sft, name), encoding="utf8") as handle:
             for line in handle:
                 if not line.strip():
                     continue
                 row = json.loads(line)
-                if row["id"] in seen:
-                    continue
-                seen.add(row["id"])
                 if row["id"] in gold_ids:
                     dropped["gold bar"] += 1
                     continue
@@ -124,6 +96,12 @@ def collect(examples_dir: str, goldbar: str, traps: set) -> tuple[list, dict]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", required=True, help="corpus root to write")
+    parser.add_argument(
+        "--from",
+        dest="source",
+        default=os.path.join(_DATASET, "shards", "v3"),
+        help="rendered corpus to read (default: dataset/shards/v3)",
+    )
     parser.add_argument(
         "--keep-trap-coordinates",
         action="store_true",
@@ -142,11 +120,7 @@ def main() -> int:
         if args.keep_trap_coordinates
         else trap_coordinates(os.path.abspath(args.suite))
     )
-    rows, dropped = collect(
-        os.path.join(_DATASET, "examples", "v3"),
-        os.path.join(_DATASET, "goldbar", "gold_bar_v3.jsonl"),
-        traps,
-    )
+    rows, dropped = collect(os.path.abspath(args.source), traps)
     sft_dir = os.path.join(os.path.abspath(args.out), "sft")
     os.makedirs(sft_dir, exist_ok=True)
     by_kind: dict[str, list[dict]] = collections.defaultdict(list)
