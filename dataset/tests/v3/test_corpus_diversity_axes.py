@@ -36,6 +36,7 @@ from pipelines.v3.verification.register import (  # noqa: E402
 )
 from pipelines.v3.verify_v3 import (  # noqa: E402
     _measure_corpus_near_dup,
+    _measure_register_coverage,
     _measure_register_separation,
 )
 
@@ -226,7 +227,9 @@ def test_constraint_vocabulary_separates_two_voices_of_the_same_shape():
     shape_only = {"n": 8, "sentence_len": 11.0, "heading_rate": 0.0, "call_rate": 0.0}
     assert profile_distance(shape_only, shape_only) == 0.0
 
-    apart = profile_distance(register_profile([desk] * 8), register_profile([committee] * 8))
+    apart = profile_distance(
+        register_profile([desk] * 8), register_profile([committee] * 8)
+    )
     assert apart >= REGISTER_MIN_SEPARATION
 
 
@@ -260,3 +263,70 @@ def test_a_family_does_not_repaint_one_entity_across_its_variants(work_type):
             f"{work_type}/{family}: {distinct} distinct entities across "
             f"{len(names)} variants -- the scenario is being repainted"
         )
+
+
+# --------------------------------------------------------------------------
+# axis 18: register coverage
+# --------------------------------------------------------------------------
+
+
+def _reg_rows(register, families, kind="analysis"):
+    return [
+        {
+            "id": f"cosimov3_{kind}_{register}_{i:016x}",
+            "record_type": kind,
+            "work_type": "w",
+            "family": family,
+            "register": register,
+            "answer": "text",
+        }
+        for i, family in enumerate(families)
+    ]
+
+
+def test_a_register_on_one_family_is_named_in_the_note():
+    """The question axis 16 presumes an answer to.
+
+    Separation asks whether the voices that reached training read differently.
+    It cannot ask that of a voice the plan held out from under it, and it was
+    doing exactly that: a register on one family is one scenario, so a register
+    score read off it is a scenario score.
+    """
+    board = _board("register coverage")
+    rows = _reg_rows("desk_chat", ["only_one"]) + _reg_rows(
+        "ic_memo", ["first", "second"]
+    )
+    _measure_register_coverage(board, rows)
+    axis = board["register coverage"]
+    assert axis["failures"] == [], "coverage is reported, never red -- axis 16's stance"
+    assert "desk_chat: 1" in axis["note"]
+    assert "ic_memo: 2" in axis["note"]
+    assert "under the 2 a voice needs: desk_chat" in axis["note"]
+
+
+def test_a_register_with_enough_families_is_only_counted():
+    board = _board("register coverage")
+    _measure_register_coverage(
+        board, _reg_rows("risk_committee", ["rates_book", "equity_longonly"])
+    )
+    axis = board["register coverage"]
+    assert axis["failures"] == []
+    assert "risk_committee: 2" in axis["note"]
+    assert "a voice needs" not in axis["note"]
+
+
+def test_an_exam_row_is_not_evidence_that_a_voice_survived():
+    """An exam item is graded on the exam contract whatever register its pack
+    names, so counting it would let exam volume disguise a held-out voice."""
+    board = _board("register coverage")
+    rows = _reg_rows("desk_chat", ["kept"]) + _reg_rows(
+        "desk_chat", ["exam_only"], kind="exam"
+    )
+    _measure_register_coverage(board, rows)
+    assert "desk_chat: 1" in board["register coverage"]["note"]
+
+
+def test_a_corpus_with_no_registered_prose_says_so():
+    board = _board("register coverage")
+    _measure_register_coverage(board, _reg_rows("desk_chat", ["f"], kind="exam"))
+    assert board["register coverage"]["note"] == "no prose rows carried a register"

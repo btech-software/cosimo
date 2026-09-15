@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from cosimo_ft import chat, data_schema
+from cosimo_ft import assistant, chat, data_schema, splits
 
 
 def _prepare_module():
@@ -566,6 +566,108 @@ def test_the_exam_share_cap_thins_an_exam_heavy_tree():
     # A mix already inside the band is left alone -- the cap is a ceiling, not
     # a target, and thinning a compliant corpus would be discarding data.
     assert prepare.cap_exam_share(kept, 0.18, seed=3407) == (kept, 0)
+
+
+def test_the_call_exempt_cap_thins_a_register_of_refusals():
+    """The exemption is right per row and corrosive in bulk.
+
+    `grounded` and `abstention` rows legitimately end without a decision, and
+    the corpus gate excuses them one at a time. Left uncapped they became 8 of
+    27 non-exam ic_memo training rows, which taught the register's own rule
+    backwards: the tuned model then left the call out of three of four ic_memo
+    trap answers.
+    """
+    exempt = [
+        data_schema.normalize_v3_record(
+            v3_row(kind, id=f"cosimov3_{kind}_{i:016x}", register="ic_memo")
+        )
+        for kind in ("grounded", "abstention")
+        for i in range(10)
+    ]
+    owing = [
+        data_schema.normalize_v3_record(
+            v3_row("memo", id=f"cosimov3_memo_{i:016x}", register="ic_memo")
+        )
+        for i in range(20)
+    ]
+    kept, dropped = prepare.cap_call_exempt_share(exempt + owing, 0.2, seed=3407)
+    left = [r for r in kept if r.record_type in assistant.CALL_EXEMPT_KINDS]
+    assert dropped == {"ic_memo": len(exempt) - len(left)}
+    assert len(left) / len(kept) <= 0.2 + 1e-9
+    # A ceiling, not a target: a register already inside the band is untouched.
+    assert prepare.cap_call_exempt_share(kept, 0.2, seed=3407) == (kept, {})
+
+
+def test_the_call_exempt_cap_counts_each_register_separately():
+    """Per register, because the exemption is a property of a *voice*.
+
+    Pooled, a desk_chat-heavy corpus would hide an ic_memo made entirely of
+    refusals behind an aggregate that looked fine.
+    """
+    records = [
+        data_schema.normalize_v3_record(
+            v3_row("abstention", id=f"cosimov3_abstention_{i:016x}", register="ic_memo")
+        )
+        for i in range(9)
+    ] + [
+        data_schema.normalize_v3_record(
+            v3_row("analysis", id=f"cosimov3_analysis_{i:016x}", register="desk_chat")
+        )
+        for i in range(30)
+    ]
+    _, dropped = prepare.cap_call_exempt_share(records, 0.2, seed=3407)
+    # ic_memo is all refusals and has nothing owing a call, so there is no
+    # ratio to enforce -- and desk_chat, which has no refusals at all, is not
+    # made to answer for ic_memo's mix.
+    assert dropped == {}
+
+
+def test_an_exam_row_is_not_evidence_about_a_register():
+    """An exam item is graded on the exam contract whatever voice its pack
+    names, so it has no call to make and cannot dilute the ratio."""
+    records = [
+        data_schema.normalize_v3_record(
+            v3_row(
+                "exam",
+                id=f"cosimov3_exam_{i:016x}",
+                register="ic_memo",
+                question_text="Q?",
+            )
+        )
+        for i in range(50)
+    ] + [
+        data_schema.normalize_v3_record(
+            v3_row("grounded", id=f"cosimov3_grounded_{i:016x}", register="ic_memo")
+        )
+        for i in range(5)
+    ]
+    kept, dropped = prepare.cap_call_exempt_share(records, 0.2, seed=3407)
+    assert (kept, dropped) == (records, {})
+
+
+def test_register_holdout_shares_count_the_voice_the_holdout_removes():
+    """Registers are 1:1 with work types, so a scenario held out for the
+    unseen-stem measurement takes a whole voice with it -- 71% of
+    risk_committee, on the corpus this was written against."""
+    by_split = {
+        splits.TRAIN: [
+            data_schema.normalize_v3_record(
+                v3_row("memo", id=f"cosimov3_memo_{i:016x}", register="risk_committee")
+            )
+            for i in range(3)
+        ],
+        splits.VAL: [],
+        splits.TEST: [],
+        splits.UNSEEN_STEMS: [
+            data_schema.normalize_v3_record(
+                v3_row("memo", id=f"cosimov3_memo_h{i:015x}", register="risk_committee")
+            )
+            for i in range(7)
+        ],
+    }
+    assert prepare.register_holdout_shares(by_split) == {
+        "risk_committee": {"held_out": 7, "total": 10}
+    }
 
 
 def test_the_fact_pack_reaches_the_eval_sidecar_and_not_a_chat_turn():

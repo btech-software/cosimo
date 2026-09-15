@@ -254,7 +254,13 @@ def run_prose_suite(
                 ),
                 "must_mention_hit": hit,
                 "must_mention_missed": missed,
-                "register_match": assistant.register_match(text, row.get("register")),
+                # The record type carries the corpus's one register exemption
+                # (a grounded citation or an abstention refusal is an ic_memo
+                # that ends without a call). A curated suite row declares no
+                # kind, which reads as "" and is held to the full contract.
+                "register_match": assistant.register_match(
+                    text, row.get("register"), row.get("record_type") or ""
+                ),
                 "teacher_leak": assistant.teacher_leak(text),
             }
         )

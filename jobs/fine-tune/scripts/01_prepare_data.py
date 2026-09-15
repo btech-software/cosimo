@@ -52,7 +52,7 @@ from typing import Any, Iterable
 HARNESS_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HARNESS_ROOT))
 
-from cosimo_ft import chat, data_schema, grading, runlog, splits  # noqa: E402
+from cosimo_ft import assistant, chat, data_schema, grading, runlog, splits  # noqa: E402
 from cosimo_ft import config as config_mod  # noqa: E402
 
 LOGGER = logging.getLogger("prepare_data")
@@ -562,6 +562,103 @@ def cap_exam_share(
     return kept, len(exam) - allowed
 
 
+#: Ceiling on the call-exempt kinds as a share of *each register's* prose rows.
+#: `assistant.CALL_EXEMPT_KINDS` is the corpus's own exemption: a `grounded`
+#: citation and an `abstention` refusal are `ic_memo` rows that legitimately end
+#: without a decision, and the generation gate excuses them one at a time.
+#: Nothing excused them in bulk. Measured on the mix this cap was written
+#: against, 8 of 27 non-exam `ic_memo` training rows -- 30% -- ended without a
+#: call, which teaches "this register need not decide" rather than the
+#: two-kinds-in-five exemption the brief actually grants; the tuned model then
+#: left the call out of three of four `ic_memo` trap answers.
+#: 0.20 bites on that case while leaving a visible slice of refusal behaviour
+#: in every register, which is itself something the corpus must teach.
+CALL_EXEMPT_SHARE_MAX = 0.20
+
+
+def cap_call_exempt_share(
+    records: list[data_schema.CosimoRecord], ceiling: float, seed: int
+) -> tuple[list[data_schema.CosimoRecord], dict[str, int]]:
+    """Thin each register's call-exempt prose rows down to *ceiling* of it.
+
+    Per register rather than over the pool, because the exemption is a property
+    of a *voice*: `ic_memo` is the register that owes a call, so a corpus whose
+    `ic_memo` rows are mostly refusals has taught the opposite of its own rule
+    while every other register's numbers look fine.
+
+    Exam rows are untouched. An exam item is graded on the exam contract
+    whatever register its pack names, so it has no call to make or to be
+    excused from, and counting it would let a register's exam volume dilute a
+    ratio that is about prose.
+
+    Seeded and order-preserving, like `cap_exam_share`; a register already
+    inside the band is returned untouched.
+    """
+    by_register: dict[str, list[data_schema.CosimoRecord]] = defaultdict(list)
+    for record in records:
+        if not data_schema.is_exam(record) and record.register:
+            by_register[record.register].append(record)
+    cut: set[str] = set()
+    dropped: dict[str, int] = {}
+    for register, pool in sorted(by_register.items()):
+        exempt = [r for r in pool if r.record_type in assistant.CALL_EXEMPT_KINDS]
+        rest = [r for r in pool if r.record_type not in assistant.CALL_EXEMPT_KINDS]
+        if not exempt or not rest:
+            continue
+        allowed = int(len(rest) * ceiling / (1.0 - ceiling))
+        if len(exempt) <= allowed:
+            continue
+        keep_ids = {r.id for r in subsample(exempt, allowed, seed)}
+        cut.update(r.id for r in exempt if r.id not in keep_ids)
+        dropped[register] = len(exempt) - allowed
+        LOGGER.info(
+            "call-exempt share cap %.3f for register %r: kept %d of %d "
+            "grounded/abstention rows against %d that owe a call",
+            ceiling,
+            register,
+            allowed,
+            len(exempt),
+            len(rest),
+        )
+    if not cut:
+        return records, {}
+    return [r for r in records if r.id not in cut], dropped
+
+
+#: Above this share of a register held out, say so. A register is 1:1 with a
+#: work type (`dataset/taxonomy/work_types.yaml`'s own `registers:` table), so
+#: `data.holdout_scenario_families` -- which is written in work-type terms and
+#: chosen on scenario grounds -- can remove a whole voice without anyone
+#: choosing that. It is not hypothetical: holding out
+#: `risk.market.var_es.equity_longonly` takes 71% of `risk_committee` with it.
+#: Reported, never fatal. The holdout list is a deliberate, checked-in choice
+#: and the remedy is to change it, not to thin something else further; this
+#: makes the cost visible on the run that pays it.
+REGISTER_HOLDOUT_WARN = 0.5
+
+
+def register_holdout_shares(
+    by_split: dict[str, list[data_schema.CosimoRecord]],
+) -> dict[str, dict[str, int]]:
+    """How much of each register this run holds out of training entirely.
+
+    Counted from the split assignment rather than from the written eval files,
+    because `eval_cosimo_unseen_stems.jsonl` keeps only exam rows -- the prose
+    rows, where a register actually lives, are held out of training *and* out
+    of evaluation, so reading the files would under-count every voice.
+    """
+    trained = by_split[splits.TRAIN] + by_split[splits.VAL] + by_split[splits.TEST]
+    held = by_split[splits.UNSEEN_STEMS]
+    registers = sorted({r.register for r in trained + held if r.register})
+    return {
+        register: {
+            "held_out": sum(1 for r in held if r.register == register),
+            "total": sum(1 for r in trained + held if r.register == register),
+        }
+        for register in registers
+    }
+
+
 def _counts_by(rows: list[dict], field: str) -> dict[str, int]:
     return dict(sorted(Counter(str(row.get(field, "")) for row in rows).items()))
 
@@ -1012,6 +1109,15 @@ def prepare(
         raise ValueError(
             f"data.exam_share_max must be in (0, 1), got {exam_share_max!r}"
         )
+    call_exempt_share_max = float(
+        config_mod.get(cfg, "data.call_exempt_share_max", CALL_EXEMPT_SHARE_MAX)
+        or CALL_EXEMPT_SHARE_MAX
+    )
+    if not 0.0 < call_exempt_share_max < 1.0:
+        raise ValueError(
+            "data.call_exempt_share_max must be in (0, 1), got "
+            f"{call_exempt_share_max!r}"
+        )
     # Two config keys, one set, because the two corpora hold out on different
     # axes and a run may be replaying either. `data.holdout_families` names
     # v1/v2 stem families (`fi_modified_duration`); `holdout_scenario_families`
@@ -1187,6 +1293,25 @@ def prepare(
     by_split: dict[str, list[data_schema.CosimoRecord]] = defaultdict(list)
     for record in records:
         by_split[assignment[record.id]].append(record)
+    # What the holdout costs each *voice*, said out loud on the run that pays
+    # it. The holdout list is written in work-type terms and a register is 1:1
+    # with a work type, so a scenario chosen for unseen-stem measurement can
+    # take a whole register with it without that ever being the intent.
+    register_shares = register_holdout_shares(by_split)
+    for register, counts in sorted(register_shares.items()):
+        held, total = counts["held_out"], counts["total"]
+        if total and held / total > REGISTER_HOLDOUT_WARN:
+            LOGGER.warning(
+                "register %r: the holdout keeps %d of its %d rows (%.0f%%) out "
+                "of training. Registers are 1:1 with work types, so a scenario "
+                "family held out for the unseen-stem measurement takes its "
+                "voice with it -- check data.holdout_scenario_families against "
+                "this register's work type before reading a register score.",
+                register,
+                held,
+                total,
+                100 * held / total,
+            )
 
     train_records = subsample(by_split[splits.TRAIN], max_train_records, seed)
     if len(train_records) != len(by_split[splits.TRAIN]):
@@ -1199,6 +1324,11 @@ def prepare(
     train_records, over_exam = cap_exam_share(train_records, exam_share_max, seed)
     if over_exam:
         dropped["over_exam_share"] += over_exam
+    train_records, over_call_exempt = cap_call_exempt_share(
+        train_records, call_exempt_share_max, seed
+    )
+    for register, n in sorted(over_call_exempt.items()):
+        dropped[f"over_call_exempt_share:{register}"] += n
 
     # 3. preference rows FIRST, because which ids they claim decides which ids
     # SFT must not be trained on. Reserving a pair only helps if the policy has
@@ -1466,6 +1596,8 @@ def prepare(
         "max_train_records": max_train_records,
         "drop_unverified": drop_unverified,
         "exam_share_max": exam_share_max,
+        "call_exempt_share_max": call_exempt_share_max,
+        "register_holdout_shares": register_shares,
         "holdout_families": sorted(holdout_families),
         "holdout_records": len(by_split[splits.UNSEEN_STEMS]),
         # Non-exam held-out records are excluded from training but never

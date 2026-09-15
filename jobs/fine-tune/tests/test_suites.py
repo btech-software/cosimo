@@ -103,9 +103,9 @@ def test_contract_suites_declare_a_known_register(cfg, name):
     """
     for row in load(cfg, name):
         register = row.get("register")
-        assert register in assistant.REGISTER_SHAPES, (
+        assert register in assistant.VALID_REGISTERS, (
             f"{row['id']}: register {register!r} is not one the corpus writes "
-            f"({sorted(assistant.REGISTER_SHAPES)})"
+            f"({sorted(assistant.VALID_REGISTERS)})"
         )
         assert assistant.register_match("", register) is not None
 

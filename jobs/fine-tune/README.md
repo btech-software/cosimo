@@ -890,9 +890,19 @@ Metrics (`runs/<name>/assistant_eval/metrics.json`):
   ratios, not all-or-nothing, so an answer covering three of four reads differently from one
   covering none. Catches the model that writes fluently around the point.
 * **`register_match_rate`** — was the answer shaped like the voice it was asked for: a desk reply
-  short and unheaded, a memo long and sectioned. Answering a one-line desk question with a
+  unscaffolded and inside its sentence ceiling, a memo that reaches a decision, a risk paper that
+  names its constraint and takes no position. Answering a one-line desk question with a
   four-heading memo is the same class of failure as answering it in exam form, and nothing else
   measured it.
+
+  It reads the corpus's own generation-time rules (`dataset/pipelines/v3/verification/register.py`),
+  reimplemented rather than imported, for the reason `invented_numbers` is. It used to read a word
+  count instead — a memo had to clear 250 words and carry a heading — and that floor sat above the
+  corpus's own ceiling: its budgets top out at 220 words for an analysis row, and its gate calls
+  headings permitted rather than required. No memo the corpus writes could pass, so the metric
+  ranked a base model rambling for 2553 tokens under markdown above a tuned one writing to
+  contract. `test_the_eval_agrees_with_the_corpus_gate_on_certified_rows` scores the gold bar
+  against the gate's own recorded verdict so the two readings cannot drift apart again unnoticed.
 
 The last three are scored **only** on rows that declare the contract they measure; each carries its
 own `_n` denominator in `metrics.json` and is omitted from the console line when that denominator

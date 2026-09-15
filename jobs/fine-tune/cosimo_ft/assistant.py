@@ -45,6 +45,7 @@ machine alongside the rest of `tests/`.
 from __future__ import annotations
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Iterable
@@ -447,42 +448,249 @@ def must_mention_hits(text: str, terms: Iterable[str]) -> tuple[list[str], list[
 
 # The five voices v3 writes in (dataset/pipelines/v3/config.VALID_REGISTERS),
 # and the structural tell that separates each from the others. These are shape
-# detectors, not judgements of quality: a desk reply is short and unheaded, a
-# memo is long and sectioned. That is exactly the axis the model collapses --
-# answering a one-line desk question with a four-heading memo is the same
-# failure as answering it in exam form, and nothing else measures it.
-_HEADING_RE = re.compile(r"^\s*(?:#{1,6}\s+\S|\*\*[^*\n]+\*\*\s*$)", re.MULTILINE)
-_BULLET_RE = re.compile(r"^\s*(?:[-*•]\s+|\d+[.)]\s+)\S", re.MULTILINE)
+# detectors, not judgements of quality: a desk reply carries no memo
+# scaffolding, a memo reaches a decision. That is exactly the axis the model
+# collapses -- answering a one-line desk question with a four-heading memo is
+# the same failure as answering it in exam form, and nothing else measures it.
+#: The five registers the corpus declares (``dataset/pipelines/v3/config.py``
+#: ``VALID_REGISTERS``). Only the first three carry shape rules; ``auditor``
+#: and ``code_review`` are declared and unwritten, so no family emits them and
+#: the corpus gate returns clean for both -- which this mirrors rather than
+#: scoring them unscored: inventing shape rules for a voice nobody has written
+#: would pin down prose that has never been read.
+VALID_REGISTERS = (
+    "desk_chat",
+    "ic_memo",
+    "risk_committee",
+    "auditor",
+    "code_review",
+)
 
-#: Word-count band and structure requirement per register. `headings` is
-#: True (required), False (must not), or None (either is fine).
-REGISTER_SHAPES = {
-    "desk_chat": {"min_words": 0, "max_words": 220, "headings": False},
-    "ic_memo": {"min_words": 250, "max_words": 10_000, "headings": True},
-    "risk_committee": {"min_words": 120, "max_words": 10_000, "headings": None},
-    "auditor": {"min_words": 80, "max_words": 10_000, "headings": None},
-    "code_review": {"min_words": 0, "max_words": 10_000, "headings": None},
+#: The memo's scaffolding, anchored at a line start: "is this laid out like a
+#: memo". Mirrors ``_MEMO_HEADINGS`` in the corpus gate.
+_MEMO_HEADINGS = re.compile(
+    r"^\s*(?:[-*#>\s]*)(?:\*\*)?\s*"
+    r"(finding|evidence|call|recommendation)\s*(?:\*\*)?\s*:",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+#: The labelled call, *wherever* it appears -- a different question from the
+#: one above, and the answer does not depend on where the label sits.
+_CALL_LABEL = re.compile(r"\b(?:call|recommendation)\s*:", re.IGNORECASE)
+
+#: Sentence terminators. Newlines break too: a desk reply written as twenty
+#: one-line bullets is twenty sentences however few full stops it holds.
+_SENTENCE_SPLIT = re.compile(r"[.!?]+[\s)\]]|\n+")
+
+#: The moves that make a passage a decision rather than a survey.
+_CALL_TERMS = (
+    "recommend",
+    "we would",
+    "our call",
+    "the call is",
+    "initiate",
+    "maintain",
+    "add to",
+    "trim",
+    "reduce",
+    "avoid",
+    "prefer",
+    "size at",
+)
+
+#: The one move a risk committee does not make. Matched on imperative openings
+#: so "the desk should not add to the position" (a constraint) is not read as
+#: "add to the position" (a call).
+_TRADE_CALL = re.compile(
+    r"\b(?:we\s+)?(?:recommend|advise)\s+(?:buying|selling|adding|shorting|"
+    r"trimming)\b|\b(?:i|we)\s+would\s+(?:buy|sell|short|add|trim)\b",
+    re.IGNORECASE,
+)
+
+#: What "the risk committee is speaking" looks like in vocabulary. Stems, so
+#: "limits"/"limit" both land.
+_RISK_TERMS = ("limit", "horizon", "assum", "breach", "exposure", "tolerance")
+
+#: Record types an ``ic_memo`` row may write without reaching a decision: a
+#: citation and a refusal legitimately end without one. Shared with
+#: ``scripts/01_prepare_data.py``, which caps how much of a register's training
+#: slice these kinds may be -- the exemption is correct per row and corrosive
+#: in bulk.
+CALL_EXEMPT_KINDS = frozenset({"grounded", "abstention"})
+
+#: Desk chat's ceilings. The sentence count alone can be satisfied by writing
+#: fewer, longer sentences -- the corpus measured a "desk_chat" memo of 334
+#: words in 7 sentences -- so the mean-length ceiling closes that door.
+DESK_CHAT_MAX_SENTENCES = 12
+DESK_CHAT_WORDS_PER_SENTENCE = 14
+DESK_CHAT_MAX_MEAN_SENTENCE = 2 * DESK_CHAT_WORDS_PER_SENTENCE
+
+#: Sentence ceilings belonging to the *kind* rather than to the register: a
+#: citation and a refusal are short by construction in a way an analysis is
+#: not. Where a kind is stricter than the register, its number wins.
+_KIND_SENTENCE_CAPS = {"grounded": 8, "abstention": 5}
+
+#: The word bands each kind is written to, and the one place a register binds
+#: tighter than its kind. Duplicated as literals for the reason
+#: ``EXAM_SHARE_MAX`` is in ``01_prepare_data``: the trees are joined by
+#: published artifacts, not by Python. They are read here only to derive the
+#: desk_chat ceiling below -- never to judge an answer by its length, which is
+#: the mistake this module is recovering from.
+_WORD_BUDGETS = {
+    "analysis": (60, 220),
+    "memo": (100, 300),
+    "grounded": (40, 90),
+    "critique": (50, 180),
+    "abstention": (25, 120),
 }
+_REGISTER_WORD_CAPS = {("analysis", "desk_chat"): 160}
 
 
-def register_match(text: str, register: str) -> bool | None:
+def _sentence_count(text: str) -> int:
+    return len([part for part in _SENTENCE_SPLIT.split(text) if part.strip()])
+
+
+def desk_chat_ceiling(kind: str) -> int:
+    """The sentence ceiling for a desk_chat row of record type *kind*.
+
+    Twelve, except where twelve is the wrong number in either direction.
+
+    A kind may be *stricter* than its register -- ``grounded`` is eight
+    sentences and ``abstention`` five wherever they are written -- and where it
+    is, the kind's number is the ceiling.
+
+    Twelve can also be *unreachable*. A register belongs to the family and a
+    word budget to the record type, and one pack serves every record type, so a
+    work type whose families all speak desk chat still has to write a ``memo``
+    at a 100-word floor in the desk's voice. At twelve sentences that is an
+    eight-word average and at the band's top a 25-word one; demanding both
+    would refuse every memo of that work type forever. So the ceiling is twelve
+    or what the lane's own band actually permits, whichever is larger.
+    """
+    kind_cap = _KIND_SENTENCE_CAPS.get(kind)
+    if kind_cap:
+        return kind_cap
+    low, high = _WORD_BUDGETS.get(kind, (0, 0))
+    high = min(high, _REGISTER_WORD_CAPS.get((kind, "desk_chat"), high))
+    return max(
+        DESK_CHAT_MAX_SENTENCES,
+        math.ceil(low / DESK_CHAT_WORDS_PER_SENTENCE),
+        math.ceil(high / DESK_CHAT_MAX_MEAN_SENTENCE),
+    )
+
+
+def _grounded_violations(text: str) -> list[str]:
+    """A citation carries no scaffolding, whatever register it is written in.
+
+    A ``grounded`` row is told "no section labels of any kind", and the rule
+    belongs to the kind rather than to the voice: the corpus records that the
+    first live grounded row on an ``ic_memo`` family closed on "Call: act on
+    Financials allocation", obeying its register and breaking its kind. Checked
+    on top of the per-register rule, not instead of it.
+    """
+    out: list[str] = []
+    found = sorted({m.group(1).lower() for m in _MEMO_HEADINGS.finditer(text)})
+    if found:
+        out.append(
+            "a grounded answer carries section headings ("
+            + ", ".join(f"{h.title()}:" for h in found)
+            + ") -- it cites, it does not write itself up"
+        )
+    elif _CALL_LABEL.search(text):
+        out.append("a grounded answer labels a call -- cite the figures and stop")
+    return out
+
+
+def makes_a_call(text: str) -> bool:
+    """Whether this passage decides something, in either form a desk uses.
+
+    Two forms, and missing the second is not hypothetical: the corpus gate
+    records that reading only a phrase list cost three of four live ``ic_memo``
+    rows their place, because the model wrote its decision under a ``Call:``
+    heading -- which is not merely *a* way to make a call but the form the
+    register's own table licenses.
+    """
+    lowered = str(text or "").casefold()
+    if any(term in lowered for term in _CALL_TERMS):
+        return True
+    return bool(_CALL_LABEL.search(str(text or "")))
+
+
+def register_violations(register: str, text: str, *, kind: str = "") -> list[str]:
+    """Every way *text* breaks the shape *register* promises, as sentences.
+
+    The harness-side reading of the corpus's register gate
+    (``dataset/pipelines/v3/verification/register.py``), and a reimplementation
+    rather than an import for the reason ``invented_numbers`` above is: the two
+    trees are joined by published artifacts, not by Python (spec §3).
+
+    Argument order matches the corpus function deliberately, so the two stay
+    diffable against each other by eye.
+
+    What this replaced, and why: the previous reading tested a *word-count band
+    plus a heading boolean* -- ``ic_memo`` demanded 250 words and a heading.
+    The corpus's own budgets top out at 220 words for an ``analysis`` row and
+    300 for a ``memo``, and its gate calls headings "permitted, not required",
+    so the floor sat above the ceiling: 0 of 36 shipped ``ic_memo`` rows could
+    pass, and 3 of the 7 human-certified gold-bar rows were scored as failures.
+    A base model that rambled for 2553 tokens under markdown headings outscored
+    a tuned one writing to the corpus's own contract, which is the measurement
+    inverting the thing it was built to detect.
+    """
+    text = str(text or "")
+    out: list[str] = _grounded_violations(text) if kind == "grounded" else []
+    if register == "desk_chat":
+        if _MEMO_HEADINGS.search(text):
+            out.append("register desk_chat wears memo headings")
+        if _CALL_LABEL.search(text):
+            out.append("register desk_chat labels its call")
+        sentences = _sentence_count(text)
+        ceiling = desk_chat_ceiling(kind)
+        if sentences > ceiling:
+            out.append(
+                f"register desk_chat runs {sentences} sentences, over the "
+                f"{ceiling}-sentence ceiling for a {kind or 'unlabelled'} row"
+            )
+        if sentences:
+            mean = len(text.split()) / sentences
+            if mean > DESK_CHAT_MAX_MEAN_SENTENCE:
+                out.append(
+                    f"register desk_chat averages {mean:.0f} words a sentence, "
+                    f"over the {DESK_CHAT_MAX_MEAN_SENTENCE} ceiling"
+                )
+    elif register == "ic_memo":
+        if kind not in CALL_EXEMPT_KINDS and not makes_a_call(text):
+            out.append("register ic_memo states no call")
+    elif register == "risk_committee":
+        if not any(term in text.casefold() for term in _RISK_TERMS):
+            out.append("register risk_committee names no limit, horizon or assumption")
+        if _TRADE_CALL.search(text):
+            out.append("register risk_committee recommends a trade")
+    return out
+
+
+def register_match(text: str, register: str, kind: str = "") -> bool | None:
     """Whether ``text`` is shaped like the register it was asked for.
 
-    ``None`` when the register is absent or not one of the five the corpus
-    writes -- unscored rather than scored zero, so an unlabelled suite row
-    cannot drag the rate down and look like a model regression.
+    Fidelity, not length: does a desk reply stay unscaffolded and inside its
+    sentence ceiling, does a memo reach a decision, does a risk paper name its
+    constraint without taking the desk's position.
+
+    ``kind`` is the record type. It carries the one exemption the corpus grants
+    -- a ``grounded`` citation or an ``abstention`` refusal is an ``ic_memo``
+    that legitimately ends without a call -- and defaults to ``""``, which is
+    in no exempt set, so an unlabelled row is held to the full contract.
+
+    ``None`` only when the register is absent or is not one the corpus
+    declares, so such a row stays out of the denominator entirely -- a typo
+    would otherwise read as a model regression. A *declared* register with no
+    shape rules yet (``auditor``, ``code_review``) scores ``True``, which is
+    what the corpus gate returns for it.
     """
-    shape = REGISTER_SHAPES.get(str(register or "").strip())
-    if shape is None:
+    register = str(register or "").strip()
+    if register not in VALID_REGISTERS:
         return None
-    body = (text or "").strip()
-    words = len(body.split())
-    if not shape["min_words"] <= words <= shape["max_words"]:
-        return False
-    if shape["headings"] is None:
-        return True
-    structured = bool(_HEADING_RE.search(body)) or bool(_BULLET_RE.search(body))
-    return structured is shape["headings"]
+    return not register_violations(register, text, kind=str(kind or ""))
 
 
 # --------------------------------------------------------------------------

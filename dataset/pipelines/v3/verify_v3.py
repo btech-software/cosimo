@@ -188,6 +188,11 @@ AXES = (
     # row), so it runs under ``--quick`` too: it is an integrity gate, not a
     # measurement, and a corpus that fails it must not train.
     (17, "eval-reserved coordinates"),
+    # Axis 16 asks whether the voices that reached training read differently
+    # from each other. It cannot ask that about a voice which barely reached
+    # training at all, and it was measuring separation on a register whose
+    # families had been held out from under it. This is the prior question.
+    (18, "register coverage"),
 )
 
 #: The agentic record type, named once: the board branches on it, the
@@ -735,6 +740,57 @@ def _measure_shares(axes_report: dict, rows: list[dict]) -> None:
         )
 
 
+def _measure_register_coverage(axes_report: dict, rows: list[dict]) -> None:
+    """Axis 18: no register is reduced to a single scenario by the plan.
+
+    A register is a property of the family (``work_types.yaml``), and every
+    family in the live plan declares exactly one -- so the register mix *is*
+    the work-type mix, and holding out a scenario family holds out a share of a
+    voice. Nothing enforced a register quota anywhere: axis 16 measures whether
+    the registers that survive read alike, which is a question that presumes
+    they survived.
+
+    Exam rows are excluded. An exam item is graded on the exam contract
+    whatever register its pack names, so its presence is not evidence that the
+    voice is still being written.
+
+    Certifies the corpus's own holdout only. ``jobs/fine-tune`` holds families
+    out again on its own axis, invisible from here; that side warns separately
+    against the mix it actually prepares.
+    """
+    axis = axes_report["register coverage"]
+    families: dict[str, set] = {}
+    counted = 0
+    for row in rows:
+        register = str(row.get("register") or "")
+        if register and row.get("record_type") != EXAM_KIND:
+            families.setdefault(register, set()).add(row.get("family"))
+            counted += 1
+    # Rows read, not families found -- the board's own unit, so a reader
+    # comparing this axis's coverage against its neighbours' is comparing the
+    # same thing. The family census is the finding, and it goes in the note.
+    axis["checked"] = counted
+    if not families:
+        axis["note"] = "no prose rows carried a register"
+        return
+    census = ", ".join(f"{r}: {len(f)}" for r, f in sorted(families.items()))
+    thin = sorted(
+        r for r, f in families.items() if len(f) < config.REGISTER_MIN_FAMILIES
+    )
+    # Reported, never red -- axis 16's own stance, for the same reason. Which
+    # families ship is the plan's decision and the remedy is a plan change, so
+    # failing the board here would block a publish on a corpus whose only crime
+    # is the taxonomy it was rendered from. The number belongs in front of the
+    # human raising LIMIT, not in the exit code.
+    axis["note"] = f"families per register (exam rows excluded) -- {census}" + (
+        f"; under the {config.REGISTER_MIN_FAMILIES} a voice needs: "
+        f"{', '.join(thin)} -- these registers are one scenario, and a "
+        "register score read off them is a scenario score"
+        if thin
+        else ""
+    )
+
+
 def _measure_reserved(axes_report: dict, rows: list[dict], reserved) -> None:
     """Axis 17: no training row sits on a coordinate an evaluation asks about.
 
@@ -1216,6 +1272,7 @@ def verify_dir(
     _measure_shares(axes_report, all_rows)
     _measure_teacher_pinning(axes_report, all_rows)
     _measure_reserved(axes_report, all_rows, write.reserved_coordinates())
+    _measure_register_coverage(axes_report, all_rows)
     if not quick:
         _measure_gold_bar(axes_report, all_rows, bar_path)
         _measure_corpus_near_dup(axes_report, all_rows)

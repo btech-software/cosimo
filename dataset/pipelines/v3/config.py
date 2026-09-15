@@ -377,6 +377,15 @@ CORPUS_NEAR_DUP_THRESHOLD = 0.75
 #: so the axis reports what it measured and certifies nothing -- the same
 #: discipline the share axes keep.
 NEAR_DUP_MIN_ROWS = 8
+
+#: The fewest scenario families a register may speak through and still be a
+#: voice rather than a scenario. A register is 1:1 with a work type
+#: (``dataset/taxonomy/work_types.yaml``'s own ``registers:`` table), so a
+#: register reduced to one family is one situation memorised -- and the
+#: downstream harness holds families out again on its own axis, which this side
+#: cannot see. Two is the floor at which asking "do these read alike" (axis 16)
+#: is a question about a voice at all.
+REGISTER_MIN_FAMILIES = 2
 #: How many offending pairs the board names before it stops listing. A corpus
 #: that repainted one family produces hundreds; the operator needs the first
 #: few and the count, not the cross-product.

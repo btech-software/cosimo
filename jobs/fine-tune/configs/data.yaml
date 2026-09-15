@@ -114,6 +114,17 @@ data:
   # honest way to want more exam is to author more of it in work_types.yaml.
   exam_share_max: 0.18
 
+  # Ceiling on the call-exempt kinds -- `grounded` and `abstention` -- as a
+  # share of EACH register's prose rows, not of the whole pool. The corpus gate
+  # excuses those two kinds from a register's closing move one row at a time (a
+  # citation and a refusal legitimately reach no decision); nothing excused them
+  # in bulk, and measured at 8 of 27 non-exam ic_memo training rows they taught
+  # "this register need not decide" well enough that the tuned model left the
+  # call out of three of four ic_memo trap answers. 0.20 bites on that while
+  # leaving refusal behaviour visible in every voice, which the corpus must
+  # also teach. Enforced on the *prepared* mix, like exam_share_max.
+  call_exempt_share_max: 0.20
+
   # Drop rows whose `verified` flag is false. These failed the generator's own
   # answer-recomputation check, so their answer and reasoning trace cannot be
   # trusted as a supervised target. The dropped count is logged and recorded in
