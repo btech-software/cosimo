@@ -16,9 +16,15 @@ deliberately not restated here.
 
 **Counts and measured results are not documented here.** Record, shard, template
 and coverage numbers are generated artifacts — read them from
-`dataset/progress/progress.md`. Training wall clock, accuracy and token-length
-figures live in the harness README and in each run's `metrics.json`. Numbers
-written into prose go stale silently.
+`dataset/progress/progress.md` for v1/v2 and from `verify_v3`'s board and
+`dataset/tools/slice_audit.py` for v3. Training wall clock, accuracy and
+token-length figures live in the harness README and in each run's
+`metrics.json`. Numbers written into prose go stale silently.
+
+**Two corpus generations live in this repository.** `dataset/pipelines/v3/` is
+the current one and is where new work happens; the template generator that
+produced v1 and v2 is frozen and documented in §3 for provenance. They share no
+code.
 
 ---
 
@@ -26,7 +32,9 @@ written into prose go stale silently.
 
 | Path | Subsystem | Documented in |
 | --- | --- | --- |
-| `dataset/` | Synthetic corpus generation + verification | Part I below |
+| `dataset/pipelines/v3/` | **Current** corpus: fact packs → briefs → gated render | §2 |
+| `dataset/pipelines/` (v1/v2) | Frozen template generator, kept for provenance | §3–§9 |
+| `dataset/tools/` | Operator instruments: slice audit, probes, suite builders | §2.8 |
 | `jobs/fine-tune/` | Post-training: SFT → DPO/ORPO, evaluation, export | Part II below |
 | `docker/` | The only supported runtime environments | §13 |
 | `cosimo/` | LangGraph ReAct application — the serving target | *not yet documented* |
@@ -36,14 +44,14 @@ The corpus and the harness are separate programs joined by published artifacts,
 not by imports:
 
 ```
-dataset/                     generate → verify → publish
-   │   publish/push_to_hub.py
+dataset/pipelines/v3/        inventory → packs → render → verify → prefer → publish
+   │   publish certifies the board and writes a card; it does NOT push yet
    ▼
-Hugging Face Hub             btech-software/cosimo-quant-reasoning-v2   (primary)
-                             btech-software/cosimo-cfa-frm-71k          (mixed, capped)
-   │   scripts/01_prepare_data.py   (config: dataset.hub_id + dataset.mix)
+dataset/shards/v3/           sft/ eval/ preference/ dead_letter/ fact_packs/
+   │   scripts/01_prepare_data.py --set dataset.local_dir=<tree>     ← the normal path today
+   │   (dataset.hub_id + dataset.mix is the eventual path; see §14.1)
    ▼
-jobs/fine-tune/              prepare → SFT → DPO/ORPO → evaluate → merge
+jobs/fine-tune/              prepare → tool rows → SFT → DPO/ORPO → evaluate → merge
    │   scripts/08_export_merge.py → runs/<name>/merged  (bf16 + chat template)
    ▼
 docker/serve/run.sh          vLLM, OpenAI-compatible API on :8000
@@ -52,7 +60,11 @@ docker/serve/run.sh          vLLM, OpenAI-compatible API on :8000
 cosimo/agents/react_agent/   LangGraph create_react_agent (serving target)
 ```
 
-Four narrower contracts cross the boundary directly, without going through the
+The student is **`Qwen/Qwen3.8-27B`**, pinned by SHA, trained as QLoRA (4-bit,
+`max_seq_length` 8192). The teacher that writes the corpus is a separate,
+swappable endpoint whose answering model is stamped into every row.
+
+Narrower contracts cross the boundary directly, without going through the
 Hub — see §14.
 
 ---
@@ -79,7 +91,214 @@ The pipeline is built around four invariants:
 
 ---
 
-## 2. Data flow at a glance
+## 2. The v3 pipeline — current (`dataset/pipelines/v3/`)
+
+v3 replaced "run a template a thousand times" with "compute a scenario, then
+commission prose against it". The unit is the **fact pack**: a frozen,
+JSON-serialisable scenario carrying its own verification contract. Every row —
+exam, prose, agentic, implementation — is rendered over one, and the verifier
+recomputes the pack from `(work_type, family, variant)` and requires equality.
+That is why the pack is data and never prose.
+
+```
+dataset/taxonomy/work_types.yaml     the plan: families, registers, record types, caps
+        │  inventory.py              → deterministic job list, family-capped, illegal pairs refused
+        ▼
+packs/<computer>.py                  fact computers (TCA, Brinson-Carino, VaR, FCFF, multiples)
+        │  a scenario that cannot be computed raises PackError and is skipped, never shipped
+        ▼
+teacher/prompts.py                   system (short) + kind × register × work-type brief
+teacher/routing.py                   lane, think flag, budget            teacher/client.py → one POST
+        ▼
+render/{prose,exam,agentic,implementation}.py
+        │  gate → repair → gate, three strikes, then a dead letter carrying the whole ladder
+        ▼
+dataset/shards/v3/{sft,eval}/<record_type>.jsonl      + dead_letter/, teacher_logs/
+        │
+        ▼
+verify_v3.py (16 axes)  ·  tools/slice_audit.py  ·  prefer.py  ·  publish.py
+```
+
+### 2.1 The plan and the inventory
+
+`taxonomy/work_types.yaml` is law: which families exist, which are holdout,
+which **registers** each family may be written in, how many variants each record
+type gets, and the ceiling any one family may take of the supervised pool.
+`inventory.py` expands it into `[(work_type, family, record_type, variant)]`,
+applies the family cap by largest-remainder apportionment (so truncation
+preserves a family's planned *shape* rather than keeping whichever record type
+sorts first), and **refuses illegal pairs at load**: a `memo` needs a family
+whose registers are all memo-legal, because one pack serves every record type of
+a variant and the register is drawn before the record type is known.
+
+### 2.2 Fact packs (`packs/`)
+
+Each computer owns one work type and returns a `FactPack`. Beyond the scenario's
+inputs and computed figures it carries the contract the answer is graded
+against:
+
+| field | what it decides |
+| --- | --- |
+| `canonical` | the one official value per named quantity — what an *answer* may claim |
+| `allowed_numbers` | the union any surface may print (oracle results, distractors, pinned tests) |
+| `aliases` | spellings the *question* prints, so a rounding it introduces is not the answer's |
+| `display` | how the desk spells a figure — `430,567`, `4.86%`, `295.77` |
+| `conventions` | named constants of the discipline the answer may cite unprompted |
+| `must_mention` / `forbidden_claims` | the points to engage and the claims to refuse |
+| `conditional_mentions` / `conditional_forbids` | points whose truth is an inequality *in this pack* |
+| `abstention_question` / `abstention_missing` | the question this pack cannot answer, and what is absent |
+
+Three of these exist because a single list could not answer two questions at
+once. `canonical` versus `allowed_numbers` separates "what an answer may claim"
+from "what may appear anywhere". `conventions` separates knowledge from facts —
+a Sharpe band or a Basel multiplier is not a figure of this scenario, and a
+corpus where every number must come from the pack can teach arithmetic and
+refusal but never judgement against a benchmark. `abstention_question` exists
+because an abstention rendered over a question the pack *answers* is not a
+refusal; it is an analysis with a caveat.
+
+Conditional entries are folded at build time against the pack's own numbers, so
+the teacher never sees a slogan its arithmetic has already ruled out — a TCA
+pack below its participation cap forbids "the schedule itself becomes the risk";
+a VaR pack with a negative daily mean forbids "positive drift".
+
+### 2.3 The brief (`teacher/prompts.py`)
+
+The system turn is short and says only what is true of every row: use the pack's
+figures in their display form, invent no entity, say what is missing if the pack
+cannot support the question, never name the machinery. Everything about *this*
+row lives in the user turn, composed from four sources:
+
+- **kind** — the job: what the first sentence does, what carries it, what would
+  overturn it, whether it ends in a decision, and its word and sentence caps;
+- **register** — the shape, taken from the gate's own words
+  (`verification/register.py`), so the brief and the refusal cannot disagree;
+- **work type** — what this arithmetic makes wrong (participation below a cap is
+  an impact bill; a negative mean is never a gain; EV is not a share price);
+- **policies** — number spelling from `display`, the points to engage, and the
+  conventions this work type licenses.
+
+The rule this encodes is that **kind is the job and register is the shape**.
+Differentiating record types by word budget alone is how `analysis` and
+`grounded` collapse into one instruction wearing two names.
+
+### 2.4 Rendering and the repair loop (`render/`)
+
+`render_prose_row` asks the routed teacher, runs the gate, and on a violation
+appends the draft plus a repair turn naming every fault, cooling the temperature
+one notch — three strikes, then the whole exchange goes to `dead_letter/` with
+its attempt ladder, never silently. A truncated reply (no text, `finish_reason:
+length`) is *not* a strike: it is answered with more room, and the lane's
+observed floor rises so later rows open where this one ended.
+
+Two coordinates are skipped before a call is ever made: ids the **gold bar**
+holds (a certified row is not regenerated) and packs the **eval reservation**
+names (§2.7). Both are reported per stage rather than silently dropped.
+
+Rows are written to `sft/` or `eval/` by the family's holdout flag — two
+directories, because a glob cannot confuse them the way a boolean on a row can.
+The student row carries the question and the visible answer and nothing of the
+factory; the teacher transcript is a separate surface written only when the
+operator asks for it.
+
+### 2.5 The gate (`verification/`)
+
+`prose.gate_violations` is the whole difference between "the teacher wrote
+something" and "the corpus may carry it". One policy, three call sites — the
+renderer's repair loop, the verify board, and the publish-time slice audit — so
+the generator and the auditor cannot disagree about clean:
+
+| axis | refuses |
+| --- | --- |
+| `invented_numbers` | a figure no canonical value or declared convention explains, at the precision it is written |
+| `rounding_drift` | the question's rounding of a figure the answer is reporting |
+| `display_form_offenders` | the raw float where the pack publishes a desk spelling |
+| `integer_format_offenders` | a count with a decimal tail |
+| `overprecise_numbers` | figures past desk precision |
+| `contract_leaks` | naming the pack, the gate, the brief — the factory talking about itself |
+| `malformed_prose` | unbalanced brackets, a word fused to a figure, a word printed twice |
+| `missing_mentions` | points the answer does not engage (the gap, for an abstention) |
+| `forbidden_hits` | a forbidden claim asserted rather than warned against |
+| `contradiction_violations` | claims this pack's own arithmetic refutes (§2.6) |
+| `register_violations` | the shape the register promises, plus the kind's sentence cap |
+| word budget | the band this kind allows *in this register* |
+
+### 2.6 Contradiction gates (`verification/contradictions.py`)
+
+Every other axis asks where a figure came from. These ask whether the answer
+contradicts the arithmetic it is quoting — the class of failure that shipped
+board-green because none of it invents a number:
+
+- `schedule_risk_below_cap` — the schedule called the risk while participation
+  sits under the pack's cap;
+- `drift_sign` — a negative daily mean read as a gain;
+- `unreconciled_call` — an effect named worth acting on while the pieces do not
+  add to the active return;
+- `ev_as_price` — an ownership call, or an EV-versus-price comparison, from a
+  valuation carrying no market price.
+
+Each is a comparison the pack can make against itself, and each is scoped: a
+convention or a claim legal in one work type is invented in another. Denials are
+read in the claim's own clause, and a quoted question is not a claim — both
+because the sentence the corpus *wants* contains the same words as the one it
+refuses.
+
+### 2.7 Evaluation reservations and the gold bar
+
+Two fences, answering different questions:
+
+- **`dataset/goldbar/gold_bar_v3.jsonl`** — rows a human certified. `verify_v3`
+  axis 13 fails a training row that near-duplicates one, and the renderer skips
+  their ids so the corpus cannot regenerate them.
+- **`dataset/eval/reserved_coordinates.json`** — whole *packs* an evaluation
+  interrogates, written by `tools/trap_suite.py`. Broader than the gold bar by
+  design: a suite that asks about a scenario poisons any training row rendered
+  on it, whatever its record type.
+
+### 2.8 Operator instruments (`dataset/tools/`)
+
+- `slice_audit.py` — is this slice worth scaling from: invented-number rate,
+  contradiction tags, the factory fingerprint, holdout leakage, near-duplicates,
+  whether `analysis` and `grounded` open on the same sentence, and whether the
+  think ablation has actually been run. `dataset_build.sh full` greps its last
+  line.
+- `probe_teacher.py` — what this endpoint costs before a slice is paid for:
+  whether the think flag is honoured, and the completion-token spread. The
+  budgets in `config.py` are its findings, not estimates.
+- `think_ablation.py` — the §B bake-off, think-off versus think-on on identical
+  briefs. `--arm` runs one side when a brief change needs re-measuring;
+  only a two-arm run writes the verdict.
+- `trap_suite.py` — generates `jobs/fine-tune/suites/traps.jsonl` **from the
+  packs**, so the figures are the corpus's own, and writes the reservation those
+  packs then get.
+- `smoke_corpus.py` — assembles a small training corpus from committed rows,
+  excluding the gold bar, the reserved packs, and the scripted examples.
+
+### 2.9 The board, preference and publish
+
+`verify_v3.py` runs sixteen axes over the written shards, recomputing every pack
+rather than trusting the copy stored on the row: schema, pack recompute,
+invented numbers, `must_mention` / forbidden claims, the exam-only tag, three
+share bands, tool schemas and replay, hidden tests, preference disjointness,
+gold-bar near-duplication, teacher pinning, and two slice-level axes — corpus
+near-duplication and register separation — that no per-row gate can ask.
+
+`prefer.py` builds preference pairs as a second telling plus a named defect;
+`publish.py` certifies the board and writes a dataset card. Publishing refuses
+without the gold bar.
+
+---
+
+## 3. Legacy v1/v2 generator (frozen)
+
+Everything in this section describes the **frozen** template generator that
+produced v1 and v2. It is kept for provenance and for the exam corpus it
+published; new work happens in §2, and nothing here is on the v3 path. The v3
+pipeline shares none of its code — no templates, no `generate.py`, no
+`verify_all.py`.
+
+### 3.1 Data flow at a glance
+
 
 ```
 dataset/taxonomy/taxonomy.json ──► (topic scaffolding) ──► dataset/pipelines/templates/*.py
@@ -105,14 +324,14 @@ dataset/config/seed.json ──► pipelines/generate.py ──► pipelines/cor
 
 ---
 
-## 3. Component map
+### 3.2 Component map
 
-### 3.1 Taxonomy (`dataset/taxonomy/taxonomy.json`)
+#### 3.2.1 Taxonomy (`dataset/taxonomy/taxonomy.json`)
 
 Topic/subtopic scaffolding that informs template organization. It is the
 curriculum source of truth; templates map topics to question stems.
 
-### 3.2 Templates (`dataset/pipelines/templates/*.py`)
+#### 3.2.2 Templates (`dataset/pipelines/templates/*.py`)
 
 The generative heart of the pipeline. Exam modules correspond to a program
 (`cfa_l1.py`, `cfa_l2.py`, `cfa_l3.py`, `frm1.py`, `frm2.py`); the `v2_*` modules
@@ -139,14 +358,14 @@ authoritative. Shared wrappers live in `wrappers.py` (`wrap_vignette`, `wrap_cr`
 `wrap_mcq`) and deterministically decorate a base stem into a `Vignette`,
 `Constructed Response` (no distractors), or `MCQ` question.
 
-### 3.3 Core helpers (`dataset/pipelines/core.py`)
+#### 3.2.3 Core helpers (`dataset/pipelines/core.py`)
 
 Shared utilities consumed by the generator: content-hashed record IDs, the
 deterministic `RNG` wrapper over `random.Random(seed)`, number/percent formatting,
 and shard-path helpers. Defines `BASE_DIR`, `SHARDS_DIR` and `PROGRESS_DIR` —
-see §5.1 for how these resolve.
+see the hard-rules section below for how these resolve.
 
-### 3.4 Generator driver (`dataset/pipelines/generate.py`)
+#### 3.2.4 Generator driver (`dataset/pipelines/generate.py`)
 
 Orchestrates generation. For each program → template → variant:
 
@@ -161,14 +380,14 @@ Orchestrates generation. For each program → template → variant:
   answer (nudged by `+7.0`, preserving `$`/`%` formatting). It never touches
   question/answer/trace, so the reproducibility axes stay green.
 
-### 3.5 Preference pairs
+#### 3.2.5 Preference pairs
 
 Built inline in `generate.py` (`build_preference`) whenever a template returns
 `flawed` **and** `rng.r.random() < PAIR_RATIO`, plus the dedicated generators in
 `templates/v2_preference.py`. The legacy `pipelines/preference.py` helper was
 **removed**; inline + `v2_preference` only.
 
-### 3.6 Verification (`dataset/verification/`)
+#### 3.2.6 Verification (`dataset/verification/`)
 
 - `verify_all.py` — the **regression gate** (must stay green). Loads every record
   on disk and runs these gates: structure, numeric reproducibility, format,
@@ -191,13 +410,13 @@ Built inline in `generate.py` (`build_preference`) whenever a template returns
 - `nums.py` — robust numeric tokenizer (handles thousands separators) shared by
   the sanitizer and verification.
 
-### 3.7 Progress (`dataset/pipelines/progress.py`)
+#### 3.2.7 Progress (`dataset/pipelines/progress.py`)
 
 Scans shards and emits the live report (`dataset/progress/progress.md` and
 `progress.html`) of counts, coverage, and known gaps. This is the single source
 of truth for corpus numbers.
 
-### 3.8 Evaluation and gold bar (`dataset/eval/`, `dataset/goldbar/`)
+#### 3.2.8 Evaluation and gold bar (`dataset/eval/`, `dataset/goldbar/`)
 
 - `goldbar/gold_bar.jsonl` — the curated assistant-transcript gold bar that
   defines the quality target.
@@ -209,12 +428,12 @@ of truth for corpus numbers.
 - `eval/diversity.py` — structural-novelty report (distinct stems, per-topic
   coverage).
 
-### 3.9 Config (`dataset/config/seed.json`)
+#### 3.2.9 Config (`dataset/config/seed.json`)
 
 Central seed configuration consumed by generation, including
 `preference_pair_ratio`.
 
-### 3.10 Scripts and publishing (`dataset/scripts/`, `dataset/publish/`)
+#### 3.2.10 Scripts and publishing (`dataset/scripts/`, `dataset/publish/`)
 
 - `scripts/smoke_generate.py` — Phase A verification: one variant per generator
   into a scratch directory (`dataset/.smoke/shards`). Proves the pipeline is whole
@@ -227,7 +446,7 @@ Central seed configuration consumed by generation, including
 
 ---
 
-## 4. Output artifacts
+### 3.3 Output artifacts
 
 - **Shards** (`dataset/shards/<program>/<program>_shard_XXXX.jsonl`) — append-only,
   atomic, resumable. Gitignored.
@@ -238,7 +457,7 @@ Central seed configuration consumed by generation, including
 
 ---
 
-## 5. Hard rules / conventions
+### 3.4 Hard rules / conventions
 
 1. **Paths are anchored to `dataset/`, not to your shell — with two exceptions.**
    Almost every script resolves `BASE_DIR` from `__file__`
@@ -250,7 +469,7 @@ Central seed configuration consumed by generation, including
    - `scripts/publish_dataset.py` (line 142)
 
    Run from anywhere else they silently see **zero records** — `diversity.py` then
-   crashes in `min()` on the empty counter. Either `cd dataset` first (see §6) or
+   crashes in `min()` on the empty counter. Either `cd dataset` first (see Commands below) or
    fix the glob to use `core.SHARDS_DIR`.
 
    Set `COSIMO_SHARDS_DIR` to redirect shard **and** progress output to a scratch
@@ -281,7 +500,7 @@ Central seed configuration consumed by generation, including
 
 ---
 
-## 6. Commands
+### 3.5 Commands
 
 Except where marked, these are safe to run from the repository root.
 
@@ -320,19 +539,19 @@ python3 dataset/verification/sanitize_distractors.py
 # Evaluation
 python3 dataset/eval/ab_eval.py
 
-# Must run with dataset/ as CWD — globs a relative 'shards/' (see §5.1).
-# diversity.py additionally assumes the v1 record shape and currently crashes (§8).
+# Must run with dataset/ as CWD — globs a relative 'shards/' (see the hard-rules section).
+# diversity.py additionally assumes the v1 record shape and currently crashes (see Gotchas).
 (cd dataset && python3 eval/diversity.py)
 (cd dataset && python3 scripts/publish_dataset.py)
 ```
 
 ---
 
-## 7. Adding a new question stem
+### 3.6 Adding a new question stem
 
 1. Add a template function to the relevant module under
    `dataset/pipelines/templates/` — an exam program module or the `v2_*` module
-   for the record type — matching the contract in §3.2.
+   for the record type — matching the contract in the component map above.
 2. Register it in that module's `TEMPLATES` dict (stem name → fn).
 3. Generate it in isolation first:
    `TEMPLATE=<stem> python3 dataset/pipelines/generate.py`.
@@ -342,14 +561,14 @@ python3 dataset/eval/ab_eval.py
 
 ---
 
-## 8. Gotchas
+### 3.7 Gotchas
 
 Check these before editing.
 
 - **Two scripts are CWD-dependent** — `eval/diversity.py` and
   `scripts/publish_dataset.py` glob a relative `shards/`, so from the repo root
   they report an empty corpus instead of erroring usefully. Everything else is
-  `__file__`-anchored. See §5.1.
+  `__file__`-anchored. See the hard-rules section.
 - **`eval/diversity.py` is stale against the v2 schema.** It reads
   `r['verification']['template']` and `r['metadata']['question_type']`
   unconditionally, which the non-`exam` record types do not carry — it raises
@@ -382,8 +601,10 @@ Check these before editing.
 # Part II — Post-training harness (`jobs/fine-tune/`)
 
 Post-training for Cosimo on an NVIDIA DGX Spark: LoRA SFT → DPO by default, with
-a single-stage ORPO alternative. Base model `unsloth/Phi-4-mini-reasoning` (3.8 B,
-bf16).
+a single-stage ORPO alternative. Student **`Qwen/Qwen3.8-27B`**, pinned by commit
+SHA, **QLoRA** (4-bit NF4, bf16 compute) at `max_seq_length` 8192 — 27 B
+parameters at bf16 leave no room for an 8 k sequence and its activations inside
+128 GB of unified memory.
 
 The objective is an assistant to a Head of Quantitative Asset Management, not an
 exam solver — exam accuracy is the milestone the harness *measures*, not the thing
@@ -404,8 +625,8 @@ writes into its own run directory (§10.3).
 | Script | Reads | Writes |
 | --- | --- | --- |
 | `00_check_env.py` | the installed stack | `runs/env_check.json` |
-| `01_prepare_data.py` | Hub datasets (`dataset.hub_id` + `dataset.mix`) | `data/processed/{sft,pref}_{train,val}.jsonl`, `eval_cosimo_{test,unseen_stems}.jsonl`, `split_manifest.json` |
-| `02_prepare_tool_data.py` | tool families in-script | `data/processed/tool_{train,val}.jsonl` |
+| `01_prepare_data.py` | a local v3 tree (`dataset.local_dir`) or Hub sources | `data/processed/{sft,pref}_{train,val}.jsonl`, `eval_cosimo_{test,unseen_stems}.jsonl`, `split_manifest.json` |
+| `02_prepare_tool_data.py` | tool families in-script, **sized against the prepared corpus** | `data/processed/tool_{train,val}.jsonl` |
 | `03_baseline_eval.py` | prepared eval slices, base model | `runs/baseline/eval/` |
 | `04_train_sft.py` | `sft_*.jsonl` + `tool_*.jsonl` | `runs/sft/adapter` |
 | `05_train_dpo.py` | `pref_*.jsonl`, SFT adapter | `runs/dpo/adapter` |
@@ -433,6 +654,19 @@ Two stage-specific notes worth knowing before reading the code:
   drift before a day of GPU time is spent training on the wrong tokens.
 - **`03_baseline_eval.py` refuses to overwrite `runs/baseline`.** It is the
   reference for every delta; losing it invalidates comparisons already computed.
+- **`02_prepare_tool_data.py` sizes itself against the corpus.** The synthetic
+  tool rows teach a *format* the corpus contains no examples of — declining to
+  call, and reading 2–5 competing schemas. Their count is `tools.train_share` of
+  whatever `01_prepare_data.py` actually wrote, not a constant: a fixed 2,000
+  was chosen when a far larger corpus supplied the real agentic rows, and left
+  unchanged it would make format drills a large minority of the supervised
+  signal. The resolved count and the share it will occupy are printed.
+- **`04_train_sft.py` refuses a training set outside its declared band.**
+  `sft.min_train_rows` / `sft.max_train_rows` exist because the smoke path and
+  the full path are the same script reading whatever was prepared last: without
+  a band, a forgotten `--config configs/sft_smoke.yaml` turns a smoke into a
+  multi-hour run, and a forgotten re-prepare turns a full run into a handful of
+  rows that looks like a bad model rather than a mistake.
 
 ---
 
@@ -471,9 +705,13 @@ without torch or a GPU. Import submodules explicitly.
 ### 10.2 GPU-touching modules
 
 - `modeling.py` — model/tokenizer loading, `resolve_target_modules` (the `auto`
-  path that discovers this checkpoint's **fused** projections — `qkv_proj`,
-  `o_proj`, `gate_up_proj`, `down_proj` — because the conventional seven-module
-  LoRA list matches nothing here), `attach_lora`, `model_fingerprint`.
+  path that discovers what this checkpoint actually exposes; Qwen3.8 carries the
+  conventional seven — `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`,
+  `up_proj`, `down_proj` — where the previous Phi student carried fused ones, and
+  a hardcoded list would have matched nothing across the swap), `attach_lora`,
+  `model_fingerprint`. `model.use_exact_model_name` keeps unsloth from silently
+  substituting its own pre-quantized mirror, which loads with no quantization
+  state.
 - `generation.py` — batched greedy generation with left padding, length-bucketed
   prompts, and `plan_batches` enforcing the `max_batch_tokens` KV-cache bound.
 - `evalrun.py` — **the single evaluation implementation** shared by
@@ -503,9 +741,24 @@ base.yaml → <stage>.yaml → --config FILE (repeatable) → --set dotted.key=v
 ```
 
 `base.yaml` carries what every stage shares: `seed: 3407`, model id and
-`max_seq_length`, the Hub dataset id, `paths.*`, the `prompt.*` block, `tools.*`
-generation parameters, and `chat.*`. Stage files (`data`, `sft`, `dpo`, `orpo`,
-`eval`, `assistant`) add only their own keys.
+`max_seq_length`, the dataset source, `paths.*`, the `prompt.*` block, `tools.*`
+sizing and generation parameters, and `chat.*`. Stage files (`data`, `sft`,
+`sft_smoke`, `dpo`, `orpo`, `eval`, `assistant`) add only their own keys.
+
+`configs/sft_smoke.yaml` is a named overlay rather than a pile of `--set` flags,
+so "run the cheap experiment" is reproducible and the row-count band has a
+ceiling to enforce. It changes the corpus size and the cadence and deliberately
+**not** the learning rate, LoRA geometry or batch shape: a smoke that trains
+differently from the real run measures the smoke.
+
+Two budgets are derived rather than pinned, because a literal that outlives the
+run it was chosen for is silently wrong. `sft.eval_steps` / `save_steps` accept
+`auto` and resolve from the number of optimizer steps this run will actually
+take — a literal 250 fires zero times on a corpus that takes far fewer, so the
+eval-loss curve the data config describes would not exist. And the escalation
+ceiling for a truncated teacher call is an absolute token count, not a multiple
+of the lane cap: raising the cap once moved a ceiling nobody had chosen and cost
+a render two hours of wall clock on two rows.
 
 Unknown `--set` keys are **rejected**, so a typo costs a second rather than a
 training run. The fully resolved config is written to every run directory as
@@ -528,10 +781,15 @@ commit SHAs for a result you intend to defend later.
 
 ### 11.1 The system prompt is two blocks
 
-`prompt.identity` (~2 300 chars) is present on **every** example, training and
-inference — it binds "being Cosimo" to the weights rather than to a system prompt
-someone might forget to send. `prompt.exam_protocol` (~180 chars) is appended
-**only** to exam-format items and carries the `FINAL ANSWER:` grading contract.
+`prompt.identity` is present on **every** example, training and inference — it
+binds "being Cosimo" to the weights rather than to a system prompt someone might
+forget to send. `prompt.exam_protocol` is appended **only** to exam-format items
+and carries the `FINAL ANSWER:` grading contract.
+
+The identity block shrank by roughly an order of magnitude with v3 (four lines,
+not the v2 essay). That is a training decision, not tidying: the block is paid
+for on every example of every epoch, and a long persona spends the sequence
+budget teaching the model to recite itself.
 
 The split is deliberate and load-bearing: attaching the exam protocol to
 everything is precisely how a model learns that being Cosimo *means* answering in
@@ -539,13 +797,18 @@ five formulaic steps. The identity is universal; the task block is not.
 
 ### 11.2 The chat template is overridden on purpose
 
-The stock `unsloth/Phi-4-mini-reasoning` template hardcodes
-`<|system|>Your name is Phi, an AI math expert developed by Microsoft.` ahead of
-every system message, contradicting the identity being trained.
-`configs/chat_template.jinja` is structurally identical with that sentence
-removed, and is applied in **every** entry point — preparation, SFT, DPO, ORPO,
-evaluation, export — so the base model is evaluated through the same prompt
-surface as the tuned one.
+`configs/chat_template.jinja` is the one template the whole harness renders
+through — preparation, SFT, DPO, ORPO, evaluation, export — so the base model is
+evaluated through the same prompt surface as the tuned one.
+
+It began as a vendor template with one sentence removed: the Phi student's stock
+template hardcoded `<|system|>Your name is Phi…` ahead of every system message,
+contradicting the identity being trained. Under Qwen3.8 the turn markers are
+`<|im_start|>role\n` / `<|im_end|>`, and the file is maintained rather than
+inherited for a second reason: it defines where the supervised span begins
+(`chat.response_part`), it passes `<think>` blocks through as ordinary content
+(nothing here adds, strips or requires them), and it renders the tool wire
+format shared with `cosimo/tools/wire.py` (§14.4).
 
 `chat.template_path: null` reinstates the vendor template; training, evaluation
 and export all **refuse to run** in that state rather than silently produce
@@ -591,15 +854,48 @@ accuracy is being bought with memorisation.
 
 ### 12.3 Assistant quality (`09_assistant_eval.py`)
 
-Is it still an assistant. Three hand-written suites — `open_ended` (30),
-`calibration` (20, underspecified/unanswerable/false-premise), `agentic` (16 mock
-ReAct trajectories including multi-call and no-call-appropriate).
+Is it still an assistant. Seven suites. Six are hand-written — `open_ended`,
+`calibration` (underspecified / unanswerable / false-premise), `agentic` (mock
+ReAct trajectories including multi-call and no-call-appropriate), and the three
+v3 record types that had no bucket: `grounded`, `memo`, `critique`.
+
+The seventh, **`traps`, is generated from the fact packs themselves**
+(`dataset/tools/trap_suite.py`) and is the exception that proves the
+hand-written rule. Its figures must be the corpus's own to the last decimal, so
+hand-typing them would measure the typo; and its questions are the four this
+corpus exists because the *teacher* got wrong — a clip below its participation
+cap called a pacing problem, an effect named worth acting on out of pieces that
+do not reconcile, a negative drift read as a gain, an enterprise value turned
+into an ownership call. Every other suite asks a competent desk question that a
+capable base model answers, so a green board on them says nothing about any of
+those.
+
+Because the suite interrogates whole scenarios, its packs are **reserved against
+generation** (§2.7). Train on them and the measurement is recall.
 
 Metrics: `exam_shape_rate` (the direct read on style collapse, and the headline),
 `abstention_rate` (measured on the response *opening*, so committing first and
 hedging later does not count), `unknown_terms` (**a triage aid, not a
 hallucination detector** — the vocabulary is incomplete), `multi_step_accuracy`,
-`no_call_precision`, `hallucinated_tool_rate`.
+`no_call_precision`, `hallucinated_tool_rate`, and on rows that declare the
+contract they measure: `invented_numbers`, `must_mention`, `register_match`,
+`conventions_cited`.
+
+`invented_numbers` here grades against the row's own figures **plus the
+standards of the field it declares**, and counts convention use separately as a
+feature rather than a fault. The distinction is the difference between a metric
+and a coin: a correct Sharpe answer that places 0.43 against the conventional
+bands is doing the job, and scoring it as invention trains an assistant that
+will not contextualise a number. The same scorer mirrors the corpus's rounding
+rule — a figure rounded for the reader is the same figure — because a generator
+and an evaluator that disagree about what counts as the same number certify a
+corpus by a rule it was not written to.
+
+One ceiling is load-bearing and easy to get wrong: `assistant.max_new_tokens`
+must hold a chain of thought *plus* an answer. The student thinks by default and
+the template passes `<think>` through, so a ceiling sized for the answer alone
+clips every generation mid-reasoning and every metric above is then computed
+over truncated reasoning rather than over a reply.
 
 Two design constraints that are easy to break by accident:
 
@@ -661,7 +957,7 @@ This is separate from the application's own suite (`make test`, `tests/`).
 
 ## 14. Where the corpus and the harness touch
 
-Five couplings. The first is the main data path; the rest are narrow, easy to
+Seven couplings. The first is the main data path; the rest are narrow, easy to
 break silently, and each has a gate.
 
 ### 14.1 The Hub is the handoff
@@ -712,19 +1008,28 @@ which is precisely why `splits.py` needs no v3 branch — it strata on
 `(program, generator)` and holds out on `stem_family`. Leave any of the three
 blank and the same single-stratum collapse follows, from a different cause.
 
-### 14.1.1 v3 ships no holdout rows
+### 14.1.1 Three holdout axes, and they are not the same axis
 
-`dataset/taxonomy/work_types.yaml` marks one family per work type `holdout: true`,
-but every v3 renderer filters those out before writing (`render/prose.py`,
-`exam.py`, `agentic.py`, `implementation.py` all carry `and not job.holdout`).
-Those families have fact packs on disk and **no rendered rows in the published
-corpus**, so there is nothing for the harness to hold out.
+The corpus and the harness each hold things out, for different reasons, and a
+reader who collapses them will misread every generalisation number:
 
-`data.holdout_scenario_families` therefore names families that *are* shipped —
-two of the ten, spanning two work types. That preserves the `unseen_stems`
-measurement at the cost of ~20 % of the corpus. It is a workaround. The honest
-fix belongs on the corpus side: render the declared holdout families into their
-own eval slice, at which point the harness list shrinks to nothing.
+1. **Plan holdout** — `work_types.yaml` marks one family per work type
+   `holdout: true`. These *are* rendered now (the earlier behaviour dropped them
+   outright, which left nothing downstream to hold out and pushed the
+   generalisation claim onto families the model had trained on). A holdout job
+   renders exactly like a train one and lands in `eval/` rather than `sft/` —
+   two directories, because a glob cannot confuse them the way a boolean on a
+   row can. `01_prepare_data.py` reads only `sft/`, so the plan's holdout
+   families never reach training at all.
+2. **Harness holdout** — `data.holdout_scenario_families` names *shipped*
+   families excluded from train/val/test and reported as `unseen_stems`. This is
+   a holdout *inside* the training distribution, and it costs real training
+   rows; it is the honest number to read beside `cosimo_test`.
+3. **Evaluation reservations** — packs a suite interrogates (§14.4.1), excluded
+   from generation entirely rather than from training.
+
+Only the first is free. The second buys its measurement with corpus, and the
+third with coverage.
 
 ### 14.2 Held-out suites must not be contaminated
 
@@ -769,23 +1074,51 @@ Paying that keeps `cosimo/tools/wire.py` — a contract shared across the
 `dataset` ↔ `jobs` boundary that AGENTS.md §5.3 says must be changed alone —
 untouched by a harness-only change.
 
+### 14.4.1 The trap suite is generated from the packs, and reserves them
+
+`dataset/tools/trap_suite.py` writes `jobs/fine-tune/suites/traps.jsonl` by
+computing the packs it asks about, so every figure in a trap prompt is the
+corpus's own. It writes `dataset/eval/reserved_coordinates.json` in the same
+run, and `render/prose.py` skips any job on a reserved coordinate.
+
+This is the second fence, and it answers a different question from the gold
+bar's. The bar says *do not regenerate this row*; the reservation says *do not
+generate any row on this scenario*, because a suite that interrogates a pack is
+poisoned by any record type rendered on it. The two are easy to conflate and the
+consequence is invisible: a training corpus that overlaps the trap packs turns a
+generalisation test into a recall test, and a recall result reads as success
+exactly when it should not.
+
+`dataset/tools/smoke_corpus.py` applies both fences plus one more — it excludes
+`examples/v3/<record_type>.jsonl` by name. Those files were scripted prose for
+most of the project's life, and when a smoke corpus swept them up the adapter
+reproduced the fixture harness's opening line verbatim. They are real rendered
+rows now (§2.9's artifacts), and the exclusion stays because an example is
+documentation, not training data.
+
 ### 14.5 The shared failure mode
 
 Both subsystems encode the same lesson from the first full run, in different
 places: **response-shape uniformity is a training failure, not a quality signal.**
 The corpus side enforces it through `FORMAT.md`, the length gate, and
-`FINAL ANSWER:` being restricted to `exam` records (§8); the harness side measures
+`FINAL ANSWER:` being restricted to `exam` records (§3.7); the harness side measures
 it through `exam_shape_rate` and `mean_new_tokens` (§12.3). A change on one side
 that ignores the other will not be caught by either.
 
 v3 adds three more paired measurements of the same kind, and they pair the same
 way: the corpus *refuses to publish* a row whose answer invents a number or
 misses a `must_mention` term, and `09_assistant_eval.py` measures whether the
-student learned those constraints (`invented_number_rate`,
-`must_mention_hit_rate`, `register_match_rate`). The number gate is
-reimplemented in `cosimo_ft/assistant.py` rather than imported, because `jobs`
-must not import `dataset` — so the two policies can drift, and if they do, the
-eval quietly stops measuring what generation enforced.
+student learned those constraints (`invented_numbers`, `must_mention`,
+`register_match`). The number gate is reimplemented in `cosimo_ft/assistant.py`
+rather than imported, because `jobs` must not import `dataset` — so the two
+policies can drift, and if they do, the eval quietly stops measuring what
+generation enforced.
+
+They have drifted twice, and both times the evaluator was the looser one: it
+scored a figure rounded for the reader as invented, and it had no notion of the
+`conventions` a pack declares. Both are corrected, and the drift is the thing to
+watch on any change to either side — the corpus gate is authoritative and the
+assistant scorer must be read as tracking it.
 
 ### 14.6 The record type decides the prompt surface
 
@@ -820,3 +1153,18 @@ Only `exam` records are gradeable — `grading.grade_cosimo` reads a final-answe
 value — so the two evaluation slices are exam-only and non-exam records are
 split with `test_frac = 0`. The holdout still applies to every record type, or a
 family leaks back into training through its non-exam rows.
+
+### 14.7 The teacher is not the student
+
+The endpoint that writes the corpus and the model being trained are different
+systems, and nothing in the repository assumes otherwise. `teacher/routing.py`
+sends an explicit `thinking` disable on prose lanes and stamps `think_present`
+from the returned reasoning text rather than from the request flag, because a
+serving stack that ignores the field would otherwise be invisible.
+`dataset/tools/probe_teacher.py` measures what a given endpoint actually costs
+before a slice is paid for, and the budgets in `pipelines/v3/config.py` are its
+findings.
+
+Every row records the model that answered it, which is what makes a mid-run
+teacher swap auditable rather than a silent style drift — `verify_v3` axis 14
+fails a corpus whose rows disagree about who wrote them.
