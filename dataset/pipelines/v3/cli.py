@@ -314,6 +314,20 @@ def cmd_render(args) -> int:
                 return EXIT_USAGE
             wanted = set(work_types)
             jobs = [job for job in jobs if job.work_type in wanted]
+        families = _split_types(getattr(args, "family", None))
+        if families:
+            known = {job.family for job in jobs}
+            unknown = sorted(set(families) - known)
+            if unknown:
+                print(
+                    f"render: unknown --family {', '.join(unknown)}; the "
+                    f"selected work types cover "
+                    f"{', '.join(sorted(known)) or 'no families'}",
+                    file=sys.stderr,
+                )
+                return EXIT_USAGE
+            wanted_families = set(families)
+            jobs = [job for job in jobs if job.family in wanted_families]
         teacher = teacher_from_env(live=True if args.live else None)
         boards = [(label, run()) for label, run in runs]
     except (inventory.PlanError, TeacherError, ValueError, OSError) as exc:
@@ -536,6 +550,15 @@ def build_parser() -> argparse.ArgumentParser:
         "is a property of the *family* (work_types.yaml), so this is how a "
         "slice covers more than one voice: without it --limit takes the first "
         "families in sort order and every row comes back in one register.",
+    )
+    p.add_argument(
+        "--family",
+        help="comma list of scenario families to render (default: all of the "
+        "chosen work types). Narrower than --work-type and for a different "
+        "reason: a work type's families are not interchangeable once the "
+        "harness holds one of them out, and --limit walks them in sort order, "
+        "so a bounded slice of `risk.market.var_es` spends its whole budget on "
+        "`equity_longonly` and reaches `rates_book` at job 144 of 288.",
     )
     p.add_argument("--limit", type=int)
     p.add_argument(

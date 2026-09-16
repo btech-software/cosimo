@@ -43,6 +43,7 @@ V3 = uv run $(V3_ENV) --group corpus python -m dataset.pipelines.v3.cli
 V3_TYPES = $(if $(TYPES),--types $(TYPES))
 V3_LIMIT = $(if $(LIMIT),--limit $(LIMIT))
 V3_WORK  = $(if $(WORK),--work-type $(WORK))
+V3_FAM   = $(if $(FAMILY),--family $(FAMILY))
 V3_OUT   = $(if $(OUT),--out $(OUT))
 V3_LIVE  = $(if $(LIVE),--live)
 V3_QUICK = $(if $(QUICK),--quick)
@@ -58,7 +59,7 @@ v3-smoke:
 	$(V3) smoke $(V3_OUT)
 
 v3-render:
-	$(V3) render $(V3_OUT) $(V3_TYPES) $(V3_LIMIT) $(V3_LIVE) $(V3_HOLD)
+	$(V3) render $(V3_OUT) $(V3_WORK) $(V3_FAM) $(V3_TYPES) $(V3_LIMIT) $(V3_LIVE) $(V3_HOLD)
 
 v3-verify:
 	$(V3) verify $(V3_OUT) $(V3_QUICK)
