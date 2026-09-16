@@ -403,3 +403,93 @@ def test_extra_still_wins_over_the_thinking_defaults(monkeypatch):
         extra={"chat_template_kwargs": {"thinking": True, "reasoning_effort": "low"}},
     )
     assert seen["chat_template_kwargs"] == {"thinking": True, "reasoning_effort": "low"}
+
+
+# --------------------------------------------------------------------------
+# tool turns on the wire
+# --------------------------------------------------------------------------
+
+
+def _tool_transcript():
+    from cosimo.tools import wire
+
+    return [
+        {"role": "user", "content": "Cost of selling 100 ABC?"},
+        wire.assistant_tool_call_message(
+            [
+                {
+                    "name": "get_transaction_cost",
+                    "arguments": {"symbol": "ABC", "side": "sell", "shares": 100},
+                }
+            ]
+        ),
+        wire.tool_result_message("get_transaction_cost", '{"cost_bps": 12.5}'),
+    ]
+
+
+def test_tool_turns_reach_the_wire_in_the_dialect_a_strict_server_validates():
+    """The shape a live vLLM serve accepted, pinned.
+
+    Probed against the live teacher: the template shape (no ``id``, an
+    ``arguments`` object) returned 400 with five validation errors; adding the
+    ``id`` alone still returned 400 because ``arguments`` must be a string; the
+    three together returned 200. The fixture transport replays any body it is
+    keyed on, so nothing short of this test would notice a regression -- every
+    agentic row rendered live before it was a ``no_call`` job that never sent a
+    tool turn back.
+    """
+    body = build_body(_tool_transcript(), model="m", temperature=0.0, max_tokens=8)
+    call = body["messages"][1]["tool_calls"][0]
+    assert call["id"] and call["type"] == "function"
+    assert isinstance(call["function"]["arguments"], str)
+    assert json.loads(call["function"]["arguments"]) == {
+        "symbol": "ABC",
+        "side": "sell",
+        "shares": 100,
+    }
+    assert body["messages"][2]["tool_call_id"] == call["id"]
+
+
+def test_wire_arguments_are_key_sorted_so_the_replay_key_cannot_drift():
+    """A string is opaque to canonical_request's own sort_keys.
+
+    As a dict, argument order never reached the replay key. As a string it
+    does -- and a payload read back from the sorted fixture file stopped
+    matching the one the harness recorded in insertion order, which is how
+    this was found.
+    """
+    transcript = _tool_transcript()
+    reordered = _tool_transcript()
+    reordered[1]["tool_calls"][0]["function"]["arguments"] = {
+        "shares": 100,
+        "symbol": "ABC",
+        "side": "sell",
+    }
+    kwargs = dict(model="m", temperature=0.0, max_tokens=8)
+    assert canonical_request(build_body(transcript, **kwargs)) == canonical_request(
+        build_body(reordered, **kwargs)
+    )
+
+
+def test_the_published_transcript_keeps_its_template_shape():
+    """The conversion is for the wire only; the row the corpus ships is untouched."""
+    transcript = _tool_transcript()
+    before = json.dumps(transcript, sort_keys=True)
+    build_body(transcript, model="m", temperature=0.0, max_tokens=8)
+    assert json.dumps(transcript, sort_keys=True) == before
+    assert "id" not in transcript[1]["tool_calls"][0]
+
+
+def test_a_transcript_without_tool_turns_posts_byte_identical():
+    """No prose body changes, so no prose fixture's replay key moves."""
+    from pipelines.v3.teacher.client import wire_messages
+
+    prose = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a"},
+    ]
+    assert wire_messages(prose) == prose
+    assert (
+        build_body(prose, model="m", temperature=0.0, max_tokens=8)["messages"] == prose
+    )

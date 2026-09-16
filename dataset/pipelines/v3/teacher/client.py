@@ -278,6 +278,65 @@ def _brief(payload: dict) -> str:
     return json.dumps(payload, ensure_ascii=False)[:300]
 
 
+def wire_messages(messages: list[dict]) -> list[dict]:
+    """The transcript in the dialect an OpenAI-compatible server validates.
+
+    The renderer keeps tool turns in the chat-template shape the corpus ships
+    (``cosimo.tools.wire``): a call has a name and an ``arguments`` object, a
+    result has a name. That shape is right for a training row and wrong on the
+    wire, where a strict server refuses it outright -- the live vLLM serve
+    returned 400 on the first multi-turn agentic job ("5 validation errors":
+    the call's ``id`` missing, then ``arguments`` not a string). It went unseen
+    because every agentic row rendered live until then was a ``no_call`` job,
+    which never sends a tool turn back, and the fixture transport replays any
+    body it is keyed on.
+
+    So the conversion happens here, on a copy, and nowhere else: the published
+    row keeps its template shape, and the fixture harness hashes the very bytes
+    the live transport posts. A call gains a positional ``id`` (deterministic,
+    so a replay key cannot vary between runs) and JSON-string ``arguments``; a
+    result gains the ``tool_call_id`` of the call it answers, in order. Turns
+    with no tool content pass through untouched, so no prose body changes.
+    """
+    out: list[dict] = []
+    pending: list[str] = []
+    for position, turn in enumerate(messages):
+        calls = turn.get("tool_calls") if isinstance(turn, dict) else None
+        if isinstance(turn, dict) and turn.get("role") == "assistant" and calls:
+            wired, pending = [], []
+            for index, call in enumerate(calls):
+                function = dict(call.get("function") or {})
+                arguments = function.get("arguments", {})
+                if not isinstance(arguments, str):
+                    # Sorted, because a string is opaque to canonical_request's
+                    # own sort_keys: as a dict the argument order never reached
+                    # the replay key, as a string it does, and a payload read
+                    # back from the (sorted) fixture file would otherwise stop
+                    # matching the one the harness recorded in insertion order.
+                    function["arguments"] = json.dumps(
+                        arguments,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                        ensure_ascii=False,
+                    )
+                call_id = call.get("id") or f"call_{position}_{index}"
+                wired.append(
+                    {**call, "id": call_id, "type": "function", "function": function}
+                )
+                pending.append(call_id)
+            out.append({**turn, "tool_calls": wired})
+        elif (
+            isinstance(turn, dict)
+            and turn.get("role") == "tool"
+            and "tool_call_id" not in turn
+            and pending
+        ):
+            out.append({**turn, "tool_call_id": pending.pop(0)})
+        else:
+            out.append(turn)
+    return out
+
+
 def build_body(
     messages: list[dict],
     *,
@@ -299,7 +358,7 @@ def build_body(
             raise TeacherError(f"malformed message turn: {turn!r}")
     body: dict = {
         "model": model,
-        "messages": messages,
+        "messages": wire_messages(messages),
         "temperature": temperature,
         "max_tokens": max_tokens,
     }
