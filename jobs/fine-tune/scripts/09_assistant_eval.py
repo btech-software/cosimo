@@ -150,7 +150,9 @@ def load_eval_shards(root: str, limit: int | None) -> list[dict]:
                     "register": record.get("register"),
                     "record_type": kind,
                     "scenario_id": record.get("scenario_id"),
-                    "must_mention": pack.get("must_mention"),
+                    # Kind-aware: an abstention owes the name of what is
+                    # missing, not the points of the question it declined.
+                    "must_mention": assistant.mention_points(pack, kind),
                     "allowed_numbers": allowed or None,
                 }
             )

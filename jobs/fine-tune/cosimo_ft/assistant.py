@@ -295,6 +295,41 @@ def grade_trajectory(scenario: dict, calls: list[dict], final_text: str) -> dict
 # the system disagree about what a number is.
 _NUMBER_TOKEN_RE = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?")
 
+#: A real minus, written properly. The tokenizer knows only ASCII ``-``, so a
+#: dash that means minus is folded to one before a digit -- the corpus records
+#: a live attribution memo that used U+2013 seventeen times, reading every
+#: negative figure in it as positive and refusing seven pack values as
+#: inventions. The em dash is deliberately left alone: "the cost -- 28 bp --
+#: was high" is punctuation, not minus twenty-eight.
+_ASCII_MINUS = re.compile(r"[\u2212\u2013](?=\d)")
+
+
+def number_tokens(text: str) -> list[str]:
+    """Number tokens in *text*, with hyphens that are not minus signs undone.
+
+    The bare tokenizer treats a leading hyphen as part of the number, so any
+    hyphen before a digit becomes that number's sign. In prose it usually is
+    not one: "a 1-in-100 day" yields ``1`` and ``-100``, and the corpus records
+    a VaR row dead-lettered three times over for an invented ``-100`` it never
+    wrote. A leading sign counts as a sign only when what precedes it is not a
+    word character.
+
+    Mirrors ``verification/invented_numbers.read_tokens``. Reading the raw
+    tokenizer here instead was this module's fourth drift from that gate, and
+    the costly one: it inflated ``invented_number_rate`` -- the headline number
+    for the corpus's whole purpose -- on any answer that hyphenated its prose.
+    """
+    out: list[str] = []
+    raw = _ASCII_MINUS.sub("-", str(text or ""))
+    for match in _NUMBER_TOKEN_RE.finditer(raw):
+        token = match.group(0)
+        start = match.start()
+        if token[0] in "-+" and start > 0 and raw[start - 1].isalnum():
+            token = token[1:]  # a hyphen inside a word, not a sign
+        out.append(token)
+    return out
+
+
 # Relative, not absolute: packs mix 1e4 AUMs with 1e-4 spreads, and a fixed
 # epsilon would either wave everything through or reject a pack's own figures.
 NUMBER_REL_TOLERANCE = 0.005
@@ -414,7 +449,7 @@ def invented_numbers(
     passed = frozenset(str(w).strip().strip(",") for w in whitelist)
     offenders: list[str] = []
     seen: set[str] = set()
-    for token in _NUMBER_TOKEN_RE.findall(text or ""):
+    for token in number_tokens(text):
         if token in seen or token.strip(",") in passed:
             continue
         value = _number_value(token)
@@ -424,21 +459,101 @@ def invented_numbers(
     return offenders
 
 
-def must_mention_hits(text: str, terms: Iterable[str]) -> tuple[list[str], list[str]]:
-    """``(hit, missed)`` for the terms a grounded answer is required to name.
+#: Suffixes stripped before an anchor is matched, longest first so "-ption" is
+#: tried before the "-ion" inside it. English inflection only, and only enough
+#: of it to stop a *correct* answer failing on grammar: an anchor on "scaling"
+#: must accept "scales", one on "normality assumption" must accept "it
+#: assumes". Mirrors ``dataset/pipelines/v3/verification/prose.py``.
+_SUFFIXES = (
+    "ingly",
+    "edly",
+    "ption",
+    "ing",
+    "ies",
+    "ion",
+    "ity",
+    "ed",
+    "es",
+    "s",
+    "y",
+    "e",
+)
 
-    Substring, case-insensitive: the corpus gate the requirement comes from
-    works the same way, and a stricter word-boundary match would fail an answer
-    that inflects the term ("the fade period" for "fade"). The requirement is
-    that the concept was addressed, not that a token was echoed.
+#: Function words carry no analytical content, so requiring them would make an
+#: anchor fail on grammar rather than on substance. Only these are dropped;
+#: every content word of an anchor is still required.
+_STOPWORDS = frozenset(
+    """a an the and or nor but of in on to for with by at from as is are was
+    were be been being it its this that these those than then so such not no
+    versus vs against near over under into via per about""".split()
+)
+
+
+def _stem(word: str) -> str:
+    """Strip suffixes until the word stops changing.
+
+    One pass is not enough once "-ption" is in the table: "assumptions" would
+    lose its "s" and stop, never reaching the "assum" that "assumes" reduces
+    to. Looping is what lands a nominalisation and its verb in one place.
     """
-    haystack = (text or "").casefold()
+    while True:
+        for suffix in _SUFFIXES:
+            if len(word) > len(suffix) + 2 and word.endswith(suffix):
+                word = word[: -len(suffix)]
+                break
+        else:
+            return word
+
+
+def stems(text: str) -> set[str]:
+    """Content-word stems of *text*, hyphens treated as spaces.
+
+    Symmetric on both sides of the comparison, which is the point: an anchor
+    written "square-root" has to match an answer that writes "square root",
+    and an anchor written "decision" has to match "decision-price".
+    """
+    words = re.findall(
+        r"[a-z0-9]+", " ".join(str(text).casefold().split()).replace("-", " ")
+    )
+    return {_stem(w) for w in words if w not in _STOPWORDS}
+
+
+def mention_points(pack: dict, kind: str = "") -> list[str]:
+    """The points a row of this record type must engage.
+
+    ``must_mention`` describes a good answer to the pack's *own* question, so
+    it is the wrong contract for a row refusing a different one: an abstention
+    cannot engage "square-root impact scaling" while declining to price the
+    shortfall, and requiring it would push the answer into answering. What an
+    abstention owes is the name of the thing that is missing.
+    """
+    if kind == "abstention":
+        missing = str((pack or {}).get("abstention_missing") or "")
+        return [missing] if missing else []
+    return list((pack or {}).get("must_mention") or [])
+
+
+def must_mention_hits(text: str, terms: Iterable[str]) -> tuple[list[str], list[str]]:
+    """``(hit, missed)`` for the points an answer is required to engage.
+
+    Every content word of the anchor must appear, compared on stems and in any
+    order -- not the anchor as one verbatim run of characters.
+
+    This was a substring test, and it had drifted: the corpus gate it mirrors
+    moved to stems after verbatim matching "did not survive contact with a real
+    teacher", and this copy did not follow. Measured against the corpus's own
+    certified prose the two disagreed on 45 of 64 rows, the substring reading
+    scoring 51.8% where the gate scored 98.2% -- so a correct answer that made
+    every point in its own words was marked as having made none, and the
+    headline coverage number understated the corpus by 46 points.
+    """
+    haystack = stems(text)
     hit, missed = [], []
     for term in terms:
         term = str(term).strip()
         if not term:
             continue
-        (hit if term.casefold() in haystack else missed).append(term)
+        (hit if stems(term) <= haystack else missed).append(term)
     return hit, missed
 
 
@@ -477,6 +592,9 @@ _MEMO_HEADINGS = re.compile(
 #: The labelled call, *wherever* it appears -- a different question from the
 #: one above, and the answer does not depend on where the label sits.
 _CALL_LABEL = re.compile(r"\b(?:call|recommendation)\s*:", re.IGNORECASE)
+
+#: The exam contract, matched the way the corpus's prose gate matches it.
+_EXAM_TAG = re.compile(r"final answer\s*:", re.IGNORECASE)
 
 #: Sentence terminators. Newlines break too: a desk reply written as twenty
 #: one-line bullets is twenty sentences however few full stops it holds.
@@ -579,6 +697,32 @@ def desk_chat_ceiling(kind: str) -> int:
     )
 
 
+def _exam_violations(text: str) -> list[str]:
+    """An exam item is worked, not written up, and closes on its tag.
+
+    The kind outranks the voice here, and that is not a nicety: one pack serves
+    every record type, so an exam item inherits whatever register its family
+    speaks, and holding it to that register would demand an ``ic_memo`` exam
+    close on a decision when its actual contract is to close on
+    ``FINAL ANSWER:``. The corpus grades an exam row on the exam contract
+    whatever its pack names; 84 of 188 shipped exam rows depend on it.
+    """
+    out: list[str] = []
+    found = sorted({m.group(1).lower() for m in _MEMO_HEADINGS.finditer(text)})
+    if found:
+        out.append(
+            "an exam answer carries memo headings ("
+            + ", ".join(f"{h.title()}:" for h in found)
+            + ") -- an item is worked, not written up"
+        )
+    lines = [line for line in str(text).splitlines() if line.strip()]
+    if not lines or not _EXAM_TAG.search(lines[-1]):
+        out.append(
+            "an exam answer must close on its 'FINAL ANSWER:' line and nothing after it"
+        )
+    return out
+
+
 def _grounded_violations(text: str) -> list[str]:
     """A citation carries no scaffolding, whatever register it is written in.
 
@@ -638,6 +782,8 @@ def register_violations(register: str, text: str, *, kind: str = "") -> list[str
     inverting the thing it was built to detect.
     """
     text = str(text or "")
+    if kind == "exam":
+        return _exam_violations(text)
     out: list[str] = _grounded_violations(text) if kind == "grounded" else []
     if register == "desk_chat":
         if _MEMO_HEADINGS.search(text):
