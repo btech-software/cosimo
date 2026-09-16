@@ -132,7 +132,17 @@ PROSE_TRUNCATION_RETRIES = 4
 # ``AGENTIC_MAX_TOOL_CALLS`` is the hard stop the loop enforces before asking
 # again; one call that returns an error is worth re-issuing, ten is a model
 # arguing with itself.
-AGENTIC_MIN_MESSAGES = 6
+#
+# The floor is 4, not the spec's 6. Six made a single-call conversation (user,
+# call, result, answer) a gate failure by construction, whatever the job
+# needed: on the first live multi-call render two of three calling jobs solved
+# their task in one call and were dead-lettered after four attempts each for
+# being too short, not for being wrong. Four is the shortest conversation that
+# can call a tool at all -- a calling job with fewer messages has already
+# failed the "no tool was called" check -- so the floor now admits every real
+# loop and still refuses nothing a looping job could honestly be. The ceiling
+# keeps its job of bounding tokens per conversation.
+AGENTIC_MIN_MESSAGES = 4
 AGENTIC_MAX_MESSAGES = 16
 AGENTIC_MAX_TOOL_CALLS = 6
 

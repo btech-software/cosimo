@@ -239,16 +239,34 @@ def test_arguments_the_schema_refuses_are_refused_before_the_oracle():
 def test_an_argument_less_call_is_judged_by_the_schema_not_the_loop():
     """Missing optional arguments are the schema's business, not the loop's:
     the call is *accepted* (no ``call:`` death, nothing refused for being
-    malformed) and then judged like any other transcript -- here by the
-    message band, one call having made no loop."""
+    malformed), executed, and then judged like any other transcript -- here by
+    the answer's own contract, a thin reply that engages none of the points.
+
+    It used to be judged by the message band, because a one-call loop fell
+    under a floor of 6. The floor is 4 now, so a single call is a legitimate
+    loop and the verdict has to come from what the answer says."""
     pack, pack_line = _pinned()
     thin = _reply("Enough from the one block, yet too few exchanges.")
     replies = [_reply(calls=[_call("get_fundamentals", symbol="YCBK")])] + [thin] * 3
     outcome = render_agentic_row(Teacher(Scripted(replies)), pack_line, rank=RANK_CLEAN)
     dead = outcome["dead_letter"]
     assert dead is not None and dead["reason"].startswith("gate:")
-    assert "outside the" in dead["reason"] and "band" in dead["reason"]
+    assert "must_mention not covered" in dead["reason"]
+    assert "band" not in dead["reason"]
     assert "schema" not in dead["reason"] and "registry" not in dead["reason"]
+    assert sum(1 for m in dead["exchange"] if m.get("role") == "tool") == 1
+
+
+def test_a_single_call_loop_is_inside_the_message_band():
+    """User, call, result, answer: the shortest conversation that calls a tool.
+
+    Under the spec's floor of 6 this was a gate failure by construction, and
+    on the first live multi-call render two of three calling jobs were
+    dead-lettered for it -- not for being wrong, for having needed only one
+    call. The floor is set to exactly this shape so no honest loop is refused.
+    """
+    assert config.AGENTIC_MIN_MESSAGES == 4
+    assert config.AGENTIC_MIN_MESSAGES <= config.AGENTIC_MAX_MESSAGES
 
 
 # ---------------------------------------------------------------- budgets

@@ -255,10 +255,11 @@ def trajectory_violations(
             "returned -- a call without a result is a lie about the server"
         )
     # The band counts the *exchanges*: the user's goal and everything after
-    # it -- "6-16 turns" with a two-call loop (user, call, result, call,
-    # result, answer) landing exactly on the floor. It used to subtract the
-    # system turn; there is no longer one to subtract, so the arithmetic is
-    # the same number reached without the correction.
+    # it -- a one-call loop (user, call, result, answer) lands exactly on the
+    # floor (``config.AGENTIC_MIN_MESSAGES`` records why it is not the spec's
+    # 6). It used to subtract the system turn; there is no longer one to
+    # subtract, so the arithmetic is the same number reached without the
+    # correction.
     n_exchange = len(messages)
     if mode == "no_call":
         if calls or tool_turns:
@@ -282,8 +283,7 @@ def trajectory_violations(
         if not config.AGENTIC_MIN_MESSAGES <= n_exchange <= config.AGENTIC_MAX_MESSAGES:
             violations.append(
                 f"the conversation runs {n_exchange} exchanges, outside the "
-                f"{config.AGENTIC_MIN_MESSAGES}-{config.AGENTIC_MAX_MESSAGES} band "
-                "(a 'real multi-step loop, 6-16 turns' is what §5.8 promised)"
+                f"{config.AGENTIC_MIN_MESSAGES}-{config.AGENTIC_MAX_MESSAGES} band"
             )
 
     # -- 4: replay: the oracle is the only writer ----------------------------
