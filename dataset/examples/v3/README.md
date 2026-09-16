@@ -10,7 +10,7 @@ corpus sample.
 | `agentic`, `implementation` | live teacher, reasoning lane (think on) |
 | `exam` | deterministic — the exam renderer builds it from the pack, so there is no teacher to be live |
 
-Drawn from seven pack coordinates across five work types: eight examples of one
+Drawn from eight pack coordinates across five work types: eight examples of one
 computer would show the schema and hide the range.
 
 Regenerate with:
