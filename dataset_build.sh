@@ -32,10 +32,30 @@ set -euo pipefail
 
 MODE="${1:-smoke}"
 
-# The endpoint. Not the models: those are config.py's two defaults, and the
-# stamp on every row is only worth reading while the script leaves them alone.
-export TEACHER_BASE_URL="${TEACHER_BASE_URL:-http://192.168.2.198:8888}"
-export TEACHER_API_KEY="${TEACHER_API_KEY:-local-no-auth}"
+# The endpoint comes from `.env`, and this script no longer carries a literal.
+#
+# It used to default to a hardcoded host, and that default outlived the box it
+# named: the address stopped answering while `.env` had said something else for
+# weeks, so `./dataset_build.sh live-slice` failed to connect on a machine whose
+# configuration was correct. A second copy of a value that already has a home is
+# not a fallback, it is a fork -- and the one that is not read is always the one
+# that goes stale.
+#
+# So the file is handed to `uv` rather than re-implemented here, exactly as the
+# Makefile does it (V3_ENV): uv strips dotenv quoting, and an already-exported
+# variable still wins, so `TEACHER_BASE_URL=... ./dataset_build.sh live-slice`
+# overrides `.env` for one run. Conditional on the file existing, because uv
+# *errors* on a missing --env-file and `smoke` must keep running without one.
+#
+# With no `.env` and nothing exported, a live render now stops on "live teacher
+# requested but TEACHER_BASE_URL not set" (teacher/client.py). That is the point:
+# an operator staring at that sentence learns more than one staring at a
+# connection timeout against a host nobody chose.
+#
+# Not the models: those are config.py's two defaults, and the stamp on every row
+# is only worth reading while the script leaves them alone.
+V3_ENV=""
+[[ -f .env ]] && V3_ENV="--env-file .env"
 
 # A bake-off is the one reason to flatten the lanes, and it says so out loud.
 if [[ -n "${BAKEOFF:-}" ]]; then
@@ -55,7 +75,7 @@ LIMIT="${LIMIT:-20}"
 [[ -n "${OUT:-}" ]] && export COSIMO_V3_OUT="$OUT"
 CORPUS="${COSIMO_V3_OUT:-dataset/shards/v3}"
 
-v3() { uv run --group corpus python -m dataset.pipelines.v3.cli "$@"; }
+v3() { uv run ${V3_ENV} --group corpus python -m dataset.pipelines.v3.cli "$@"; }
 
 stage_order() {
   cat <<'TXT'
@@ -92,7 +112,7 @@ refuse_unless_ready() {
   # scrollback is not evidence about the tree on disk.
   if [[ -d "${out}/sft" ]]; then
     local audit
-    audit="$(uv run --group corpus python dataset/tools/slice_audit.py --out "$out" || true)"
+    audit="$(uv run ${V3_ENV} --group corpus python dataset/tools/slice_audit.py --out "$out" || true)"
     echo "$audit"
     grep -q '^slice_audit: ready$' <<<"$audit" || problems+=(
       "the last slice is not clean: see the slice_audit lines above"

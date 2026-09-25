@@ -76,5 +76,51 @@ v3-publish:
 v3-slice-audit:
 	uv run $(V3_ENV) --group corpus python dataset/tools/slice_audit.py $(V3_OUT)
 
+# Ring 1: what will training actually *see*? (CPU, no teacher, no GPU, ~40s)
+#
+# This target exists because a composition failure was being discovered by a
+# GPU experiment. The smoke SFT that regressed on traps had trained on 47 rows,
+# not the 200 that were asked for: `data.exam_share_max` had dropped 107 exam
+# rows, because the smoke corpus is ~75% exam -- exam is the one record type
+# that composes locally with no teacher, so it is the only one ever rendered in
+# bulk. Nothing in the render, the audit or the verify board reports that; it
+# only appears in split_manifest.json, after prepare, which nobody ran before
+# paying for a render or a training run.
+#
+# The arithmetic it surfaces: train_rows ~= non_exam_train / (1 - exam_share_max).
+# Prose rows are the numerator. Rendering more exam cannot raise it.
+#
+#   make ft-preflight                      # the committed smoke corpus
+#   make ft-preflight CORPUS=../../dataset/shards/v3
+#   make ft-preflight ROWS=2000            # what the full corpus would give
+#
+# CORPUS is relative to jobs/fine-tune, because that is where the harness reads
+# `dataset.local_dir` from (§14.1's local_dir hole).
+define FT_PREFLIGHT_REPORT
+import json, pathlib
+m = json.loads(pathlib.Path("jobs/fine-tune/data/processed/split_manifest.json").read_text())
+train = m["files"]["sft_train.jsonl"]
+by = (m.get("by_record_type") or {}).get("sft_train.jsonl", {})
+exam = by.get("exam", 0)
+prose = train - exam
+cap = m.get("exam_share_max") or 0.18
+print()
+print("preflight: sft_train %d rows (exam %d = %.1f%%, prose %d)" % (train, exam, 100.0*exam/max(train,1), prose))
+print("preflight: dropped %s" % (m.get("dropped") or "nothing"))
+print("preflight: at exam_share_max=%s, %d prose rows ceiling train at %d" % (cap, prose, int(prose/(1-cap))))
+print("preflight: raise the ceiling by rendering prose; exam rows cannot.")
+endef
+export FT_PREFLIGHT_REPORT
+
+FT_CORPUS = $(if $(CORPUS),$(CORPUS),../../dataset/shards/v3_smoke)
+FT_ROWS   = $(if $(ROWS),$(ROWS),200)
+
+ft-preflight:
+	cd jobs/fine-tune && uv run --group test python scripts/01_prepare_data.py \
+	  --config configs/sft_smoke.yaml \
+	  --set dataset.local_dir=$(FT_CORPUS) \
+	  --set data.max_train_records=$(FT_ROWS) --force
+	@uv run --no-project python -c "$$FT_PREFLIGHT_REPORT"
+
 v3-test:
 	uv run --group test pytest dataset/tests/v3 jobs/fine-tune/tests -q
